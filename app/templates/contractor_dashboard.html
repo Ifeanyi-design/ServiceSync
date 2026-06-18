@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}My Dispatch Board — ServiceSync{% endblock %}
+{% block meta_description %}Manage your incoming job dispatches, monitor your daily capacity, and view assigned work.{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto py-8 px-4 sm:px-6">
+
+  <!-- Page Header -->
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">
+        Dispatch Board
+      </h1>
+      <p class="text-gray-500 text-sm mt-1">Hello, {{ current_user.full_name }}. Here's your live workload overview.</p>
+    </div>
+    <a href="/integrations" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 hover:border-blue-300 transition shadow-sm">
+      <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      AI Settings
+    </a>
+  </div>
+
+  <!-- ====== KPI METRIC CARDS ====== -->
+  <div class="flex flex-wrap sm:flex-nowrap gap-5 mb-10">
+
+    <!-- Daily Capacity -->
+    <div class="bg-white p-6 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px]">
+      {% set cap_pct = (jobs_today / current_user.max_daily_jobs * 100) | int %}
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Today's Capacity</p>
+      <p class="text-4xl font-extrabold {{ 'text-red-600' if cap_pct >= 100 else ('text-amber-500' if cap_pct >= 75 else 'text-blue-600') }}">
+        {{ jobs_today }}<span class="text-xl font-semibold text-gray-300 mx-1">/</span><span class="text-xl font-semibold text-gray-500">{{ current_user.max_daily_jobs }}</span>
+      </p>
+      <!-- Progress Bar -->
+      <div class="mt-3 bg-gray-100 rounded-full h-2 overflow-hidden">
+        <div class="h-2 rounded-full transition-all duration-500
+          {{ 'bg-red-500' if cap_pct >= 100 else ('bg-amber-400' if cap_pct >= 75 else 'bg-blue-500') }}"
+          style="width: {{ [cap_pct, 100] | min }}%">
+        </div>
+      </div>
+      <p class="text-xs text-gray-400 mt-2">{{ cap_pct }}% full today</p>
+    </div>
+
+    <!-- Active Dispatches Count -->
+    <div class="bg-white p-6 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px]">
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Active Dispatches</p>
+      <p class="text-4xl font-extrabold text-green-600">{{ active_dispatches | length }}</p>
+      <p class="text-xs text-gray-400 mt-3">Booked jobs in progress</p>
+    </div>
+
+    <!-- Working Hours -->
+    <div class="bg-white p-6 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px]">
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Working Hours</p>
+      <p class="text-xl font-extrabold text-gray-800">{{ current_user.working_hours_start }}</p>
+      <div class="w-6 h-px bg-gray-300 mx-auto my-1"></div>
+      <p class="text-xl font-extrabold text-gray-800">{{ current_user.working_hours_end }}</p>
+    </div>
+
+    <!-- Profession -->
+    <div class="bg-white p-6 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px]">
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Profession</p>
+      <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mx-auto mb-2">
+        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      </div>
+      <p class="text-sm font-extrabold text-blue-700">{{ current_user.profession | capitalize if current_user.profession else 'Not set' }}</p>
+    </div>
+  </div>
+
+  <!-- ====== ACTIVE DISPATCHES TABLE ====== -->
+  <section>
+    <h2 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+      <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+      Active Dispatches
+    </h2>
+
+    {% if active_dispatches %}
+    <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse" aria-label="Active job dispatches">
+          <thead>
+            <tr class="border-b border-gray-100 bg-gray-50">
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Job Description</th>
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Customer</th>
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Location</th>
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for job in active_dispatches %}
+            <tr class="hover:bg-gray-50/70 transition group" id="dispatch-{{ job.id }}">
+              <td class="px-6 py-4">
+                <p class="text-sm font-semibold text-gray-800 max-w-xs truncate">{{ job.description }}</p>
+                <span class="inline-flex mt-1 items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs font-bold rounded-full">
+                  <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span>Booked
+                </span>
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {{ job.customer.full_name[0] | upper if job.customer else '?' }}
+                  </div>
+                  <span class="text-sm text-gray-700 font-medium">{{ job.customer.full_name if job.customer else 'Unknown' }}</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-600">
+                {{ format_location(job.customer) if format_location else '—' }}
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-500">
+                {{ job.created_at.strftime('%b %d, %Y') }}
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-2">
+                  <a href="/chat/{{ job.id }}" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg hover:bg-blue-100 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                    Chat
+                  </a>
+                  <button
+                    onclick="cancelJob({{ job.id }}, this)"
+                    class="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-100 transition"
+                    aria-label="Cancel and reroute job {{ job.id }}"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    Cancel & Reroute
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+      <div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mb-3">
+        <svg class="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      </div>
+      <p class="text-gray-600 font-semibold text-sm">No active dispatches</p>
+      <p class="text-gray-400 text-xs mt-1">Jobs matched to you by the AI engine will appear here.</p>
+    </div>
+    {% endif %}
+  </section>
+</div>
+
+<!-- ====== CANCEL CONFIRMATION MODAL ====== -->
+<div id="cancel-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-white max-w-sm w-full rounded-2xl shadow-2xl p-8 text-center animate-fade-in">
+    <div class="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+    </div>
+    <h3 class="text-lg font-bold text-gray-900 mb-2">Cancel & Reroute?</h3>
+    <p class="text-gray-500 text-sm mb-6">Our AI engine will automatically find the next best available contractor for this customer.</p>
+    <div class="flex gap-3">
+      <button onclick="document.getElementById('cancel-modal').classList.add('hidden')"
+        class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition">
+        Keep Job
+      </button>
+      <button id="confirm-cancel-btn"
+        class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition active:scale-95">
+        Yes, Reroute
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let pendingCancelJobId = null;
+
+function cancelJob(jobId, btn) {
+  pendingCancelJobId = jobId;
+  document.getElementById('cancel-modal').classList.remove('hidden');
+}
+
+document.getElementById('confirm-cancel-btn').addEventListener('click', async () => {
+  if (!pendingCancelJobId) return;
+  const btn = document.getElementById('confirm-cancel-btn');
+  btn.textContent = 'Rerouting…';
+  btn.disabled = true;
+
+  try {
+    const token = document.cookie.split('; ').find(r => r.startsWith('access_token='))?.split('=')[1];
+    const res = await fetch(`/api/v1/jobs/${pendingCancelJobId}/cancel`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      document.getElementById(`dispatch-${pendingCancelJobId}`)?.remove();
+      document.getElementById('cancel-modal').classList.add('hidden');
+    } else {
+      alert('Failed to cancel job. Please try again.');
+    }
+  } catch(err) {
+    alert('Network error. Please try again.');
+  }
+
+  btn.textContent = 'Yes, Reroute';
+  btn.disabled = false;
+  pendingCancelJobId = null;
+});
+</script>
+{% endblock %}

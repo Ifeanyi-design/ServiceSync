@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Chat with {{ partner.full_name }} — ServiceSync{% endblock %}
+{% block meta_description %}Real-time peer-to-peer chat for your booked service job on ServiceSync.{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center space-x-2 text-sm text-gray-400 mb-4" aria-label="Breadcrumb">
+    <a href="{% if current_user.role == 'contractor' %}/dashboard/contractor{% else %}/dashboard/customer{% endif %}" class="hover:text-blue-600 transition">Dashboard</a>
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-gray-600 font-medium">Chat</span>
+  </nav>
+
+  <!-- Chat Window -->
+  <div class="max-w-4xl mx-auto h-[80vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden" id="chat-window">
+
+    <!-- ====== CHAT HEADER ====== -->
+    <div class="bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <!-- Avatar -->
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ring-2 ring-blue-100">
+          {{ partner.full_name[0] | upper }}
+        </div>
+        <div>
+          <p class="font-bold text-gray-900 text-sm leading-tight">{{ partner.full_name }}</p>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse" id="online-indicator"></span>
+            <p class="text-xs text-gray-400" id="connection-status">Connecting…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Job Details -->
+      <div class="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2">
+        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 002-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        <span class="text-xs text-gray-600 font-semibold">Job #{{ conversation.job_id }}</span>
+        <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
+        <span class="text-xs font-semibold px-2 py-0.5 bg-green-50 text-green-700 rounded-full">Escrow Secured</span>
+      </div>
+    </div>
+
+    <!-- ====== MESSAGE THREAD ====== -->
+    <div id="message-thread" class="flex-1 overflow-y-auto px-6 py-6 flex flex-col space-y-4 bg-gray-50/30 scroll-smooth">
+
+      <!-- Date divider -->
+      <div class="flex items-center gap-3 my-2">
+        <div class="flex-1 border-t border-gray-200"></div>
+        <span class="text-xs text-gray-400 font-medium flex-shrink-0">Conversation started</span>
+        <div class="flex-1 border-t border-gray-200"></div>
+      </div>
+
+      <!-- Historic messages from DB -->
+      {% for message in past_messages %}
+      <div class="flex {% if message.sender_id == current_user.id %}flex-row-reverse{% endif %} items-end gap-2 group animate-fade-in"
+           id="msg-db-{{ message.id }}">
+
+        {% if message.sender_id != current_user.id %}
+        <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mb-0.5">
+          {{ partner.full_name[0] | upper }}
+        </div>
+        {% endif %}
+
+        <div class="flex flex-col {% if message.sender_id == current_user.id %}items-end{% else %}items-start{% endif %} max-w-[70%]">
+          <div class="px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm
+            {% if message.sender_id == current_user.id %}
+              bg-blue-600 text-white rounded-br-none
+            {% else %}
+              bg-white border border-gray-100 text-gray-800 rounded-bl-none
+            {% endif %}">
+            {{ message.content }}
+          </div>
+          <span class="text-[10px] text-gray-400 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {{ message.timestamp.strftime('%H:%M') }}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- JS messages will be appended here -->
+      <div id="live-messages"></div>
+
+      <!-- Scroll anchor -->
+      <div id="scroll-anchor"></div>
+    </div>
+
+    <!-- ====== INPUT AREA ====== -->
+    <div class="flex-shrink-0 p-4 border-t border-gray-200 bg-white">
+      <form id="message-form" onsubmit="sendMessage(event)" class="flex items-center gap-3">
+        <input
+          id="message-input"
+          type="text"
+          placeholder="Type a message…"
+          autocomplete="off"
+          class="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-full px-5 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-gray-400"
+          aria-label="Message input"
+        />
+        <button
+          type="submit"
+          id="send-button"
+          class="w-10 h-10 flex-shrink-0 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-md hover:shadow-blue-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Send message"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+          </svg>
+        </button>
+      </form>
+      <!-- Typing indicator -->
+      <p id="typing-indicator" class="text-xs text-gray-400 mt-1.5 pl-5 hidden">
+        {{ partner.full_name.split()[0] }} is typing…
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // ====== WebSocket Setup ======
+  const conversationId = {{ conversation.id }};
+  const partnerName    = {{ partner.full_name | tojson }};
+  const partnerInitial = partnerName[0].toUpperCase();
+
+  const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
+  const wsUrl = `${wsProtocol}://${location.host}/api/v1/chat/ws/${conversationId}`;
+
+  let socket = null;
+  const statusEl = document.getElementById('connection-status');
+  const indicator = document.getElementById('online-indicator');
+  const liveMessages = document.getElementById('live-messages');
+  const scrollAnchor = document.getElementById('scroll-anchor');
+  const typingIndicator = document.getElementById('typing-indicator');
+
+  function connectWebSocket() {
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      statusEl.textContent = 'Connected';
+      indicator.classList.replace('bg-gray-400', 'bg-green-400');
+    };
+
+    socket.onclose = () => {
+      statusEl.textContent = 'Disconnected — Reconnecting…';
+      indicator.classList.replace('bg-green-400', 'bg-red-400');
+      setTimeout(connectWebSocket, 3000);
+    };
+
+    socket.onerror = () => {
+      statusEl.textContent = 'Connection error';
+    };
+
+    socket.onmessage = (event) => {
+      appendBubble('partner', event.data);
+    };
+  }
+
+  connectWebSocket();
+
+  // ====== Append Bubble ======
+  function escHtml(t) {
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function appendBubble(side, text) {
+    const isMine = side === 'mine';
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const wrapper = document.createElement('div');
+    wrapper.className = `flex ${isMine ? 'flex-row-reverse' : ''} items-end gap-2 group animate-fade-in`;
+
+    if (!isMine) {
+      wrapper.innerHTML += `<div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mb-0.5">${partnerInitial}</div>`;
+    }
+
+    const inner = document.createElement('div');
+    inner.className = `flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[70%]`;
+    inner.innerHTML = `
+      <div class="px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${isMine ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white border border-gray-100 text-gray-800 rounded-bl-none'}">
+        ${escHtml(text)}
+      </div>
+      <span class="text-[10px] text-gray-400 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">${now}</span>`;
+
+    wrapper.appendChild(inner);
+    liveMessages.appendChild(wrapper);
+    scrollAnchor.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ====== Send Message ======
+  function sendMessage(event) {
+    event.preventDefault();
+    const input = document.getElementById('message-input');
+    const text  = input.value.trim();
+    if (!text || !socket || socket.readyState !== WebSocket.OPEN) return;
+
+    socket.send(text);
+    appendBubble('mine', text);
+    input.value = '';
+    input.focus();
+  }
+
+  // Scroll to bottom on load
+  scrollAnchor.scrollIntoView({ behavior: 'instant' });
+</script>
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In — ServiceSync{% endblock %}
+{% block meta_description %}Sign in to your ServiceSync account to book services or manage your dispatch board.{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-4 py-12">
+  <div class="w-full max-w-md">
+
+    <!-- Card -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+
+      <!-- Top gradient bar -->
+      <div class="h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+
+      <div class="px-8 pt-8 pb-10">
+
+        <!-- Logo + Heading -->
+        <div class="text-center mb-8">
+          <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 items-center justify-center shadow-lg shadow-blue-200 mb-4">
+            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Welcome back</h1>
+          <p class="text-gray-500 text-sm mt-1">Sign in to your ServiceSync account</p>
+        </div>
+
+        <!-- Error Banner -->
+        {% if error %}
+        <div class="flex items-center gap-3 px-4 py-3 mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-medium" role="alert">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <!-- Login Form -->
+        <form method="POST" action="/auth/login" id="login-form" novalidate>
+          <input type="hidden" name="next" value="{{ next or '/' }}" />
+          {% if contractor_id %}
+          <input type="hidden" name="contractor_id" value="{{ contractor_id }}" />
+          {% endif %}
+
+          <div class="space-y-5">
+
+            <!-- Email -->
+            <div>
+              <label for="email" class="block text-sm font-semibold text-gray-700 mb-1.5">Email address</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/></svg>
+                </div>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  autocomplete="email"
+                  required
+                  placeholder="you@example.com"
+                  class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-gray-400"
+                />
+              </div>
+            </div>
+
+            <!-- Password -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="password" class="block text-sm font-semibold text-gray-700">Password</label>
+                <a href="#" class="text-xs text-blue-600 hover:text-blue-800 hover:underline transition">Forgot password?</a>
+              </div>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </div>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  autocomplete="current-password"
+                  required
+                  placeholder="••••••••"
+                  class="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-gray-400"
+                />
+                <button
+                  type="button"
+                  onclick="togglePassword('password', this)"
+                  class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition"
+                  tabindex="-1"
+                  aria-label="Toggle password visibility"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" id="eye-icon-password">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Submit -->
+            <button
+              type="submit"
+              id="submit-btn"
+              class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all shadow-md hover:shadow-blue-200 active:scale-[.98] flex items-center justify-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+              Sign In
+            </button>
+          </div>
+        </form>
+
+        <!-- Divider -->
+        <div class="flex items-center gap-3 my-6">
+          <div class="flex-1 border-t border-gray-100"></div>
+          <span class="text-xs text-gray-400 font-medium">OR CONTINUE WITH</span>
+          <div class="flex-1 border-t border-gray-100"></div>
+        </div>
+
+        <!-- Quick-Fill Demo Accounts -->
+        <div class="space-y-2 mb-6">
+          <p class="text-xs text-gray-400 text-center font-semibold uppercase tracking-wide mb-3">⚡ Demo Accounts</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onclick="fillDemo('john.doe@example.com', 'password123')"
+              class="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition text-left">
+              👤 Customer<br/><span class="font-normal text-gray-400">John Doe</span>
+            </button>
+            <button type="button" onclick="fillDemo('mike@plumbingpros.com', 'password123')"
+              class="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition text-left">
+              🔧 Plumber<br/><span class="font-normal text-gray-400">Mike's Plumbing</span>
+            </button>
+            <button type="button" onclick="fillDemo('sarah@sparkyelectric.com', 'password123')"
+              class="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition text-left">
+              ⚡ Electrician<br/><span class="font-normal text-gray-400">Sarah the Sparky</span>
+            </button>
+            <button type="button" onclick="fillDemo('admin@servicesync.com', 'password123')"
+              class="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition text-left">
+              🛡️ Admin<br/><span class="font-normal text-gray-400">System Admin</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sign Up Link -->
+        <p class="text-center text-sm text-gray-500">
+          Don't have an account?
+          <a href="/auth/signup" class="text-blue-600 font-semibold hover:text-blue-800 hover:underline transition ml-1">Create one free →</a>
+        </p>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function fillDemo(email, password) {
+  document.getElementById('email').value = email;
+  document.getElementById('password').value = password;
+  document.getElementById('login-form').submit();
+}
+
+function togglePassword(fieldId, btn) {
+  const field = document.getElementById(fieldId);
+  const isText = field.type === 'text';
+  field.type = isText ? 'password' : 'text';
+  btn.querySelector('svg').style.opacity = isText ? '1' : '0.5';
+}
+
+// Add loading state on submit
+document.getElementById('login-form').addEventListener('submit', function() {
+  const btn = document.getElementById('submit-btn');
+  btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Signing in…`;
+  btn.disabled = true;
+});
+</script>
+{% endblock %}

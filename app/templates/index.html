@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}ServiceSync — AI-Native Home Services Marketplace{% endblock %}
+{% block meta_description %}Describe your home problem in plain English. ServiceSync's Gemini AI triages your issue and instantly matches you with the best verified local professional. No forms. No waiting.{% endblock %}
+
+{% block content %}
+
+<!-- ===================== HERO ===================== -->
+<section class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 min-h-[92vh] flex items-center">
+
+  <!-- Decorative blobs -->
+  <div class="absolute top-0 left-0 w-full h-full pointer-events-none select-none">
+    <div class="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] rounded-full bg-blue-600/20 blur-3xl"></div>
+    <div class="absolute bottom-[-80px] left-[-60px] w-[400px] h-[400px] rounded-full bg-indigo-600/15 blur-3xl"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-cyan-500/5 blur-3xl"></div>
+  </div>
+
+  <!-- Dot grid overlay -->
+  <div class="absolute inset-0 opacity-[0.03]"
+    style="background-image: radial-gradient(circle, #fff 1px, transparent 1px); background-size: 28px 28px;"></div>
+
+  <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32 w-full">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+
+      <!-- Left: Copy -->
+      <div>
+        <!-- Badge -->
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300 text-xs font-bold uppercase tracking-widest mb-8 animate-fade-in">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+          Powered by Gemini AI
+          <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+        </div>
+
+        <h1 class="text-5xl sm:text-6xl font-extrabold text-white tracking-tight leading-tight mb-6 animate-fade-in">
+          Describe the problem.<br/>
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-indigo-400">
+            AI finds the pro.
+          </span>
+        </h1>
+
+        <p class="text-lg text-slate-400 leading-relaxed mb-10 max-w-xl animate-fade-in">
+          No forms. No phone tag. Just tell our Gemini AI what's broken — it triages your issue, assesses severity, and dispatches the best verified local professional in seconds.
+        </p>
+
+        <!-- CTAs -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-12 animate-fade-in">
+          <a href="/search"
+            class="inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-base rounded-2xl shadow-xl shadow-blue-900/40 hover:shadow-blue-800/60 transition-all duration-200 active:scale-95 group">
+            <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Get AI-Matched Now
+          </a>
+          <a href="/auth/register_contractor"
+            class="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/5 border border-white/15 hover:bg-white/10 hover:border-white/30 text-white font-bold text-base rounded-2xl transition-all duration-200 active:scale-95">
+            Register as a Pro
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+
+        <!-- Trust indicators -->
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-slate-500 text-xs font-medium">
+          <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg> No hidden fees</span>
+          <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg> Verified professionals</span>
+          <span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg> Free to use</span>
+        </div>
+      </div>
+
+      <!-- Right: Chat demo card -->
+      <div class="relative">
+        <div class="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-sm shadow-2xl">
+          <!-- Chat header -->
+          <div class="flex items-center gap-3 mb-5 pb-4 border-b border-white/10">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg">
+              <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+            </div>
+            <div>
+              <p class="text-white font-semibold text-sm">Gemini AI Triage</p>
+              <div class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span><span class="text-slate-400 text-xs">Online</span></div>
+            </div>
+          </div>
+          <!-- Chat bubbles -->
+          <div class="space-y-4 mb-5">
+            <div class="flex items-end gap-2">
+              <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex-shrink-0 flex items-center justify-center">
+                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="bg-white/10 text-slate-200 text-sm px-4 py-2.5 rounded-2xl rounded-bl-none max-w-[80%] leading-relaxed">
+                👋 Hi! Tell me what's going wrong at home — I'll find the best local pros for you!
+              </div>
+            </div>
+            <div class="flex items-end gap-2 flex-row-reverse">
+              <div class="bg-blue-600 text-white text-sm px-4 py-2.5 rounded-2xl rounded-br-none max-w-[80%] leading-relaxed">
+                My bathroom sink is clogged and water is backing up everywhere 😬
+              </div>
+            </div>
+            <div class="flex items-end gap-2">
+              <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex-shrink-0 flex items-center justify-center">
+                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="bg-white/10 text-slate-200 text-sm px-4 py-2.5 rounded-2xl rounded-bl-none max-w-[80%] leading-relaxed">
+                Got it — sounds like a moderate severity blockage. What's your city, area, or postal code so I can find a plumber near you?
+              </div>
+            </div>
+            <div class="flex items-end gap-2 flex-row-reverse">
+              <div class="bg-blue-600 text-white text-sm px-4 py-2.5 rounded-2xl rounded-br-none max-w-[80%]">
+                Ikeja, Lagos, Nigeria
+              </div>
+            </div>
+            <!-- Typing indicator -->
+            <div class="flex items-end gap-2">
+              <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex-shrink-0 flex items-center justify-center">
+                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="bg-white/10 rounded-2xl rounded-bl-none px-4 py-3">
+                <div class="flex space-x-1 items-center">
+                  <div class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:0ms"></div>
+                  <div class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:150ms"></div>
+                  <div class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:300ms"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Match result card -->
+          <div class="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-2xl p-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center text-indigo-700 font-bold">M</div>
+              <div class="flex-1">
+                <p class="text-white font-bold text-sm">Mike's Plumbing</p>
+                <p class="text-slate-400 text-xs">$120 Base Call-Out Fee · 2.1 mi away</p>
+              </div>
+              <span class="px-2.5 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded-full">✓ Matched</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating badge -->
+        <div class="absolute -top-4 -right-4 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg shadow-orange-500/30 rotate-2">
+          ⚡ Matched in 3.2s
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ===================== STATS BAR ===================== -->
+<section class="bg-white border-b border-gray-100">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      <div>
+        <p class="text-3xl font-extrabold text-gray-900">< 10s</p>
+        <p class="text-sm text-gray-500 mt-1">Average match time</p>
+      </div>
+      <div>
+        <p class="text-3xl font-extrabold text-gray-900">5+</p>
+        <p class="text-sm text-gray-500 mt-1">Trade specializations</p>
+      </div>
+      <div>
+        <p class="text-3xl font-extrabold text-gray-900">100%</p>
+        <p class="text-sm text-gray-500 mt-1">AI-triaged intake</p>
+      </div>
+      <div>
+        <p class="text-3xl font-extrabold text-gray-900">Zero</p>
+        <p class="text-sm text-gray-500 mt-1">Forms to fill out</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== HOW IT WORKS ===================== -->
+<section id="how-it-works" class="bg-gray-50 py-24">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-16">
+      <span class="inline-block px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-widest mb-4">How It Works</span>
+      <h2 class="text-4xl font-extrabold text-gray-900 tracking-tight mb-4">From problem to pro in 3 steps</h2>
+      <p class="text-gray-500 text-lg max-w-xl mx-auto">No phone calls, no quote-fishing. Our AI handles the whole intake so professionals arrive briefed and ready.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+      <!-- Connector line (desktop only) -->
+      <div class="hidden md:block absolute top-12 left-1/3 right-1/3 h-0.5 bg-gradient-to-r from-indigo-200 to-blue-200"></div>
+
+      <!-- Step 1 -->
+      <div class="relative bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform duration-300">
+          <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        </div>
+        <span class="inline-block text-xs font-black text-blue-600 uppercase tracking-widest mb-2">Step 1</span>
+        <h3 class="text-xl font-bold text-gray-900 mb-3">Describe your problem</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Just chat naturally — no dropdown menus. Tell the AI what's broken, how bad it is, and where you are.</p>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="relative bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-200 group-hover:scale-110 transition-transform duration-300">
+          <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <span class="inline-block text-xs font-black text-indigo-600 uppercase tracking-widest mb-2">Step 2</span>
+        <h3 class="text-xl font-bold text-gray-900 mb-3">AI triages & matches</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Gemini assesses urgency, detects trade type, and cross-references verified professionals by certification, radius, and capacity.</p>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="relative bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-cyan-200 group-hover:scale-110 transition-transform duration-300">
+          <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </div>
+        <span class="inline-block text-xs font-black text-cyan-600 uppercase tracking-widest mb-2">Step 3</span>
+        <h3 class="text-xl font-bold text-gray-900 mb-3">Book & get it fixed</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Review the matched professional with transparent call-out pricing, book instantly, and chat directly through the platform.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TRADE CATEGORIES ===================== -->
+<section class="bg-white py-24">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight mb-3">Every trade. One platform.</h2>
+      <p class="text-gray-500">Verified pros across all major home service categories.</p>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      {% set trades = [
+        ('🔧', 'Plumbing', 'Leaks, clogs, pipe repair'),
+        ('⚡', 'Electrical', 'Wiring, panels, EV chargers'),
+        ('❄️', 'HVAC', 'Heating, cooling, ventilation'),
+        ('🏠', 'Roofing', 'Repair, replacement, inspection'),
+        ('✨', 'Cleaning', 'Deep clean, move-in/out')
+      ] %}
+      {% for emoji, name, desc in trades %}
+      <a href="/search" class="group flex flex-col items-center text-center p-6 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-indigo-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+        <span class="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">{{ emoji }}</span>
+        <p class="font-bold text-gray-900 text-sm mb-1">{{ name }}</p>
+        <p class="text-xs text-gray-400 leading-relaxed">{{ desc }}</p>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CTA SECTION ===================== -->
+<section id="pricing" class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 py-24 relative overflow-hidden">
+  <div class="absolute inset-0 opacity-[0.03]" style="background-image: radial-gradient(circle, #fff 1px, transparent 1px); background-size: 28px 28px;"></div>
+  <div class="absolute top-0 right-0 w-[400px] h-[400px] rounded-full bg-blue-600/15 blur-3xl pointer-events-none"></div>
+
+  <div class="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+    <span class="inline-block px-4 py-1.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300 text-xs font-bold uppercase tracking-widest mb-6">Get Started Free</span>
+    <h2 class="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mb-6">Ready to fix it?</h2>
+    <p class="text-slate-400 text-lg mb-10 max-w-xl mx-auto leading-relaxed">
+      ServiceSync is free for homeowners. No account needed to browse — just describe your problem and get matched instantly.
+    </p>
+
+    <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+      <a href="/search"
+        class="inline-flex items-center justify-center gap-2.5 px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-lg rounded-2xl shadow-2xl shadow-blue-900/50 hover:shadow-blue-800/70 transition-all duration-200 active:scale-95 group">
+        <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        Find a Pro Now
+      </a>
+      <a href="/auth/register_contractor"
+        class="inline-flex items-center justify-center gap-2 px-10 py-4 bg-white/5 border border-white/15 hover:bg-white/10 text-white font-bold text-lg rounded-2xl transition-all duration-200 active:scale-95">
+        Register as a Contractor
+      </a>
+    </div>
+
+    <!-- Dual Paths -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-6 text-left hover:bg-white/8 transition">
+        <p class="text-2xl mb-3">🏠</p>
+        <h3 class="text-white font-bold mb-2">For Homeowners</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Free to use. AI-matched quotes. Transparent pricing. No surprise fees.</p>
+        <a href="/auth/signup" class="inline-flex items-center gap-1.5 mt-4 text-blue-400 hover:text-blue-300 font-semibold text-sm transition">
+          Create account <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-6 text-left hover:bg-white/8 transition">
+        <p class="text-2xl mb-3">🔧</p>
+        <h3 class="text-white font-bold mb-2">For Service Pros</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">AI handles customer triage. You get pre-qualified, high-intent leads delivered directly.</p>
+        <a href="/auth/register_contractor" class="inline-flex items-center gap-1.5 mt-4 text-indigo-400 hover:text-indigo-300 font-semibold text-sm transition">
+          Register your business <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

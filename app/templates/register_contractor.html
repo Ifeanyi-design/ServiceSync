@@ -1,0 +1,621 @@
+{% extends "base.html" %}
+
+{% block title %}Register as a Pro — ServiceSync{% endblock %}
+{% block meta_description %}Join ServiceSync as a verified service professional. Set up your AI profile and start getting matched with high-intent local customers.{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex">
+
+  <!-- ===== LEFT PANEL: Brand & Benefits ===== -->
+  <div class="hidden lg:flex lg:w-5/12 xl:w-[42%] flex-col justify-between p-12 relative overflow-hidden">
+    <!-- Background decorations -->
+    <div class="absolute top-0 left-0 w-full h-full">
+      <div class="absolute top-[-80px] left-[-80px] w-72 h-72 rounded-full bg-indigo-500/10 blur-3xl"></div>
+      <div class="absolute bottom-[-60px] right-[-40px] w-64 h-64 rounded-full bg-blue-500/10 blur-3xl"></div>
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-cyan-500/5 blur-3xl"></div>
+    </div>
+
+    <div class="relative z-10">
+      <!-- Logo -->
+      <a href="/" class="flex items-center space-x-2.5 mb-16">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <span class="text-xl font-bold text-white tracking-tight">Service<span class="text-blue-400">Sync</span></span>
+      </a>
+
+      <!-- Headline -->
+      <div class="mb-12">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-4">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+          AI-Powered Platform
+        </span>
+        <h1 class="text-4xl font-extrabold text-white leading-tight tracking-tight mb-4">
+          Grow your business<br/>
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">with zero admin.</span>
+        </h1>
+        <p class="text-slate-400 text-base leading-relaxed">
+          Our Gemini AI engine handles customer triage, qualification, and dispatch — so you can focus on the work.
+        </p>
+      </div>
+
+      <!-- Benefits -->
+      <div class="space-y-5">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <div>
+            <p class="text-white font-semibold text-sm">AI Triage & Auto-Matching</p>
+            <p class="text-slate-400 text-xs mt-0.5 leading-relaxed">Gemini qualifies leads before they reach you — no time wasted on bad-fit requests.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div>
+            <p class="text-white font-semibold text-sm">Verified Trust Profile</p>
+            <p class="text-slate-400 text-xs mt-0.5 leading-relaxed">Your licenses and certifications are surfaced to customers automatically during matches.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div>
+            <p class="text-white font-semibold text-sm">Transparent Base Call-Out Pricing</p>
+            <p class="text-slate-400 text-xs mt-0.5 leading-relaxed">Set your diagnostic fee once. AI presents it to customers with severity context — no sticker shock.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          </div>
+          <div>
+            <p class="text-white font-semibold text-sm">Omnichannel AI Dispatch</p>
+            <p class="text-slate-400 text-xs mt-0.5 leading-relaxed">Chat, WhatsApp, Telegram — your AI persona keeps customers engaged on any channel.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom quote -->
+    <div class="relative z-10 mt-12">
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
+        <p class="text-slate-300 text-sm italic leading-relaxed">"ServiceSync cut my admin time by 80%. The AI handles everything — I just show up and fix things."</p>
+        <div class="flex items-center gap-3 mt-3">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-xs">M</div>
+          <div>
+            <p class="text-white text-xs font-semibold">Mike R.</p>
+            <p class="text-slate-500 text-xs">Master Plumber · Los Angeles</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== RIGHT PANEL: Form ===== -->
+  <div class="flex-1 flex items-center justify-center px-4 sm:px-8 lg:px-12 py-12 bg-gray-50 overflow-y-auto">
+    <div class="w-full max-w-xl">
+
+      <!-- Mobile logo (shown only on small screens) -->
+      <div class="flex items-center justify-center gap-2.5 mb-8 lg:hidden">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <span class="text-lg font-bold text-gray-900">Service<span class="text-blue-600">Sync</span></span>
+      </div>
+
+      <!-- Card -->
+      <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+
+        <!-- Card top gradient bar -->
+        <div class="h-1.5 bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-500"></div>
+
+        <div class="px-7 pt-8 pb-10 sm:px-10">
+
+          <!-- Heading -->
+          <div class="mb-8">
+            <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">Create your pro account</h2>
+            <p class="text-gray-500 text-sm mt-1">Takes about 2 minutes. Free to join.</p>
+          </div>
+
+          <!-- Error Banner -->
+          {% if error %}
+          <div class="flex items-center gap-3 px-4 py-3 mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-medium" role="alert">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>{{ error }}</span>
+          </div>
+          {% endif %}
+
+          <!-- Step Indicator -->
+          <div class="flex items-center mb-8">
+            <!-- Step 1 -->
+            <div class="flex items-center gap-2.5">
+              <div id="step-1-dot" class="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-200 transition-all duration-300">1</div>
+              <div class="hidden sm:block">
+                <p id="step-1-label" class="text-xs font-bold text-indigo-600 transition-colors">Business</p>
+                <p class="text-xs text-gray-400">Details</p>
+              </div>
+            </div>
+            <div id="step-1-line" class="flex-1 mx-3 h-0.5 bg-gray-200 rounded transition-all duration-300"></div>
+            <!-- Step 2 -->
+            <div class="flex items-center gap-2.5">
+              <div id="step-2-dot" class="w-9 h-9 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center font-bold text-sm transition-all duration-300">2</div>
+              <div class="hidden sm:block">
+                <p id="step-2-label" class="text-xs font-bold text-gray-400 transition-colors">Operations</p>
+                <p class="text-xs text-gray-400">Parameters</p>
+              </div>
+            </div>
+            <div id="step-2-line" class="flex-1 mx-3 h-0.5 bg-gray-200 rounded transition-all duration-300"></div>
+            <!-- Step 3 -->
+            <div class="flex items-center gap-2.5">
+              <div id="step-3-dot" class="w-9 h-9 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center font-bold text-sm transition-all duration-300">3</div>
+              <div class="hidden sm:block">
+                <p id="step-3-label" class="text-xs font-bold text-gray-400 transition-colors">Trade</p>
+                <p class="text-xs text-gray-400">Credentials</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form -->
+          <form method="POST" action="/auth/register_contractor" id="contractor-form" novalidate>
+            <input type="hidden" name="trade_qualifications" id="trade_qualifications" value="{}" />
+
+            <!-- ==================== STEP 1 ==================== -->
+            <div id="step-1" class="space-y-4">
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="sm:col-span-2">
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Business Name *</label>
+                  <input type="text" name="full_name" id="full_name" required
+                    placeholder="e.g. Mike's Plumbing LLC"
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white transition placeholder-gray-400" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email Address *</label>
+                  <input type="email" name="email" id="email" required
+                    placeholder="contact@yourbiz.com"
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white transition placeholder-gray-400" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Password *</label>
+                  <input type="password" name="password" id="password" required minlength="8"
+                    placeholder="min. 8 characters"
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white transition placeholder-gray-400" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Primary Trade *</label>
+                  <div class="relative">
+                    <select name="profession" id="profession" required
+                      class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition appearance-none">
+                      <option value="" disabled selected>Select Trade...</option>
+                      <option value="plumber">🔧 Plumber</option>
+                      <option value="electrician">⚡ Electrician</option>
+                      <option value="hvac">❄️ HVAC Technician</option>
+                      <option value="roofer">🏠 Roofer</option>
+                      <option value="cleaner">✨ Cleaner</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label>
+                  <input type="text" name="phone" placeholder="555-0199"
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition placeholder-gray-400" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Country *</label>
+                  <input type="text" name="country" id="country" placeholder="e.g. Nigeria" required
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition placeholder-gray-400" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">State / Province</label>
+                  <input type="text" name="state_or_province" placeholder="e.g. Lagos"
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition placeholder-gray-400" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">City *</label>
+                  <input type="text" name="city" id="city" placeholder="e.g. Lagos" required
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition placeholder-gray-400" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Area / District</label>
+                  <input type="text" name="area" placeholder="e.g. Ikeja"
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition placeholder-gray-400" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Postal Code / ZIP</label>
+                  <input type="text" name="postal_code" placeholder="Optional"
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition placeholder-gray-400" />
+                </div>
+              </div>
+
+              <div class="pt-2 flex justify-end">
+                <button type="button" onclick="nextStep(2)"
+                  class="px-7 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-all shadow-md shadow-indigo-200 hover:shadow-indigo-300 flex items-center gap-2 active:scale-95">
+                  Next
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- ==================== STEP 2 ==================== -->
+            <div id="step-2" class="space-y-4 hidden">
+
+              <!-- Info callout -->
+              <div class="flex items-start gap-3 p-3 rounded-xl bg-blue-50 border border-blue-100 mb-5">
+                <svg class="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <p class="text-blue-700 text-xs leading-relaxed">These parameters control your AI matching profile. The Base Call-Out Fee is shown transparently to customers before they book.</p>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Base Call-Out Fee ($)</label>
+                  <div class="relative">
+                    <span class="absolute inset-y-0 left-3.5 flex items-center text-gray-400 text-sm font-semibold">$</span>
+                    <input type="number" name="base_pricing" placeholder="120" min="0"
+                      class="w-full pl-7 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
+                  </div>
+                  <p class="text-xs text-gray-400 mt-1">Diagnostic + truck roll fee</p>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Service Radius (Miles)</label>
+                  <div class="relative">
+                    <input type="number" name="service_radius_miles" placeholder="25" min="1"
+                      class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
+                    <span class="absolute inset-y-0 right-3.5 flex items-center text-gray-400 text-xs">mi</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Max Daily Jobs</label>
+                  <input type="number" name="max_daily_jobs" value="4" min="1" max="20"
+                    class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">AI Persona Tone</label>
+                  <div class="relative">
+                    <select name="ai_tone_preference"
+                      class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition appearance-none">
+                      <option value="professional">Professional & Crisp</option>
+                      <option value="friendly">Friendly & Warm</option>
+                      <option value="direct">Direct & Authoritative</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Working Hours hint -->
+              <div class="pt-1 pb-1">
+                <p class="text-xs text-gray-400">Working hours default to 08:00 – 18:00. You can update these in your dashboard after sign-up.</p>
+              </div>
+
+              <div class="pt-2 flex justify-between">
+                <button type="button" onclick="nextStep(1)"
+                  class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-sm rounded-xl transition flex items-center gap-2 active:scale-95">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                  Back
+                </button>
+                <button type="button" onclick="nextStep(3)"
+                  class="px-7 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-all shadow-md shadow-indigo-200 flex items-center gap-2 active:scale-95">
+                  Next
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- ==================== STEP 3 ==================== -->
+            <div id="step-3" class="space-y-5 hidden">
+
+              <div class="flex items-start gap-3 p-3 rounded-xl bg-indigo-50 border border-indigo-100 mb-2">
+                <svg class="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+                <p class="text-indigo-700 text-xs leading-relaxed">Your credentials are parsed by Gemini AI and used to highlight your expertise when matching with customers. Skipping is allowed.</p>
+              </div>
+
+              <!-- Dynamic Trade Sections -->
+              <div id="dynamic-trade-fields" class="rounded-2xl border border-gray-200 bg-gray-50 p-5 space-y-4">
+
+                <!-- Plumbing -->
+                <div id="plumber-fields" class="trade-module hidden space-y-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-xl">🔧</span>
+                    <span class="font-bold text-gray-800 text-sm">Plumbing Credentials</span>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">License Classification / ID</label>
+                    <input type="text" id="plumbing_license_id" placeholder="e.g. Master Plumber #12345"
+                      class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition" />
+                  </div>
+                  <div class="space-y-3">
+                    <label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/40 transition group">
+                      <input type="checkbox" id="plumbing_gas_certified" class="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" />
+                      <div>
+                        <p class="text-sm font-semibold text-gray-800 group-hover:text-indigo-700 transition">Gas Line Certified</p>
+                        <p class="text-xs text-gray-400">Licensed for natural gas & propane line work</p>
+                      </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/40 transition group">
+                      <input type="checkbox" id="plumbing_emergency_ready" class="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" />
+                      <div>
+                        <p class="text-sm font-semibold text-gray-800 group-hover:text-indigo-700 transition">24/7 Emergency Dispatch</p>
+                        <p class="text-xs text-gray-400">Available for after-hours emergency calls</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Electrical -->
+                <div id="electrician-fields" class="trade-module hidden space-y-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-xl">⚡</span>
+                    <span class="font-bold text-gray-800 text-sm">Electrical Credentials</span>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">License Type</label>
+                    <div class="grid grid-cols-2 gap-3">
+                      <label class="relative flex items-center gap-3 p-3 rounded-xl border-2 border-gray-200 bg-white cursor-pointer hover:border-indigo-400 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                        <input type="radio" name="electrical_license_type_radio" id="electrical_license_type" value="Journeyman" class="w-4 h-4 text-indigo-600" />
+                        <div>
+                          <p class="text-xs font-bold text-gray-700">Journeyman</p>
+                          <p class="text-xs text-gray-400">Licensed</p>
+                        </div>
+                      </label>
+                      <label class="relative flex items-center gap-3 p-3 rounded-xl border-2 border-gray-200 bg-white cursor-pointer hover:border-indigo-400 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                        <input type="radio" name="electrical_license_type_radio" value="Master" class="w-4 h-4 text-indigo-600" />
+                        <div>
+                          <p class="text-xs font-bold text-gray-700">Master</p>
+                          <p class="text-xs text-gray-400">Electrician</p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Liability Bond Limit ($)</label>
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-3.5 flex items-center text-gray-400 text-sm font-semibold">$</span>
+                      <input type="number" id="electrical_bond_limit" placeholder="1,000,000"
+                        class="w-full pl-7 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition" />
+                    </div>
+                  </div>
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/40 transition group">
+                    <input type="checkbox" id="electrical_ev_certified" class="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" />
+                    <div>
+                      <p class="text-sm font-semibold text-gray-800 group-hover:text-indigo-700 transition">EV Charger / Smart Home Certified</p>
+                      <p class="text-xs text-gray-400">Level 2 EVSE installations and smart panel upgrades</p>
+                    </div>
+                  </label>
+                </div>
+
+                <!-- HVAC -->
+                <div id="hvac-fields" class="trade-module hidden space-y-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-xl">❄️</span>
+                    <span class="font-bold text-gray-800 text-sm">HVAC Credentials</span>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">EPA Section 608 Cert #</label>
+                    <input type="text" id="hvac_epa_cert_num" placeholder="EPA-12345"
+                      class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Supported Brands</label>
+                    <div class="grid grid-cols-2 gap-2">
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 transition text-sm font-medium text-gray-700 hover:text-indigo-700 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                        <input type="checkbox" class="hvac-brand w-4 h-4 text-indigo-600 rounded" value="Carrier"> Carrier
+                      </label>
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 transition text-sm font-medium text-gray-700 hover:text-indigo-700 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                        <input type="checkbox" class="hvac-brand w-4 h-4 text-indigo-600 rounded" value="Trane"> Trane
+                      </label>
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 transition text-sm font-medium text-gray-700 hover:text-indigo-700 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                        <input type="checkbox" class="hvac-brand w-4 h-4 text-indigo-600 rounded" value="Daikin"> Daikin
+                      </label>
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 transition text-sm font-medium text-gray-700 hover:text-indigo-700 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                        <input type="checkbox" class="hvac-brand w-4 h-4 text-indigo-600 rounded" value="Lennox"> Lennox
+                      </label>
+                    </div>
+                  </div>
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/40 transition group">
+                    <input type="checkbox" id="hvac_is_commercial" class="w-4 h-4 text-indigo-600 rounded border-gray-300" />
+                    <div>
+                      <p class="text-sm font-semibold text-gray-800 group-hover:text-indigo-700 transition">Commercial Handling Capable</p>
+                      <p class="text-xs text-gray-400">Rooftop units, commercial air handlers</p>
+                    </div>
+                  </label>
+                </div>
+
+                <!-- Roofing -->
+                <div id="roofer-fields" class="trade-module hidden space-y-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-xl">🏠</span>
+                    <span class="font-bold text-gray-800 text-sm">Roofing Credentials</span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">GC Registration #</label>
+                      <input type="text" id="roofing_gc_registration" placeholder="GC-12345"
+                        class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition" />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Max Stories</label>
+                      <input type="number" id="roofing_max_stories" placeholder="3" min="1" max="10"
+                        class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition" />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Materials Specialized</label>
+                    <div class="grid grid-cols-3 gap-2">
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 transition text-xs font-medium text-gray-700 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                        <input type="checkbox" class="roofing-material w-4 h-4 text-indigo-600 rounded" value="Asphalt Shingle"> Shingle
+                      </label>
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 transition text-xs font-medium text-gray-700 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                        <input type="checkbox" class="roofing-material w-4 h-4 text-indigo-600 rounded" value="Metal"> Metal
+                      </label>
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-white cursor-pointer hover:border-indigo-300 transition text-xs font-medium text-gray-700 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                        <input type="checkbox" class="roofing-material w-4 h-4 text-indigo-600 rounded" value="Slate"> Slate
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cleaner -->
+                <div id="cleaner-fields" class="trade-module hidden text-center py-8">
+                  <div class="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-7 h-7 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  </div>
+                  <p class="text-gray-700 font-semibold text-sm">You're all set!</p>
+                  <p class="text-gray-400 text-xs mt-1">Standard background check applies. No extra trade credentials required.</p>
+                </div>
+
+                <!-- Default empty state -->
+                <div id="no-trade-selected" class="text-center py-8 text-gray-400 text-sm">
+                  <svg class="w-8 h-8 mx-auto text-gray-200 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                  Your credentials will appear here based on the trade selected in Step 1.
+                </div>
+              </div>
+
+              <div class="pt-2 flex justify-between">
+                <button type="button" onclick="nextStep(2)"
+                  class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-sm rounded-xl transition flex items-center gap-2 active:scale-95">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                  Back
+                </button>
+                <button type="submit" onclick="packJSON()" id="submit-btn"
+                  class="px-7 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-indigo-200 flex items-center gap-2 active:scale-95">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  Complete Registration
+                </button>
+              </div>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+      <!-- Footer link -->
+      <p class="text-center text-sm text-gray-400 mt-6">
+        Already have an account?
+        <a href="/auth/login" class="text-indigo-600 font-semibold hover:text-indigo-800 transition ml-1">Sign in →</a>
+      </p>
+      <p class="text-center text-sm text-gray-400 mt-2">
+        Looking for a service pro?
+        <a href="/auth/signup" class="text-blue-600 font-semibold hover:text-blue-800 transition ml-1">Customer sign-up →</a>
+      </p>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentStep = 1;
+
+function nextStep(step) {
+  if (step === 2 && currentStep === 1) {
+    const name = document.getElementById('full_name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const pass = document.getElementById('password').value.trim();
+    const prof = document.getElementById('profession').value;
+    const country = document.querySelector('input[name="country"]').value.trim();
+    const city = document.querySelector('input[name="city"]').value.trim();
+    if (!name || !email || !pass || !prof || !country || !city) {
+      // Highlight missing fields
+      [['full_name', name], ['email', email], ['password', pass], ['country', country], ['city', city], ['profession', prof]].forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (!val) { el.classList.add('ring-2', 'ring-red-400', 'border-red-300'); el.focus(); }
+        else el.classList.remove('ring-2', 'ring-red-400', 'border-red-300');
+      });
+      if (!prof) document.getElementById('profession').classList.add('ring-2', 'ring-red-400', 'border-red-300');
+      return;
+    }
+  }
+
+  [1, 2, 3].forEach(s => {
+    const el = document.getElementById(`step-${s}`);
+    el.classList.add('hidden');
+  });
+
+  document.getElementById(`step-${step}`).classList.remove('hidden');
+
+  // Update step dots
+  const activeClass = 'w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-200 transition-all duration-300';
+  const doneClass   = 'w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm ring-2 ring-indigo-500 transition-all duration-300';
+  const inactClass  = 'w-9 h-9 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center font-bold text-sm transition-all duration-300';
+
+  const activeLine = 'flex-1 mx-3 h-0.5 bg-indigo-500 rounded transition-all duration-300';
+  const inactLine  = 'flex-1 mx-3 h-0.5 bg-gray-200 rounded transition-all duration-300';
+
+  document.getElementById('step-1-dot').className = step === 1 ? activeClass : doneClass;
+  document.getElementById('step-2-dot').className = step === 2 ? activeClass : step > 2 ? doneClass : inactClass;
+  document.getElementById('step-3-dot').className = step === 3 ? activeClass : inactClass;
+  document.getElementById('step-1-line').className = step > 1 ? activeLine : inactLine;
+  document.getElementById('step-2-line').className = step > 2 ? activeLine : inactLine;
+
+  // Update label colors
+  document.getElementById('step-1-label').className = `text-xs font-bold transition-colors ${step >= 1 ? 'text-indigo-600' : 'text-gray-400'}`;
+  document.getElementById('step-2-label').className = `text-xs font-bold transition-colors ${step >= 2 ? 'text-indigo-600' : 'text-gray-400'}`;
+  document.getElementById('step-3-label').className = `text-xs font-bold transition-colors ${step >= 3 ? 'text-indigo-600' : 'text-gray-400'}`;
+
+  if (step === 3) loadTradeModule();
+
+  currentStep = step;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function loadTradeModule() {
+  const trade = document.getElementById('profession').value;
+  document.querySelectorAll('.trade-module').forEach(el => el.classList.add('hidden'));
+  document.getElementById('no-trade-selected').classList.add('hidden');
+
+  const target = trade ? document.getElementById(`${trade}-fields`) : null;
+  if (target) target.classList.remove('hidden');
+  else document.getElementById('no-trade-selected').classList.remove('hidden');
+}
+
+function packJSON() {
+  const trade = document.getElementById('profession').value;
+  let data = {};
+
+  if (trade === 'plumber') {
+    data.license_id = document.getElementById('plumbing_license_id').value;
+    data.gas_certified = document.getElementById('plumbing_gas_certified').checked;
+    data.emergency_ready = document.getElementById('plumbing_emergency_ready').checked;
+  } else if (trade === 'electrician') {
+    const radios = document.querySelectorAll('input[name="electrical_license_type_radio"]');
+    let selectedLicense = '';
+    radios.forEach(r => { if (r.checked) selectedLicense = r.value; });
+    data.license_type = selectedLicense || 'Journeyman';
+    data.bond_limit = document.getElementById('electrical_bond_limit').value;
+    data.ev_certified = document.getElementById('electrical_ev_certified').checked;
+  } else if (trade === 'hvac') {
+    data.epa_cert_num = document.getElementById('hvac_epa_cert_num').value;
+    data.is_commercial = document.getElementById('hvac_is_commercial').checked;
+    let brands = [];
+    document.querySelectorAll('.hvac-brand:checked').forEach(cb => brands.push(cb.value));
+    data.brands_supported = brands;
+  } else if (trade === 'roofer') {
+    data.gc_registration = document.getElementById('roofing_gc_registration').value;
+    data.max_stories = document.getElementById('roofing_max_stories').value;
+    let materials = [];
+    document.querySelectorAll('.roofing-material:checked').forEach(cb => materials.push(cb.value));
+    data.materials = materials;
+  }
+
+  document.getElementById('trade_qualifications').value = JSON.stringify(data);
+}
+
+document.getElementById('contractor-form').addEventListener('submit', function() {
+  const btn = document.getElementById('submit-btn');
+  btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Setting up your profile...`;
+  btn.disabled = true;
+});
+</script>
+{% endblock %}
