@@ -2,7 +2,7 @@ from google import genai
 from google.genai import types
 import json
 import time
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List, Optional
 from app.core.config import settings
 
 # Initialize the new Gemini SDK client
@@ -111,6 +111,172 @@ async def generate_contractor_reply(customer_message: str, contractor_context: d
     return response.text or "Thank you for reaching out. We'll respond shortly."
 
 
+async def analyze_dispute(
+    chat_history: List[Dict[str, str]],
+    dispute_reason: str,
+    job_description: str,
+    total_amount: str,
+    photo_descriptions: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Analyzes a dispute using Gemini to recommend a refund split.
+    Returns structured JSON with recommended refund percentage and reasoning.
+    """
+    if _client is None:
+        return _fallback_dispute_analysis()
+
+    photo_context = ""
+    if photo_descriptions:
+        photo_context = f"\nPhoto evidence descriptions: {json.dumps(photo_descriptions, indent=2)}"
+
+    prompt = f"""
+    You are an AI dispute resolution analyst for a home service marketplace called ServiceSync.
+    Analyze the following dispute and recommend a fair refund split between customer and contractor.
+
+    Job Description: {job_description}
+    Total Amount in Escrow: {total_amount}
+    Dispute Reason: {dispute_reason}
+    {photo_context}
+
+    Chat History:
+    {json.dumps(chat_history, indent=2)}
+
+    Evaluate:
+    1. Who is at fault? (customer, contractor, both, or unclear)
+    2. Was the work partially completed? If so, estimate completion percentage.
+    3. Were there quality issues? Severity?
+    4. Were there communication failures?
+    5. Is there evidence of no-show, delays, or contract breach?
+
+    Output strictly valid JSON with the following structure:
+    {{
+        "recommended_refund_pct": <number 0-100>,
+        "fault_party": "customer" | "contractor" | "both" | "unclear",
+        "completion_estimate_pct": <number 0-100>,
+        "quality_issues": <string describing quality problems if any>,
+        "reasoning": <string explaining the recommendation in 2-3 sentences>,
+        "confidence": "high" | "medium" | "low"
+    }}
+
+    Guidelines:
+    - If contractor didn't show up or barely started: 90-100% refund
+    - If work was poor quality and needs redo: 70-90% refund
+    - If work was partially done but incomplete: 40-70% refund
+    - If work was mostly done with minor issues: 10-40% refund
+    - If work was completed satisfactorily: 0-10% refund
+    - If customer is at fault (unreasonable demands, changed scope): 0-20% refund
+    - Consider both parties' communication and professionalism
+
+    Output strictly valid JSON with no markdown.
+    """
+
+    start_time = time.time()
+    response = await _client.aio.models.generate_content(
+        model=_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json"),
+    )
+    latency_ms = int((time.time() - start_time) * 1000)
+
+    raw_text = response.text or ""
+    try:
+        extracted = json.loads(raw_text.replace("```json", "").replace("```", "").strip())
+    except Exception:
+        extracted = _fallback_dispute_analysis()
+
+    usage = response.usage_metadata
+    metadata = {
+        "raw_response": raw_text,
+        "prompt_tokens": getattr(usage, "prompt_token_count", 0) if usage else 0,
+        "completion_tokens": getattr(usage, "candidates_token_count", 0) if usage else 0,
+        "latency_ms": latency_ms,
+    }
+
+    return {"analysis": extracted, "metadata": metadata}
+
+
+async def estimate_job_price(
+    description: str,
+    profession: str,
+    location: Optional[Dict[str, str]] = None,
+    photo_descriptions: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Estimates a price range for a job based on description, profession, and location.
+    Returns structured JSON with estimated price range and breakdown.
+    """
+    if _client is None:
+        return _fallback_price_estimate()
+
+    location_str = ""
+    if location:
+        parts = [location.get("city"), location.get("state_or_province"), location.get("country")]
+        location_str = f"\nLocation: {', '.join(p for p in parts if p)}"
+
+    photo_context = ""
+    if photo_descriptions:
+        photo_context = f"\nPhoto descriptions: {json.dumps(photo_descriptions, indent=2)}"
+
+    prompt = f"""
+    You are an AI pricing estimator for a home service marketplace called ServiceSync.
+    Estimate a fair price range for the following job.
+
+    Profession: {profession}
+    Job Description: {description}
+    {location_str}
+    {photo_context}
+
+    Consider:
+    1. Typical labor rates for this profession in this region
+    2. Materials and supplies likely needed
+    3. Complexity and time estimates
+    4. Market rates for similar jobs
+
+    Output strictly valid JSON with the following structure:
+    {{
+        "estimated_min": <number>,
+        "estimated_max": <number>,
+        "estimated_midpoint": <number>,
+        "currency": "USD",
+        "breakdown": {{
+            "labor_min": <number>,
+            "labor_max": <number>,
+            "materials_min": <number>,
+            "materials_max": <number>
+        }},
+        "time_estimate_hours": <number>,
+        "confidence": "high" | "medium" | "low",
+        "notes": <string with any caveats or additional context>
+    }}
+
+    Output strictly valid JSON with no markdown.
+    """
+
+    start_time = time.time()
+    response = await _client.aio.models.generate_content(
+        model=_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json"),
+    )
+    latency_ms = int((time.time() - start_time) * 1000)
+
+    raw_text = response.text or ""
+    try:
+        extracted = json.loads(raw_text.replace("```json", "").replace("```", "").strip())
+    except Exception:
+        extracted = _fallback_price_estimate()
+
+    usage = response.usage_metadata
+    metadata = {
+        "raw_response": raw_text,
+        "prompt_tokens": getattr(usage, "prompt_token_count", 0) if usage else 0,
+        "completion_tokens": getattr(usage, "candidates_token_count", 0) if usage else 0,
+        "latency_ms": latency_ms,
+    }
+
+    return {"estimate": extracted, "metadata": metadata}
+
+
 def _fallback_triage() -> Dict[str, Any]:
     return {
         "profession_required": None,
@@ -126,4 +292,33 @@ def _fallback_triage() -> Dict[str, Any]:
         "longitude": None,
         "ready_for_match": False,
         "bot_reply": "I'm having trouble understanding. Could you describe your problem, urgency level, and your city or area?",
+    }
+
+
+def _fallback_dispute_analysis() -> Dict[str, Any]:
+    return {
+        "recommended_refund_pct": 50,
+        "fault_party": "unclear",
+        "completion_estimate_pct": 50,
+        "quality_issues": "Unable to analyze — AI service unavailable",
+        "reasoning": "AI analysis unavailable. Manual review recommended.",
+        "confidence": "low",
+    }
+
+
+def _fallback_price_estimate() -> Dict[str, Any]:
+    return {
+        "estimated_min": 50,
+        "estimated_max": 200,
+        "estimated_midpoint": 125,
+        "currency": "USD",
+        "breakdown": {
+            "labor_min": 40,
+            "labor_max": 150,
+            "materials_min": 10,
+            "materials_max": 50,
+        },
+        "time_estimate_hours": 2,
+        "confidence": "low",
+        "notes": "AI estimation unavailable. Using default range.",
     }

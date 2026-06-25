@@ -226,7 +226,12 @@
         ('⚡', 'Electrical', 'Wiring, panels, EV chargers'),
         ('❄️', 'HVAC', 'Heating, cooling, ventilation'),
         ('🏠', 'Roofing', 'Repair, replacement, inspection'),
-        ('✨', 'Cleaning', 'Deep clean, move-in/out')
+        ('✨', 'Cleaning', 'Deep clean, move-in/out'),
+        ('paint', 'Painting', 'Interior, exterior, touch-ups'),
+        ('🔒', 'Locksmith', 'Lockouts, rekeying, smart locks'),
+        ('🌳', 'Landscaping', 'Lawn, garden, tree service'),
+        ('pest', 'Pest Control', 'Termites, rodents, insects'),
+        ('🏗️', 'General', 'Handyman, renovations, repairs')
       ] %}
       {% for emoji, name, desc in trades %}
       <a href="/search" class="group flex flex-col items-center text-center p-6 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-indigo-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
@@ -235,6 +240,125 @@
         <p class="text-xs text-gray-400 leading-relaxed">{{ desc }}</p>
       </a>
       {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FEATURES SECTION ===================== -->
+<section class="bg-gray-50 py-24">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-16">
+      <span class="inline-block px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-widest mb-4">Built Different</span>
+      <h2 class="text-4xl font-extrabold text-gray-900 tracking-tight mb-4">Why ServiceSync beats traditional booking</h2>
+      <p class="text-gray-500 text-lg max-w-xl mx-auto">We're not just another marketplace. We're the AI-native platform built for the future of home services.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div class="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300">
+        <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-5">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-gray-900 mb-2">AI-Powered Triage</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Our Gemini AI understands your problem in plain English — no dropdowns, no forms. It assesses severity and matches you in seconds.</p>
+      </div>
+      <div class="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300">
+        <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center mb-5">
+          <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-gray-900 mb-2">Escrow Protection</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Funds held securely until work is approved. Both parties protected. No payment disputes.</p>
+      </div>
+      <div class="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300">
+        <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center mb-5">
+          <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-gray-900 mb-2">Omnichannel Chat</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">WhatsApp, Telegram, Messenger — your customers reach you wherever they are. AI handles initial replies automatically.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TESTIMONIALS ===================== -->
+<section class="bg-white py-24">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight mb-3">Trusted by homeowners & pros</h2>
+      <p class="text-gray-500">Real results from real users.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+        <div class="flex items-center gap-1 mb-3">
+          <span class="text-yellow-400 text-lg">★★★★★</span>
+        </div>
+        <p class="text-gray-700 text-sm leading-relaxed mb-4">"I described my leaky faucet and got a matched plumber in 8 seconds. He showed up the same day. This is the future."</p>
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">A</div>
+          <div>
+            <p class="font-semibold text-gray-900 text-sm">Adunni K.</p>
+            <p class="text-gray-400 text-xs">Homeowner, Lagos</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+        <div class="flex items-center gap-1 mb-3">
+          <span class="text-yellow-400 text-lg">★★★★★</span>
+        </div>
+        <p class="text-gray-700 text-sm leading-relaxed mb-4">"The AI triage means I show up already knowing what's wrong. No more wasting time on phone quotes. My close rate doubled."</p>
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-xs">M</div>
+          <div>
+            <p class="font-semibold text-gray-900 text-sm">Mike O.</p>
+            <p class="text-gray-400 text-xs">Plumber, 3 years on platform</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+        <div class="flex items-center gap-1 mb-3">
+          <span class="text-yellow-400 text-lg">★★★★★</span>
+        </div>
+        <p class="text-gray-700 text-sm leading-relaxed mb-4">"Escrow protection gives me confidence. Customers trust me more because their money is safe until the job is done."</p>
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-xs">F</div>
+          <div>
+            <p class="font-semibold text-gray-900 text-sm">Fatima B.</p>
+            <p class="text-gray-400 text-xs">Electrician, Abuja</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FAQ SECTION ===================== -->
+<section class="bg-gray-50 py-24">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight mb-3">Frequently asked questions</h2>
+    </div>
+
+    <div class="space-y-4">
+      <div class="bg-white rounded-2xl border border-gray-100 p-6">
+        <h3 class="font-bold text-gray-900 mb-2">Is ServiceSync free for homeowners?</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Yes. There's no cost to describe your problem, get matched, or chat with professionals. You only pay the professional's quoted price plus a small platform fee.</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-100 p-6">
+        <h3 class="font-bold text-gray-900 mb-2">How does the AI matching work?</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Our Gemini AI reads your natural-language description, extracts the trade type, severity, and location, then matches you with verified professionals based on their specialization, proximity, availability, and trust score.</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-100 p-6">
+        <h3 class="font-bold text-gray-900 mb-2">What is escrow protection?</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">When you book a job, your payment is held in escrow (a secure third-party account). The professional only gets paid once you approve the completed work. If there's a dispute, our AI helps mediate.</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-100 p-6">
+        <h3 class="font-bold text-gray-900 mb-2">Can I use WhatsApp or Telegram instead of the app?</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Yes. Professionals can connect their WhatsApp, Telegram, or Messenger accounts. When a customer messages them, the AI handles the initial triage and can even draft replies for the professional to approve.</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-100 p-6">
+        <h3 class="font-bold text-gray-900 mb-2">How do professionals get paid?</h3>
+        <p class="text-gray-500 text-sm leading-relaxed">Once the customer approves the job, funds are released from escrow directly to the professional's account. Payouts typically process within 1-2 business days.</p>
+      </div>
     </div>
   </div>
 </section>

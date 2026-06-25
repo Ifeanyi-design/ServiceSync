@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Messages — ServiceSync{% endblock %}
+{% block meta_description %}View your conversations with contractors and customers on ServiceSync.{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+
+  <!-- Page Header -->
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Messages</h1>
+      <p class="text-gray-500 text-sm mt-1">Your conversations with {% if current_user.role == 'customer' %}contractors{% else %}customers{% endif %}.</p>
+    </div>
+    {% if current_user.role == 'customer' %}
+    <a href="/contractors" class="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition shadow-md hover:shadow-blue-200 active:scale-95">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      New Conversation
+    </a>
+    {% endif %}
+  </div>
+
+  {% if conversations %}
+  <div class="space-y-3">
+    {% for conv in conversations %}
+    <a href="/chat/{{ conv.id }}" class="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200 group">
+      <!-- Avatar -->
+      <div class="relative flex-shrink-0">
+        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm ring-2 ring-white shadow-sm">
+          {{ conv.partner.full_name[0] | upper }}
+        </div>
+        {% if conv.partner.availability_status == 'available' %}
+        <span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white"></span>
+        {% endif %}
+      </div>
+
+      <!-- Content -->
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <h3 class="font-bold text-gray-900 text-sm truncate group-hover:text-blue-700 transition">{{ conv.partner.full_name }}</h3>
+            {% if conv.partner.verification_level and conv.partner.verification_level != 'none' %}
+            <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white flex-shrink-0"><svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg></span>
+            {% endif %}
+          </div>
+          <span class="text-[11px] text-gray-400 flex-shrink-0">{{ conv.latest_message_time }}</span>
+        </div>
+        <div class="flex items-center gap-1.5 mb-1">
+          <span class="text-xs text-gray-400 flex-shrink-0">Job #{{ conv.job_id }}</span>
+          {% if conv.job_status %}
+          <span class="w-1 h-1 bg-gray-300 rounded-full flex-shrink-0"></span>
+          <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full
+            {% if conv.job_status == 'booked' %}bg-green-50 text-green-700
+            {% elif conv.job_status == 'completed' %}bg-blue-50 text-blue-700
+            {% else %}bg-gray-100 text-gray-500{% endif %}">
+            {{ conv.job_status | title }}
+          </span>
+          {% endif %}
+        </div>
+        <p class="text-sm text-gray-500 truncate">{{ conv.latest_message or 'No messages yet' }}</p>
+      </div>
+
+      <!-- Arrow -->
+      <svg class="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <!-- Empty State -->
+  <div class="flex flex-col items-center justify-center py-20 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+    <div class="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
+      <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+    </div>
+    <h3 class="text-lg font-bold text-gray-700 mb-1">No conversations yet</h3>
+    <p class="text-gray-400 text-sm max-w-xs mb-5">
+      {% if current_user.role == 'customer' %}
+      Book a contractor or browse professionals to start a conversation.
+      {% else %}
+      Conversations with customers will appear here once you're assigned a job.
+      {% endif %}
+    </p>
+    {% if current_user.role == 'customer' %}
+    <a href="/contractors" class="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition shadow-md hover:shadow-blue-200">Browse Contractors</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -3,14 +3,20 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import Any, List, Dict, Optional
 from pydantic import BaseModel
+import json
 import jwt
 from jwt.exceptions import InvalidTokenError
 
-from app.api.dependencies import get_db
-from app.services.gemini_service import extract_triage_info
+from app.api.dependencies import get_db, get_current_user
+from app.services.gemini_service import extract_triage_info, generate_contractor_reply
 from app.services.matching_engine import find_matches
+from app.services.alert_service import alert_new_message
 from app.models.audit_log import AIOperationsAuditLog
-from app.models.all_models import Conversation, DirectMessage, User
+from app.models.all_models import Conversation, DirectMessage, User, OmnichannelIntegration, AIDraft
+from app.core.database import async_session_maker
+import logging
+
+logger = logging.getLogger(__name__)
 from app.core.config import settings
 from app.core.database import async_session_maker
 
@@ -18,27 +24,58 @@ router = APIRouter()
 
 class ConnectionManager:
     def __init__(self):
-        # Maps conversation_id -> list of active websockets
-        self.active_connections: Dict[int, List[WebSocket]] = {}
+        # Maps conversation_id -> list of (websocket, user_id) tuples
+        self.active_connections: Dict[int, List[tuple]] = {}
 
-    async def connect(self, websocket: WebSocket, conversation_id: int):
+    async def connect(self, websocket: WebSocket, conversation_id: int, user_id: int):
         await websocket.accept()
         if conversation_id not in self.active_connections:
             self.active_connections[conversation_id] = []
-        self.active_connections[conversation_id].append(websocket)
+        self.active_connections[conversation_id].append((websocket, user_id))
 
     def disconnect(self, websocket: WebSocket, conversation_id: int):
         if conversation_id in self.active_connections:
-            if websocket in self.active_connections[conversation_id]:
-                self.active_connections[conversation_id].remove(websocket)
+            self.active_connections[conversation_id] = [
+                (ws, uid) for ws, uid in self.active_connections[conversation_id]
+                if ws != websocket
+            ]
             if not self.active_connections[conversation_id]:
                 del self.active_connections[conversation_id]
 
     async def broadcast_to_conversation(self, message: str, conversation_id: int, sender_websocket: WebSocket):
         if conversation_id in self.active_connections:
-            for connection in self.active_connections[conversation_id]:
+            dead = []
+            for connection, uid in self.active_connections[conversation_id]:
                 if connection != sender_websocket:
+                    try:
+                        await connection.send_text(message)
+                    except Exception:
+                        dead.append((connection, uid))
+            for d in dead:
+                self.active_connections[conversation_id].remove(d)
+
+    async def broadcast_to_all(self, message: str, conversation_id: int):
+        if conversation_id in self.active_connections:
+            dead = []
+            for connection, uid in self.active_connections[conversation_id]:
+                try:
                     await connection.send_text(message)
+                except Exception:
+                    dead.append((connection, uid))
+            for d in dead:
+                self.active_connections[conversation_id].remove(d)
+
+    async def send_to_user(self, message: str, conversation_id: int, target_user_id: int):
+        if conversation_id in self.active_connections:
+            dead = []
+            for connection, uid in self.active_connections[conversation_id]:
+                if uid == target_user_id:
+                    try:
+                        await connection.send_text(message)
+                    except Exception:
+                        dead.append((connection, uid))
+            for d in dead:
+                self.active_connections[conversation_id].remove(d)
 
 manager = ConnectionManager()
 
@@ -87,7 +124,7 @@ async def chat_triage(
         # 2. Run matching engine
         prof = triage_data.get("profession_required")
         location = {
-            "zip_code": triage_data.get("zip_code"),
+            "zip_code": triage_data.get("postal_code"),
             "country": triage_data.get("country"),
             "state_or_province": triage_data.get("state_or_province"),
             "city": triage_data.get("city"),
@@ -130,6 +167,83 @@ async def chat_triage(
         matched_contractors=matched_list
     )
 
+
+class ApproveDraftRequest(BaseModel):
+    conversation_id: int
+    draft_id: int
+
+
+@router.post("/approve-draft")
+async def approve_draft(
+    request: ApproveDraftRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Contractor approves an AI draft — saves to DB and sends it as their own message."""
+    if current_user.role != "contractor":
+        raise HTTPException(status_code=403, detail="Only contractors can approve drafts")
+
+    conv_result = await db.exec(select(Conversation).where(Conversation.id == request.conversation_id))
+    conversation = conv_result.first()
+    if not conversation or conversation.contractor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Retrieve draft from DB
+    from datetime import datetime
+    draft_result = await db.exec(select(AIDraft).where(AIDraft.id == request.draft_id))
+    draft = draft_result.first()
+    if not draft or draft.conversation_id != request.conversation_id or draft.status != "pending":
+        raise HTTPException(status_code=404, detail="Draft not found or already handled")
+
+    clean_content = draft.content
+
+    new_msg = DirectMessage(
+        conversation_id=request.conversation_id,
+        sender_id=current_user.id,
+        content=clean_content,
+    )
+    db.add(new_msg)
+
+    # Mark draft as approved
+    draft.status = "approved"
+    draft.resolved_at = datetime.utcnow()
+    await db.commit()
+
+    # Broadcast to all in conversation (now customer can see the approved message)
+    await manager.broadcast_to_all(clean_content, request.conversation_id)
+    logger.info("Draft %d approved by contractor %d", draft.id, current_user.id)
+
+    return {"status": "sent", "content": clean_content}
+
+
+class DismissDraftRequest(BaseModel):
+    conversation_id: int
+    draft_id: int
+
+
+@router.post("/dismiss-draft")
+async def dismiss_draft(
+    request: DismissDraftRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Contractor dismisses an AI draft."""
+    if current_user.role != "contractor":
+        raise HTTPException(status_code=403, detail="Only contractors can dismiss drafts")
+
+    from datetime import datetime
+    draft_result = await db.exec(select(AIDraft).where(AIDraft.id == request.draft_id))
+    draft = draft_result.first()
+    if not draft or draft.conversation_id != request.conversation_id or draft.status != "pending":
+        raise HTTPException(status_code=404, detail="Draft not found or already handled")
+
+    draft.status = "dismissed"
+    draft.resolved_at = datetime.utcnow()
+    await db.commit()
+
+    return {"status": "dismissed"}
+
+
 @router.websocket("/ws/{conversation_id}")
 async def websocket_endpoint(
     websocket: WebSocket, 
@@ -157,7 +271,7 @@ async def websocket_endpoint(
             await websocket.close(code=1008, reason="Unauthorized")
             return
 
-    await manager.connect(websocket, conversation_id)
+    await manager.connect(websocket, conversation_id, user_id)
     try:
         while True:
             data = await websocket.receive_text()
@@ -174,6 +288,139 @@ async def websocket_endpoint(
                 
             # Broadcast to other participant
             await manager.broadcast_to_conversation(data, conversation_id, websocket)
+
+            # AI Autonomy: check if the receiver is a contractor with auto-reply enabled
+            async with async_session_maker() as db:
+                conv_result = await db.exec(select(Conversation).where(Conversation.id == conversation_id))
+                conversation = conv_result.first()
+                if not conversation:
+                    continue
+
+                # Determine who the contractor is
+                contractor_id = conversation.contractor_id
+                customer_id = conversation.customer_id
+
+                # Only trigger AI when the CUSTOMER sends a message
+                if user_id != customer_id:
+                    continue
+
+                contractor_result = await db.exec(select(User).where(User.id == contractor_id))
+                contractor = contractor_result.first()
+                if not contractor:
+                    continue
+
+                autonomy = contractor.ai_autonomy_level or 1
+
+                # Level 1: manual — send cross-platform alert
+                if autonomy == 1:
+                    try:
+                        customer_result = await db.exec(select(User).where(User.id == customer_id))
+                        customer = customer_result.first()
+                        customer_name = customer.full_name if customer else "Customer"
+                        await alert_new_message(db, contractor_id, customer_name, data)
+                    except Exception:
+                        pass
+                    continue
+
+                # Build contractor context for AI
+                contractor_context = {
+                    "profession": contractor.profession,
+                    "base_pricing": contractor.base_pricing,
+                    "service_radius_miles": contractor.service_radius_miles,
+                    "working_hours_start": contractor.working_hours_start,
+                    "working_hours_end": contractor.working_hours_end,
+                    "ai_tone_preference": contractor.ai_tone_preference,
+                }
+
+                # Generate AI reply
+                ai_reply = await generate_contractor_reply(data, contractor_context)
+
+                if autonomy == 2:
+                    # Level 2: AI Draft — save to DB, send to contractor only
+                    draft = AIDraft(
+                        conversation_id=conversation_id,
+                        contractor_id=contractor_id,
+                        content=ai_reply,
+                        status="pending",
+                    )
+                    db.add(draft)
+                    await db.commit()
+                    await db.refresh(draft)
+
+                    draft_msg = f"[AI DRAFT:{draft.id}] {ai_reply}"
+                    # Only send draft to the contractor, NOT the customer
+                    await manager.send_to_user(draft_msg, conversation_id, contractor_id)
+                    logger.info("Draft %d created for conversation %d, sent to contractor %d via WS", draft.id, conversation_id, contractor_id)
+
+                    # Send to Telegram with inline keyboard
+                    try:
+                        async with async_session_maker() as tg_db:
+                            tg_result = await tg_db.exec(
+                                select(OmnichannelIntegration).where(
+                                    OmnichannelIntegration.contractor_id == contractor_id,
+                                    OmnichannelIntegration.platform == "telegram",
+                                    OmnichannelIntegration.is_active == True,
+                                )
+                            )
+                            tg_integration = tg_result.first()
+                            if tg_integration:
+                                import httpx
+                                inline_keyboard = {
+                                    "inline_keyboard": [
+                                        [
+                                            {"text": "✅ Approve", "callback_data": f"approve_draft:{conversation_id}:{draft.id}"},
+                                            {"text": "❌ Dismiss", "callback_data": f"dismiss_draft:{conversation_id}:{draft.id}"},
+                                        ],
+                                    ]
+                                }
+                                telegram_text = (
+                                    f"🤖 AI Draft — Job #{conversation_id}\n\n"
+                                    f"{ai_reply}\n\n"
+                                    f"Tap Approve to send, or Dismiss to discard."
+                                )
+                                async with httpx.AsyncClient() as client:
+                                    resp = await client.post(
+                                        f"https://api.telegram.org/bot{tg_integration.access_token}/sendMessage",
+                                        json={
+                                            "chat_id": tg_integration.platform_account_id,
+                                            "text": telegram_text,
+                                            "reply_markup": inline_keyboard,
+                                        },
+                                    )
+                                    resp_data = resp.json()
+                                    if resp_data.get("ok"):
+                                        logger.info("Telegram draft sent to chat_id=%s", tg_integration.platform_account_id)
+                                    else:
+                                        logger.error("Telegram send failed: %s", resp_data)
+                            else:
+                                logger.warning("No active Telegram integration for contractor %d", contractor_id)
+                    except Exception as e:
+                        logger.error("Telegram draft send error: %s", str(e))
+
+                elif autonomy == 3:
+                    # Level 3: Auto-Reply — send as the contractor
+                    auto_dm = DirectMessage(
+                        conversation_id=conversation_id,
+                        sender_id=contractor_id,
+                        content=ai_reply,
+                    )
+                    db.add(auto_dm)
+                    await db.commit()
+                    await manager.broadcast_to_all(ai_reply, conversation_id)
+
+                    # Log the auto-reply
+                    audit = AIOperationsAuditLog(
+                        action_type="chat_auto_reply",
+                        user_id=customer_id,
+                        contractor_id=contractor_id,
+                        gemini_model_version=settings.GEMINI_MODEL,
+                        input_context={"message": data},
+                        raw_ai_response=ai_reply,
+                        structured_decision={"autonomy_level": 3, "conversation_id": conversation_id},
+                        status="success",
+                    )
+                    db.add(audit)
+                    await db.commit()
             
     except WebSocketDisconnect:
         manager.disconnect(websocket, conversation_id)

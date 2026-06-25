@@ -62,6 +62,20 @@ def _location_is_usable(user_location: Dict[str, Any]) -> bool:
     ])
 
 
+_VERIFICATION_RANK = {
+    "verified pro": 4,
+    "gold": 3,
+    "silver": 2,
+    "bronze": 1,
+}
+
+
+def _trust_score(contractor: User) -> float:
+    vrank = _VERIFICATION_RANK.get(_clean(contractor.verification_level), 0)
+    rep = contractor.reputation_score or 0.0
+    return vrank * 100 + rep
+
+
 async def find_matches(db: AsyncSession, profession: str, location: Dict[str, Any] | None = None) -> Dict[str, Any]:
     """
     Finds contractors matching trade and global location.
@@ -84,6 +98,20 @@ async def find_matches(db: AsyncSession, profession: str, location: Dict[str, An
 
     for contractor in contractors:
         if profession_clean and not _has_same_text(profession_clean, contractor.profession):
+            continue
+
+        if _clean(contractor.availability_status) == "away":
+            rejected.append({
+                "contractor_id": contractor.id,
+                "reason": "Contractor is currently Away"
+            })
+            continue
+
+        if _clean(contractor.availability_status) == "vacation":
+            rejected.append({
+                "contractor_id": contractor.id,
+                "reason": "Contractor is on Vacation"
+            })
             continue
 
         jobs_query = select(Job).where(Job.assigned_contractor_id == contractor.id)
@@ -115,7 +143,13 @@ async def find_matches(db: AsyncSession, profession: str, location: Dict[str, An
             "area": contractor.area,
             "country": contractor.country,
             "postal_code": contractor.postal_code or contractor.zip_code,
+            "verification_level": contractor.verification_level,
+            "reputation_score": contractor.reputation_score,
+            "availability_status": contractor.availability_status,
+            "trust_score": _trust_score(contractor),
         })
+
+    matched.sort(key=lambda m: (-m["trust_score"], m["distance"]))
 
     return {
         "matched": matched,

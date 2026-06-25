@@ -5,7 +5,8 @@ from typing import Any
 import httpx
 
 from app.api.dependencies import get_db
-from app.models.all_models import OmnichannelIntegration, User
+from app.core.database import async_session_maker
+from app.models.all_models import OmnichannelIntegration, User, Conversation, DirectMessage, AIDraft
 from app.core.config import settings
 from app.models.audit_log import AIOperationsAuditLog
 from app.services.gemini_service import generate_contractor_reply
@@ -96,6 +97,91 @@ async def receive_webhook(
             return {"status": "ignored"}
             
     elif platform == "telegram":
+        # Handle callback queries from inline keyboard (approve/dismiss draft)
+        if "callback_query" in payload:
+            callback = payload["callback_query"]
+            callback_id = callback.get("id", "")
+            data = callback.get("data", "")
+            chat_id = str(callback["message"]["chat"]["id"])
+            message_id = callback["message"]["message_id"]
+
+            # Find the integration by chat_id to get the bot token
+            async with async_session_maker() as db:
+                integ_result = await db.exec(
+                    select(OmnichannelIntegration).where(
+                        OmnichannelIntegration.platform == "telegram",
+                        OmnichannelIntegration.platform_account_id == chat_id,
+                        OmnichannelIntegration.is_active == True,
+                    )
+                )
+                integ = integ_result.first()
+
+            if not integ:
+                return {"status": "no_integration"}
+
+            bot_token = integ.access_token
+
+            # ALWAYS answer the callback query first to stop the spinner
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery",
+                    json={"callback_query_id": callback_id},
+                )
+
+                if data.startswith("approve_draft:"):
+                    parts = data.split(":")
+                    conversation_id = int(parts[1])
+                    draft_id = int(parts[2])
+
+                    async with async_session_maker() as db:
+                        from datetime import datetime
+                        draft_result = await db.exec(select(AIDraft).where(AIDraft.id == draft_id))
+                        draft = draft_result.first()
+                        if draft and draft.conversation_id == conversation_id and draft.status == "pending":
+                            clean_content = draft.content
+                            new_msg = DirectMessage(
+                                conversation_id=conversation_id,
+                                sender_id=draft.contractor_id,
+                                content=clean_content,
+                            )
+                            db.add(new_msg)
+                            draft.status = "approved"
+                            draft.resolved_at = datetime.utcnow()
+                            await db.commit()
+
+                            await client.post(
+                                f"https://api.telegram.org/bot{bot_token}/editMessageText",
+                                json={
+                                    "chat_id": chat_id,
+                                    "message_id": message_id,
+                                    "text": f"Approved and sent!\n\n{clean_content}",
+                                },
+                            )
+
+                elif data.startswith("dismiss_draft:"):
+                    parts = data.split(":")
+                    draft_id = int(parts[2])
+
+                    async with async_session_maker() as db:
+                        from datetime import datetime
+                        draft_result = await db.exec(select(AIDraft).where(AIDraft.id == draft_id))
+                        draft = draft_result.first()
+                        if draft and draft.status == "pending":
+                            draft.status = "dismissed"
+                            draft.resolved_at = datetime.utcnow()
+                            await db.commit()
+
+                            await client.post(
+                                f"https://api.telegram.org/bot{bot_token}/editMessageText",
+                                json={
+                                    "chat_id": chat_id,
+                                    "message_id": message_id,
+                                    "text": "Draft dismissed.",
+                                },
+                            )
+
+            return {"status": "ok"}
+
         try:
             message = payload["message"]
             sender_id = str(message["chat"]["id"])

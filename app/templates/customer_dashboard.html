@@ -14,10 +14,16 @@
       </h1>
       <p class="text-gray-500 text-sm mt-1">Track your service requests and connect with your pros.</p>
     </div>
-    <a href="/search" class="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition shadow-md hover:shadow-blue-200 active:scale-95">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-      Find a New Pro
-    </a>
+    <div class="flex gap-2">
+      <a href="/contractors" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 hover:border-blue-300 transition shadow-sm">
+        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Browse Contractors
+      </a>
+      <a href="/search" class="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition shadow-md hover:shadow-blue-200 active:scale-95">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Find a New Pro
+      </a>
+    </div>
   </div>
 
   <!-- ====== ACTIVE JOBS ====== -->
@@ -38,7 +44,7 @@
         {% elif job.status == 'matched' %}border-t-blue-400
         {% elif job.status == 'booked' %}border-t-green-500
         {% endif %}
-        hover:shadow-lg transition group"
+        hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 group"
         id="job-card-{{ job.id }}"
       >
         <!-- Status Badge -->
@@ -69,7 +75,38 @@
         </p>
 
         <!-- Escrow Status Indicator -->
-        {% if job.status == 'booked' %}
+        {% set escrow = escrow_map.get(job.id) %}
+        {% if escrow %}
+          {% if escrow.status == 'held' %}
+          <div class="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100 mb-4">
+            <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <div class="flex-1">
+              <p class="text-xs font-semibold text-green-700">Escrow Held — ${{ escrow.total_amount }}</p>
+              <p class="text-[10px] text-green-600">Funds protected until job completes</p>
+            </div>
+          </div>
+          {% elif escrow.status == 'released' %}
+          <div class="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100 mb-4">
+            <svg class="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <p class="text-xs font-semibold text-blue-700">Payment Released — ${{ escrow.contractor_payout }} to contractor</p>
+          </div>
+          {% elif escrow.status == 'refunded' %}
+          <div class="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100 mb-4">
+            <svg class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+            <p class="text-xs font-semibold text-amber-700">Refunded — ${{ escrow.customer_refund }} returned</p>
+          </div>
+          {% elif escrow.status == 'disputed' %}
+          <div class="flex items-center gap-2 p-3 bg-red-50 rounded-lg border border-red-100 mb-4">
+            <svg class="w-4 h-4 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <p class="text-xs font-semibold text-red-700">Dispute Open — ${{ escrow.total_amount }} frozen</p>
+          </div>
+          {% elif escrow.status == 'penalty_split' %}
+          <div class="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-100 mb-4">
+            <svg class="w-4 h-4 text-purple-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+            <p class="text-xs font-semibold text-purple-700">Split: ${{ escrow.customer_refund }} refund / ${{ escrow.contractor_payout }} payout</p>
+          </div>
+          {% endif %}
+        {% elif job.status == 'booked' %}
         <div class="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100 mb-4">
           <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
           <p class="text-xs font-semibold text-green-700">Escrow Secured — Funds Protected</p>
@@ -82,23 +119,52 @@
         {% endif %}
 
         <!-- Assigned Contractor -->
-        {% if job.assigned_contractor_id %}
-        <div class="flex items-center gap-3 pt-4 border-t border-gray-100">
-          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-            {{ job.contractor.full_name[0] | upper if job.contractor else '?' }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-xs text-gray-400">Assigned Contractor</p>
-            <p class="text-sm font-semibold text-gray-800 truncate">{{ job.contractor.full_name if job.contractor else 'Unknown' }}</p>
-          </div>
-          <a href="/chat/{{ job.id }}" class="flex-shrink-0 p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition" title="Open Chat">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        {% if job.assigned_contractor_id and job.assigned_contractor %}
+        <div class="pt-4 border-t border-gray-100">
+          <a href="/contractors/{{ job.assigned_contractor.id }}" class="flex items-center gap-3 p-2 -m-2 rounded-xl hover:bg-gray-50 transition group/link">
+            <div class="relative w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              {{ job.assigned_contractor.full_name[0] | upper }}
+              {% if job.assigned_contractor.verification_level and job.assigned_contractor.verification_level != 'none' %}
+              <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-green-500 border-2 border-white flex items-center justify-center">
+                <svg class="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+              </span>
+              {% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs text-gray-400">Assigned Contractor</p>
+              <div class="flex items-center gap-1.5">
+                <p class="text-sm font-semibold text-gray-800 truncate group-hover/link:text-blue-600 transition">{{ job.assigned_contractor.full_name }}</p>
+                {% if job.assigned_contractor.verification_level and job.assigned_contractor.verification_level != 'none' %}
+                <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold bg-green-50 text-green-700 rounded-full uppercase tracking-wider">Verified</span>
+                {% endif %}
+              </div>
+              {% if job.assigned_contractor.reputation_score %}
+              <div class="flex items-center gap-1 mt-0.5">
+                {% for i in range(5) %}
+                  {% if i < job.assigned_contractor.reputation_score // 20 %}
+                    <svg class="w-3 h-3 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                  {% else %}
+                    <svg class="w-3 h-3 text-gray-200 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                  {% endif %}
+                {% endfor %}
+                <span class="text-[10px] text-gray-400 ml-0.5">{{ job.assigned_contractor.reputation_score // 20 }}/5</span>
+              </div>
+              {% endif %}
+            </div>
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <span class="p-2 rounded-lg bg-blue-50 text-blue-600 group-hover/link:bg-blue-100 transition" title="View Profile">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+              </span>
+              <span class="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition" title="Open Chat" onclick="event.stopPropagation(); window.location.href='/chat/{{ job.id }}'">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              </span>
+            </div>
           </a>
         </div>
         {% else %}
         <div class="pt-4 border-t border-gray-100">
-          <a href="/search" class="block text-center py-2 px-4 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition">
-            Browse Available Pros →
+          <a href="/contractors" class="block text-center py-2 px-4 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition">
+            Browse Verified Contractors →
           </a>
         </div>
         {% endif %}
@@ -106,7 +172,7 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200 shadow-inner">
+    <div class="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200 shadow-inner hover:border-blue-300 transition-all duration-300">
       <div class="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
         <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       </div>
@@ -134,7 +200,7 @@
         </thead>
         <tbody class="divide-y divide-gray-50">
           {% for job in past_jobs %}
-          <tr class="hover:bg-gray-50 transition">
+          <tr class="hover:bg-blue-50/50 transition-colors duration-200">
             <td class="px-6 py-4 text-sm text-gray-700 max-w-xs truncate">{{ job.description }}</td>
             <td class="px-6 py-4">
               <span class="inline-flex px-2.5 py-1 text-xs font-bold rounded-full uppercase
@@ -145,7 +211,14 @@
             </td>
             <td class="px-6 py-4 text-sm text-gray-500">{{ job.created_at.strftime('%b %d, %Y') }}</td>
             <td class="px-6 py-4 text-sm text-gray-600">
-              {% if job.contractor %}{{ job.contractor.full_name }}{% else %}—{% endif %}
+              {% if job.assigned_contractor %}
+              <a href="/contractors/{{ job.assigned_contractor.id }}" class="inline-flex items-center gap-1.5 hover:text-blue-600 transition">
+                {{ job.assigned_contractor.full_name }}
+                {% if job.assigned_contractor.verification_level and job.assigned_contractor.verification_level != 'none' %}
+                <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white"><svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg></span>
+                {% endif %}
+              </a>
+              {% else %}—{% endif %}
             </td>
           </tr>
           {% endfor %}

@@ -116,13 +116,6 @@ async def signup_submit(
     if role not in ("customer", "contractor"):
         role = "customer"
 
-    if not country or not city:
-        return templates.TemplateResponse(request=request, name="register_contractor.html", context={
-            "request": request,
-            "current_user": None,
-            "error": "Country and city are required for global matching.",
-        }, status_code=400)
-
     # Check duplicate
     result = await db.exec(select(User).where(User.email == email))
     if result.first():

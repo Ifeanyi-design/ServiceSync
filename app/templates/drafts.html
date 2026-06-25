@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}AI Drafts — ServiceSync{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center space-x-2 text-sm text-gray-400 mb-6" aria-label="Breadcrumb">
+    <a href="/dashboard" class="hover:text-blue-600 transition">Dashboard</a>
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-gray-600 font-medium">AI Drafts</span>
+  </nav>
+
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">Pending AI Drafts</h1>
+    <p class="text-gray-500 mt-1">Review and approve AI-generated replies before they're sent to customers.</p>
+  </div>
+
+  {% if not drafts_with_context %}
+  <!-- Empty state -->
+  <div class="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+    <div class="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+    </div>
+    <h3 class="text-lg font-bold text-gray-900 mb-2">No pending drafts</h3>
+    <p class="text-gray-500 text-sm">When a customer messages you and your AI autonomy is set to "AI Drafts", suggested replies will appear here for your review.</p>
+  </div>
+
+  {% else %}
+
+  <div class="space-y-4">
+    {% for item in drafts_with_context %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow" id="draft-{{ item.draft.id }}">
+      <div class="p-5">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">
+              {% if item.partner %}{{ item.partner.full_name[0] | upper }}{% else %}?{% endif %}
+            </div>
+            <div>
+              <p class="font-semibold text-gray-900 text-sm">{% if item.partner %}{{ item.partner.full_name }}{% else %}Customer{% endif %}</p>
+              <p class="text-xs text-gray-400">Conversation #{{ item.draft.conversation_id }} · {{ item.draft.created_at.strftime('%b %d, %H:%M') }}</p>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full border border-amber-200">Pending</span>
+        </div>
+
+        <!-- Draft content -->
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+          <div class="flex items-center gap-1.5 mb-2">
+            <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            <span class="text-xs font-bold text-amber-600">AI-Generated Reply</span>
+          </div>
+          <p class="text-sm text-amber-800 leading-relaxed">{{ item.draft.content }}</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-3">
+          <button onclick="approveDraft({{ item.draft.id }}, {{ item.draft.conversation_id }})"
+            class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold text-sm rounded-xl transition shadow-sm active:scale-95">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Approve & Send
+          </button>
+          <button onclick="dismissDraft({{ item.draft.id }}, {{ item.draft.conversation_id }})"
+            class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 font-semibold text-sm rounded-xl transition active:scale-95">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            Dismiss
+          </button>
+          {% if item.conversation %}
+          <a href="/chat/{{ item.draft.conversation_id }}"
+            class="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-semibold text-sm rounded-xl transition">
+            View Chat
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function approveDraft(draftId, conversationId) {
+  fetch('/api/v1/chat/approve-draft', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      conversation_id: conversationId,
+      draft_id: draftId
+    })
+  }).then(r => r.json()).then(data => {
+    if (data.status === 'sent') {
+      const el = document.getElementById('draft-' + draftId);
+      if (el) {
+        el.innerHTML = '<div class="p-5 text-center"><span class="text-green-600 font-semibold text-sm">✅ Approved and sent!</span></div>';
+        setTimeout(() => el.remove(), 2000);
+      }
+    } else {
+      alert('Failed: ' + (data.detail || 'Unknown error'));
+    }
+  }).catch(() => alert('Failed to approve draft.'));
+}
+
+function dismissDraft(draftId, conversationId) {
+  fetch('/api/v1/chat/dismiss-draft', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      conversation_id: conversationId,
+      draft_id: draftId
+    })
+  }).then(r => r.json()).then(data => {
+    if (data.status === 'dismissed') {
+      const el = document.getElementById('draft-' + draftId);
+      if (el) {
+        el.innerHTML = '<div class="p-5 text-center"><span class="text-gray-500 font-semibold text-sm">Draft dismissed</span></div>';
+        setTimeout(() => el.remove(), 2000);
+      }
+    }
+  }).catch(() => alert('Failed to dismiss draft.'));
+}
+</script>
+{% endblock %}

@@ -3,12 +3,15 @@ from fastapi.responses import RedirectResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import Any
+from decimal import Decimal
 
 from app.api.dependencies import get_db, get_current_user
-from app.models.all_models import Job, User, Conversation
+from app.models.all_models import Job, User, Conversation, Escrow
 from app.models.audit_log import AIOperationsAuditLog
 from app.schemas.job import JobResponse, BookJobRequest
 from app.services.matching_engine import find_matches
+from app.services.escrow_service import create_escrow, calculate_fees
+from app.services.alert_service import alert_new_booking
 
 router = APIRouter()
 
@@ -39,9 +42,6 @@ async def book_job(
     job.status = "booked"
     db.add(job)
 
-    # Mock Escrow Service / Stripe integration
-    payment_status = "escrow_secured"
-    
     # Ensure job has an id before conversation
     await db.flush()
     
@@ -53,9 +53,22 @@ async def book_job(
         contractor_id=request.contractor_id
     )
     db.add(conversation)
+    
+    # Create Escrow
+    contractor = await db.get(User, request.contractor_id)
+    amount = Decimal(str(contractor.base_pricing or 50.00)) if contractor else Decimal("50.00")
+    escrow = await create_escrow(db, job, current_user, contractor or current_user, amount)
+    
     await db.commit()
     await db.refresh(job)
     await db.refresh(conversation)
+
+    # Dispatch cross-platform alert to contractor
+    try:
+        await alert_new_booking(db, contractor, job, current_user)
+    except Exception:
+        pass
+
     return job
 
 @router.get("/auto-book")
@@ -95,9 +108,20 @@ async def auto_book_contractor(
         contractor_id=contractor_id
     )
     db.add(conversation)
+    
+    # Create Escrow
+    amount = Decimal(str(contractor.base_pricing or 50.00))
+    escrow = await create_escrow(db, new_job, current_user, contractor, amount)
+    
     await db.commit()
     await db.refresh(new_job)
-    
+
+    # Dispatch cross-platform alert to contractor
+    try:
+        await alert_new_booking(db, contractor, new_job, current_user)
+    except Exception:
+        pass
+
     return RedirectResponse(url=f"/chat/{new_job.id}", status_code=303)
 
 @router.post("/{job_id}/cancel", response_model=JobResponse)

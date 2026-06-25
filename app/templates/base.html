@@ -62,15 +62,20 @@
           {% if current_user %}
             {% if current_user.role == 'customer' %}
               <a href="/search" class="nav-link">Find a Pro</a>
+              <a href="/contractors" class="nav-link">Browse Contractors</a>
               <a href="/dashboard/customer" class="nav-link">My Jobs</a>
+              <a href="/messages" class="nav-link">Messages</a>
             {% elif current_user.role == 'contractor' %}
               <a href="/dashboard/contractor" class="nav-link">My Dispatch</a>
+              <a href="/messages" class="nav-link">Messages</a>
+              <a href="/drafts" class="nav-link">Drafts</a>
               <a href="/integrations" class="nav-link">Integrations</a>
             {% elif current_user.role == 'admin' %}
               <a href="/admin" class="nav-link">Admin Dashboard</a>
             {% endif %}
           {% else %}
             <a href="/search" class="nav-link">Find a Pro</a>
+            <a href="/contractors" class="nav-link">Browse Contractors</a>
             <a href="#how-it-works" class="nav-link">How It Works</a>
             <a href="#pricing" class="nav-link">Pricing</a>
           {% endif %}
@@ -114,10 +119,22 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                     <span>My Jobs</span>
                   </a>
+                  <a href="/messages" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                    <span>Messages</span>
+                  </a>
                 {% elif current_user.role == 'contractor' %}
                   <a href="/dashboard/contractor" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     <span>My Dispatch</span>
+                  </a>
+                  <a href="/messages" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                    <span>Messages</span>
+                  </a>
+                  <a href="/drafts" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                    <span>Drafts</span>
                   </a>
                   <a href="/integrations" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 015.656 0l4-4a4 4 0 01-5.656-5.656l-1.1 1.1"/></svg>
@@ -158,17 +175,22 @@
 
     <!-- Mobile Menu -->
     <div id="mobile-menu" class="hidden md:hidden border-t border-gray-100 bg-white px-4 pb-4 pt-2 space-y-1">
-      {% if current_user %}
-        {% if current_user.role == 'customer' %}
-          <a href="/search" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Find a Pro</a>
-          <a href="/dashboard/customer" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">My Jobs</a>
-        {% elif current_user.role == 'contractor' %}
-          <a href="/dashboard/contractor" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">My Dispatch</a>
-          <a href="/integrations" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Integrations</a>
-        {% endif %}
-        <a href="/auth/logout" class="block px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition">Sign Out</a>
+        {% if current_user %}
+          {% if current_user.role == 'customer' %}
+            <a href="/search" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Find a Pro</a>
+            <a href="/contractors" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Browse Contractors</a>
+            <a href="/dashboard/customer" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">My Jobs</a>
+            <a href="/messages" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Messages</a>
+          {% elif current_user.role == 'contractor' %}
+            <a href="/dashboard/contractor" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">My Dispatch</a>
+            <a href="/messages" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Messages</a>
+            <a href="/drafts" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Drafts</a>
+            <a href="/integrations" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Integrations</a>
+          {% endif %}
+          <a href="/auth/logout" class="block px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition">Sign Out</a>
       {% else %}
         <a href="/search" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Find a Pro</a>
+        <a href="/contractors" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Browse Contractors</a>
         <a href="/auth/login" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Sign In</a>
         <a href="/auth/signup" class="block px-3 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition text-center mt-2">Get Started</a>
       {% endif %}

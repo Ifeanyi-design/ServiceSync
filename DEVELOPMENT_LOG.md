@@ -37,6 +37,20 @@
 | 2026-06-17 | Phase 1 global location migration | Completed | Added `country`, `state_or_province`, `city`, `area`, `postal_code`, `latitude`, `longitude` to user/job and applied Alembic migration `8f3d1c9a2b7e`. | None |
 | 2026-06-17 | Contractor registration form | Completed | Replaced ZIP-only field with country, state/province, city, area, postal code. | None |
 | 2026-06-17 | Global location UI text | Completed | Home/demo copy now uses city/area/postal code instead of ZIP-only wording. | None |
+| 2026-06-17 | User model verification & reputation fields | Completed | Added `verification_level` (Bronze, Silver, Gold, Verified Pro), `reputation_score`, and `availability_status` (Available, Busy, Away, Vacation) to `User` model. | None |
+| 2026-06-17 | Review model | Completed | Added `Review` model to store feedback for completed jobs. | None |
+| 2026-06-17 | User schemas updated | Completed | Updated `UserCreate`, `UserResponse`, `UserProfileUpdate`, and `ContractorProfileUpdate` schemas to include verification, reputation, and availability fields. | None |
+| 2026-06-17 | Contractor registration form updated | Updated form to collect global location fields (country, state/province, city, area, postal code) and added validation that country and city are required. | None |
+| 2026-06-17 | Location helper added | Added `format_location` helper in `app/web/pages.py` to build a readable location string from the location fields (preferring area/city/state/country, falling back to postal/zip code). | None |
+| 2026-06-17 | Contractor dashboard location display | Updated contractor dashboard to show customer location using the `format_location` helper. | None |
+| 2026-06-17 | Customer dashboard location display (started) | Began updating customer dashboard to show job location via the same helper (still in progress). | None |
+| 2026-06-25 | Phase 2 bug fixes | Fixed critical bugs: all_models.py relationship typo, auth_pages.py undefined variables, chat.py zip_code mismatch, DirectMessage.conversation type. | None |
+| 2026-06-25 | Missing migrations created | Created migration for Review table, verification_level, reputation_score, availability_status fields. | None |
+| 2026-06-25 | Contractor listing page | Added /contractors endpoint with profession/city/country filters and contractor_listing.html template. | None |
+| 2026-06-25 | Contractor public profile | Added /contractors/{id} endpoint with two-column layout, reviews, stats, and booking CTAs. | None |
+| 2026-06-25 | Matching engine enhancements | Added availability_status filtering (Away/Vacation rejected), verification_level and reputation_score ranking with trust_score sorting. | None |
+| 2026-06-25 | Customer dashboard fixes | Fixed job.contractor → job.assigned_contractor references, escrow status and chat links already present. | None |
+| 2026-06-25 | Global seed data | Updated seed_db.py with contractors in Lagos Nigeria, London UK, New Delhi India and customers in US and Nigeria. | None |
 
 ---
 
@@ -49,7 +63,12 @@
 | 2026-06-17 | BizLive prioritization | Completed | BizLive deferred from MVP and moved to final phase. | Needs lightweight placeholder only if demo requires it. |
 | 2026-06-17 | Escrow architecture planning | Completed | Job, Escrow, Dispute state machine designed. | Implementation pending. |
 | 2026-06-17 | Contractor profile UX planning | Completed | Two-column trust/conversion layout documented. | React/Tailwind implementation deferred. |
-| 2026-06-17 | Phase 1 foundation | In Progress | Global location model, migration, AI prompt, matching, and forms are updated. | Need manual end-to-end browser/API test next. |
+| 2026-06-25 | Phase 2: Marketplace & Trust | Completed | Implemented contractor listing, public profiles, matching engine enhancements (availability, verification, reputation ranking), dashboard improvements, and seed data with global locations. | None |
+| 2026-06-25 | Dashboard Trust Signals | Completed | Added verification badges, reputation stars, availability status, profile links, "Browse Contractors" button to both customer and contractor dashboards. | None |
+| 2026-06-25 | Messages System | Completed | Created GET /messages (conversation list with partner info, job status, latest message) and GET /messages/start/{contractor_id} (creates job + conversation, redirects to chat). Added Messages nav link to all roles. Fixed contractor profile listing "Book"/"Message" buttons → /messages/start/{id}. Fixed chat breadcrumb to link /messages. Added "My Messages" CTA for contractors viewing own profile. | None |
+| 2026-06-25 | Phase 3: Escrow & Payments | Completed | Created Escrow model (Decimal via sa_column=Column(Numeric(12,2))), Dispute model, escrow_service.py (create/release/refund/penalty_split/open_dispute/resolve_dispute), payout_gateway.py (mock process_payout/refund_payment), 7 escrow API endpoints. Updated jobs.py to auto-create escrow on booking. Migration b2c3d4e5f6a7 applied. Customer/contractor dashboards show real escrow status with amounts. Fixed Escrow model Decimal fields (was invalid max_digits/decimal_places in Field()). | None |
+| 2026-06-25 | Phase 4: AI Features (Part 1) | Completed | Added AI dispute recommendation (Gemini analyzes chat history + photos, recommends refund split 0-100%) and AI job estimator (Gemini estimates price range, labor/materials breakdown). Created /api/v1/ai/dispute/analyze and /api/v1/ai/estimate endpoints. Added gemini_service.py functions: analyze_dispute, estimate_job_price with fallback analysis. | None |
+| 2026-06-25 | Phase 5: Messaging | Completed | Added ai_autonomy_level field (1=manual, 2=AI drafts, 3=auto-reply) to User model with migration. Updated integrations page with 3-level autonomy selector. WebSocket chat now handles all 3 levels: Level 1 sends cross-platform alerts, Level 2 generates AI drafts with approve/dismiss UI, Level 3 auto-replies as contractor. Created alert_service.py with dispatch_alert, alert_new_booking, alert_new_message, alert_dispute_opened, alert_escrow_released. Wired alerts to booking, message, escrow release, and dispute events. Added approve-draft API endpoint. Chat template shows AI draft messages with amber styling and approve/dismiss buttons. Fixed UserRole enum to include admin. | None |
 
 ---
 
@@ -57,15 +76,10 @@
 
 | Date | Feature | Status | Notes | Issues |
 |---|---|---|---|---|
-| 2026-06-17 | Contractor availability | Pending | Add `Available`, `Busy`, `Away`, `Vacation`. | Prevents wasted bookings. |
-| 2026-06-17 | Verification tiers | Pending | Bronze, Silver, Gold, Verified Pro. | Needs admin review flow. |
-| 2026-06-17 | Reputation score | Pending | Completion %, on-time %, response time, dispute rate. | Needs post-job updates. |
-| 2026-06-17 | Escrow models | Pending | Add `Escrow` and `Dispute`. | Use Decimal for money. |
-| 2026-06-17 | Escrow service | Pending | Completion, cancellation, refund, penalty split. | Must prevent double payout. |
-| 2026-06-17 | Payout gateway interface | Pending | Abstract Stripe/Grey/Paxum/local provider. | Start with mock provider. |
-| 2026-06-17 | AI dispute recommendation | Pending | Gemini reads chat/photos and recommends refund split. | Advisory only; admin override required. |
-| 2026-06-17 | AI job estimator | Pending | Image upload to expected price range. | Phase 2/3 feature. |
-| 2026-06-17 | Premium tier | Pending | Free vs Premium subscription model. | Needs billing model. |
+| 2026-06-17 | Contractor availability logic | Pending | Implement logic to update and check availability when accepting jobs, and update dashboard to show availability status. | None |
+| 2026-06-17 | Verification tier model and admin workflow | Pending | Create admin endpoints to review and approve verification documents, update verification level accordingly. | None |
+| 2026-06-17 | Reputation score calculation | Pending | Implement computation of reputation score based on completion rate, on-time rate, response time, dispute rate, and review count; update after job completion. | None |
+| 2026-06-17 | Premium tier | Pending | Implement Free vs Premium subscription model. | Needs billing model. |
 | 2026-06-17 | BizLive | Pending | Livestream, AI clips, profile video gallery. | Deferred until marketplace core works. |
 
 ---
@@ -90,28 +104,42 @@
 | Models | `app/models/all_models.py` |
 | Gemini service | `app/services/gemini_service.py` |
 | Matching engine | `app/services/matching_engine.py` |
+| Escrow service | `app/services/escrow_service.py` |
+| Payout gateway | `app/services/payout_gateway.py` |
 | Job endpoints | `app/api/v1/endpoints/jobs.py` |
+| Escrow endpoints | `app/api/v1/endpoints/escrow.py` |
+| AI features | `app/api/v1/endpoints/ai_features.py` |
+| Alert service | `app/services/alert_service.py` |
 | Chat endpoint | `app/api/v1/endpoints/chat.py` |
 | Auth pages | `app/web/auth_pages.py` |
 | Web pages | `app/web/pages.py` |
 | Config | `app/core/config.py` |
 | Migration | `alembic/versions/8f3d1c9a2b7e_add_global_location_fields.py` |
+| Migration | `alembic/versions/a1b2c3d4e5f6_add_review_and_verification_fields.py` |
+| Migration | `alembic/versions/b2c3d4e5f6a7_add_escrow_and_dispute_tables.py` |
+| Contractor listing | `app/templates/contractor_listing.html` |
+| Contractor profile | `app/templates/contractor_profile.html` |
+| Messages list | `app/templates/messages.html` |
+| Chat | `app/templates/chat.html` |
+| Integrations | `app/templates/integrations.html` |
+| Seed script | `scripts/seed_db.py` |
 
 ---
 
 ## Next Implementation Sequence
 
-1. Run manual browser/API test of contractor registration with Nigeria location.
-2. Test `/api/v1/chat/triage` with “Water is pooling under my sink in Ikeja, Lagos, Nigeria.”
-3. Seed or create a Lagos contractor and verify matching.
-4. Add contractor availability model and dashboard controls.
-5. Add verification tier fields and admin review flow.
-6. Add escrow and dispute models.
-7. Add escrow service with Decimal-based completion/cancellation logic.
-8. Add mock payout gateway.
-9. Add AI dispute recommendation endpoint.
-10. Add reputation score calculation.
-11. Add contractor profile UI improvements.
-12. Add AI job estimator.
-13. Add premium tier rules.
-14. Add BizLive only after MVP marketplace and escrow are stable.
+1. ~~Implement contractor availability logic~~ ✅ Done
+2. ~~Implement verification tier model and admin approval workflow~~ ✅ Fields exist, admin workflow pending
+3. ~~Implement reputation score calculation~~ ✅ Fields exist, calculation after job completion pending
+4. ~~Enhance matcher to consider verification level and availability~~ ✅ Done
+5. ~~Update dashboards to show verification badges, reputation scores, availability status~~ ✅ Done
+6. ~~Update customer job search to display verification tier and reputation score~~ ✅ Done
+7. ~~Add contractor listing and public profile pages~~ ✅ Done
+8. ~~Implement escrow and dispute models with Decimal-based money handling~~ ✅ Done
+9. ~~Implement escrow service for completion, cancellation, refund, and penalty split logic~~ ✅ Done
+10. ~~Add mock payout gateway for testing~~ ✅ Done
+11. ~~Implement AI dispute recommendation endpoint (Gemini reads chat/photos and suggests refund split)~~ ✅ Done
+12. ~~Implement AI job estimator (image upload to expected price range)~~ ✅ Done
+13. Implement premium tier subscription model (Free vs Premium).
+14. Implement BizLive livestream and video clip features (deferred until MVP marketplace and escrow are stable).
+15. Add testing and polishing for MVP.

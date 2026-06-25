@@ -24,12 +24,17 @@
   </div>
 
   <!-- Flash / Save Feedback -->
-  {% if save_success %}
+  {% if request.query_params.get('saved') %}
   <div class="mb-6 flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm font-medium" id="save-banner">
     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-    Settings saved successfully!
+    {% if request.query_params.get('saved') == 'ai' %}AI settings saved!
+    {% elif request.query_params.get('saved') == 'constraints' %}Constraints saved!
+    {% elif request.query_params.get('saved') == 'autonomy' %}Autonomy level saved!
+    {% elif request.query_params.get('saved') == 'integration' %}Channel connected!
+    {% else %}Settings saved!{% endif %}
     <button onclick="this.parentElement.remove()" class="ml-auto text-green-500 hover:text-green-700">✕</button>
   </div>
+  <script>setTimeout(() => { const b = document.getElementById('save-banner'); if (b) b.remove(); }, 4000);</script>
   {% endif %}
 
   <!-- ====== SECTION 1: AI PERSONA SETTINGS ====== -->
@@ -44,7 +49,7 @@
       </div>
     </div>
 
-    <form method="POST" action="/users/me/profile" id="persona-form">
+    <form method="POST" action="/integrations/save-ai-settings" id="persona-form">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <!-- AI Tone Preference -->
@@ -126,7 +131,64 @@
     </form>
   </section>
 
-  <!-- ====== SECTION 2: OPERATIONAL CONSTRAINTS ====== -->
+  <!-- ====== SECTION 2: AI AUTONOMY ====== -->
+  <section class="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 mb-8">
+    <div class="flex items-center space-x-3 mb-6">
+      <div class="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
+        <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      </div>
+      <div>
+        <h2 class="text-lg font-bold text-gray-900">AI Autonomy Level</h2>
+        <p class="text-xs text-gray-500">Control how much your AI assistant does on your behalf</p>
+      </div>
+    </div>
+
+    <form method="POST" action="/integrations/save-autonomy" id="autonomy-form">
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="autonomy-selector">
+          {% set levels = [
+            (1, 'Manual', 'You handle all messages yourself. AI does nothing.', '✋', 'bg-gray-50', 'border-gray-200', 'text-gray-700'),
+            (2, 'AI Drafts', 'AI suggests replies for your approval before sending.', '✍️', 'bg-amber-50', 'border-amber-200', 'text-amber-700'),
+            (3, 'Auto-Reply', 'AI responds to customers automatically within your rules.', '🤖', 'bg-green-50', 'border-green-200', 'text-green-700')
+          ] %}
+          {% for value, label, desc, emoji, bg, border, text in levels %}
+          <label class="relative cursor-pointer">
+            <input type="radio" name="ai_autonomy_level" value="{{ value }}" class="sr-only peer"
+              {{ 'checked' if (current_user.ai_autonomy_level or 1) == value else '' }}>
+            <div class="flex flex-col items-center p-5 rounded-xl border-2 {{ border }} peer-checked:border-indigo-500 peer-checked:bg-indigo-50 hover:border-gray-300 transition-all duration-200 text-center">
+              <span class="text-3xl mb-2">{{ emoji }}</span>
+              <span class="font-bold text-gray-800 text-sm">{{ label }}</span>
+              <span class="text-xs text-gray-500 mt-1 leading-relaxed">{{ desc }}</span>
+            </div>
+            <div class="hidden peer-checked:flex absolute top-3 right-3 w-5 h-5 bg-indigo-600 rounded-full items-center justify-center">
+              <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+
+        <!-- Level 2 Details -->
+        <div id="level-2-details" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <p class="text-xs font-bold text-amber-700 mb-2">AI Draft Mode</p>
+          <p class="text-xs text-amber-600">When a customer messages you, the AI will generate a suggested reply. You'll see it in your chat and can approve, edit, or dismiss it before it's sent.</p>
+        </div>
+
+        <!-- Level 3 Details -->
+        <div id="level-3-details" class="hidden bg-green-50 border border-green-200 rounded-xl p-4">
+          <p class="text-xs font-bold text-green-700 mb-2">Auto-Reply Mode</p>
+          <p class="text-xs text-green-600">The AI will respond to customers automatically using your tone, pricing, and rules. You can pause this anytime by switching to Manual or Draft mode.</p>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end">
+        <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl transition-all shadow-md hover:shadow-indigo-200 active:scale-95">
+          Save Autonomy Level
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ====== SECTION 3: OPERATIONAL CONSTRAINTS ====== -->
   <section class="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 mb-8">
     <div class="flex items-center space-x-3 mb-6">
       <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
@@ -138,7 +200,7 @@
       </div>
     </div>
 
-    <form method="POST" action="/users/me/profile" id="constraints-form">
+    <form method="POST" action="/integrations/save-constraints" id="constraints-form">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <!-- Working Hours Start -->
@@ -282,31 +344,93 @@
 
 <!-- ====== ADD INTEGRATION MODAL ====== -->
 <div id="add-integration-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-  <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 relative animate-fade-in">
+  <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-8 relative animate-fade-in max-h-[90vh] overflow-y-auto">
     <button onclick="document.getElementById('add-integration-modal').classList.add('hidden')"
       class="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
-    <h3 class="text-lg font-bold text-gray-900 mb-1">Connect a New Channel</h3>
-    <p class="text-sm text-gray-500 mb-6">Your AI agent will automatically respond to inbound messages on this platform.</p>
+    <h3 class="text-lg font-bold text-gray-900 mb-1">Connect a Messaging Channel</h3>
+    <p class="text-sm text-gray-500 mb-6">Your AI agent will respond to customers on this platform. Draft approvals can also be handled from here.</p>
+
+    <!-- Platform Tabs -->
+    <div class="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
+      <button onclick="showPlatformGuide('whatsapp')" id="tab-whatsapp" class="flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition bg-white text-gray-900 shadow-sm">WhatsApp</button>
+      <button onclick="showPlatformGuide('telegram')" id="tab-telegram" class="flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition text-gray-500">Telegram</button>
+      <button onclick="showPlatformGuide('messenger')" id="tab-messenger" class="flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition text-gray-500">Messenger</button>
+    </div>
+
+    <!-- WhatsApp Guide -->
+    <div id="guide-whatsapp" class="platform-guide mb-6">
+      <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+        <p class="text-xs font-bold text-green-700 mb-2">Setup Steps</p>
+        <ol class="text-xs text-green-600 space-y-1.5 list-decimal list-inside">
+          <li>Go to <a href="https://business.facebook.com" target="_blank" class="underline font-semibold">Meta Business Suite</a></li>
+          <li>Create a WhatsApp Business Account</li>
+          <li>Go to <strong>WhatsApp &gt; API Setup</strong> and generate a temporary access token</li>
+          <li>Copy your <strong>Phone Number ID</strong> (this is your Account ID)</li>
+          <li>Paste both below and click Connect</li>
+        </ol>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+        <p class="text-xs text-amber-700"><strong>Note:</strong> Tokens expire after 24 hours in testing. For production, subscribe to the WhatsApp Business Platform for permanent tokens.</p>
+      </div>
+    </div>
+
+    <!-- Telegram Guide -->
+    <div id="guide-telegram" class="platform-guide hidden mb-6">
+      <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+        <p class="text-xs font-bold text-blue-700 mb-2">Setup Steps</p>
+        <ol class="text-xs text-blue-600 space-y-1.5 list-decimal list-inside">
+          <li>Open Telegram and search for <a href="https://t.me/BotFather" target="_blank" class="underline font-semibold">@BotFather</a></li>
+          <li>Send <code class="bg-blue-100 px-1 rounded">/newbot</code> and follow the prompts</li>
+          <li>BotFather will give you a <strong>bot token</strong> (looks like <code class="bg-blue-100 px-1 rounded">123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11</code>)</li>
+          <li>Copy the token and paste it as the <strong>Access Token</strong> below</li>
+          <li>For Account ID, enter your Telegram <strong>chat ID</strong> (your personal chat ID or a group ID)</li>
+          <li>To find your chat ID: send any message to your bot, then visit <code class="bg-blue-100 px-1 rounded">https://api.telegram.org/bot&lt;YOUR_TOKEN&gt;/getUpdates</code></li>
+        </ol>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+        <p class="text-xs text-amber-700"><strong>Optional — Production Webhook:</strong> For real-time message handling, set a webhook URL at <code class="bg-amber-100 px-1 rounded">https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook?url=https://yourdomain.com/api/v1/webhooks/telegram</code></p>
+      </div>
+    </div>
+
+    <!-- Messenger Guide -->
+    <div id="guide-messenger" class="platform-guide hidden mb-6">
+      <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+        <p class="text-xs font-bold text-indigo-700 mb-2">Setup Steps</p>
+        <ol class="text-xs text-indigo-600 space-y-1.5 list-decimal list-inside">
+          <li>Go to <a href="https://developers.facebook.com" target="_blank" class="underline font-semibold">Meta for Developers</a></li>
+          <li>Create a new App and add the <strong>Messenger</strong> product</li>
+          <li>Generate a <strong>Page Access Token</strong> for your Facebook Page</li>
+          <li>Copy the token and paste it as the <strong>Access Token</strong> below</li>
+          <li>For Account ID, enter your Facebook Page ID</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Connect Form -->
     <form method="POST" action="/integrations/connect">
       <div class="space-y-4">
         <div>
           <label for="platform" class="block text-sm font-semibold text-gray-700 mb-1.5">Platform</label>
-          <select id="platform" name="platform" class="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm transition">
-            <option value="whatsapp">🟢 WhatsApp</option>
-            <option value="telegram">✈️ Telegram</option>
-            <option value="messenger">💬 Facebook Messenger</option>
+          <select id="platform" name="platform" onchange="showPlatformGuide(this.value)"
+            class="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm transition">
+            <option value="whatsapp">WhatsApp Business</option>
+            <option value="telegram">Telegram Bot</option>
+            <option value="messenger">Facebook Messenger</option>
           </select>
         </div>
         <div>
-          <label for="platform_account_id" class="block text-sm font-semibold text-gray-700 mb-1.5">Account ID / Phone Number</label>
-          <input type="text" id="platform_account_id" name="platform_account_id" placeholder="+1 555 000 0000 or @botname"
+          <label for="platform_account_id" class="block text-sm font-semibold text-gray-700 mb-1.5">Account ID</label>
+          <input type="text" id="platform_account_id" name="platform_account_id"
+            placeholder="Phone Number ID / Chat ID / Page ID"
             class="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm" />
+          <p class="text-xs text-gray-400 mt-1" id="account-id-hint">WhatsApp: your Phone Number ID</p>
         </div>
         <div>
           <label for="access_token" class="block text-sm font-semibold text-gray-700 mb-1.5">Access Token</label>
-          <input type="password" id="access_token" name="access_token" placeholder="Your platform API token"
+          <input type="password" id="access_token" name="access_token"
+            placeholder="Paste your API token here"
             class="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm" />
         </div>
       </div>
@@ -321,10 +445,55 @@
 {% block extra_scripts %}
 <script>
 function toggleIntegration(integrationId, isActive) {
-  fetch(`/integrations/${integrationId}/toggle`, { method: 'POST' })
-    .then(r => r.json())
-    .then(() => location.reload())
-    .catch(() => alert('Failed to update integration.'));
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = `/integrations/${integrationId}/toggle`;
+  document.body.appendChild(form);
+  form.submit();
 }
+
+// Autonomy level details toggle
+(function() {
+  const radios = document.querySelectorAll('input[name="ai_autonomy_level"]');
+  const l2 = document.getElementById('level-2-details');
+  const l3 = document.getElementById('level-3-details');
+  function update() {
+    const val = document.querySelector('input[name="ai_autonomy_level"]:checked')?.value;
+    if (l2) l2.classList.toggle('hidden', val !== '2');
+    if (l3) l3.classList.toggle('hidden', val !== '3');
+  }
+  radios.forEach(r => r.addEventListener('change', update));
+  update();
+})();
+
+// Platform guide tabs
+function showPlatformGuide(platform) {
+  document.querySelectorAll('.platform-guide').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('[id^="tab-"]').forEach(el => {
+    el.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+    el.classList.add('text-gray-500');
+  });
+  const guide = document.getElementById('guide-' + platform);
+  const tab = document.getElementById('tab-' + platform);
+  if (guide) guide.classList.remove('hidden');
+  if (tab) {
+    tab.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+    tab.classList.remove('text-gray-500');
+  }
+  // Update hints
+  const hints = {
+    whatsapp: 'WhatsApp: your Phone Number ID from Meta Business Suite',
+    telegram: 'Telegram: your personal chat ID (from @userinfobot or getUpdates)',
+    messenger: 'Messenger: your Facebook Page ID'
+  };
+  const hint = document.getElementById('account-id-hint');
+  if (hint) hint.textContent = hints[platform] || '';
+}
+
+// Set default platform in modal
+document.addEventListener('DOMContentLoaded', function() {
+  const sel = document.getElementById('platform');
+  if (sel) showPlatformGuide(sel.value);
+});
 </script>
 {% endblock %}

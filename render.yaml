@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: servicesync
+    runtime: python
+    buildCommand: pip install -r requirements.txt && alembic upgrade head && python -m scripts.seed_db
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
+      - key: PYTHON_VERSION
+        value: "3.13"

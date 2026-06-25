@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 
-class JobLocationMixin(BaseModel):
+class JobLocationMixin:
     zip_code: Optional[str] = None
     country: Optional[str] = None
     state_or_province: Optional[str] = None
@@ -13,13 +13,13 @@ class JobLocationMixin(BaseModel):
     longitude: Optional[float] = None
 
 
-class JobCreate(JobLocationMixin):
+class JobCreate(BaseModel, JobLocationMixin):
     description: str
     urgency: Optional[str] = None # low, medium, high, emergency
     extracted_skills: List[str] = []
 
 
-class JobResponse(JobLocationMixin):
+class JobResponse(BaseModel, JobLocationMixin):
     id: int
     customer_id: int
     assigned_contractor_id: Optional[int]
