@@ -6,16 +6,22 @@
 {% block content %}
 <div class="max-w-6xl mx-auto py-8 px-4 sm:px-6">
 
+  {% if flash %}
+  <div class="mb-6 rounded-xl px-4 py-3 text-sm font-medium border {% if flash.kind == 'success' %}bg-emerald-50 border-emerald-100 text-emerald-700{% else %}bg-red-50 border-red-100 text-red-700{% endif %}">
+    {{ flash.message }}
+  </div>
+  {% endif %}
+
   <!-- Page Header -->
   <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
     <div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
         <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">
           Dispatch Board
         </h1>
         {% if current_user.verification_level and current_user.verification_level != 'none' %}
         <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-green-50 text-green-700 rounded-full border border-green-100">
-          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
           {{ current_user.verification_level | title }} Verified
         </span>
         {% endif %}
@@ -30,6 +36,12 @@
           {% endfor %}
           <span class="text-[10px] font-semibold text-gray-500 ml-0.5">{{ current_user.reputation_score }}%</span>
         </div>
+        {% endif %}
+        {% if is_premium %}
+        <a href="/billing" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white shadow-sm" title="Premium plan">
+          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001z"/></svg>
+          Premium
+        </a>
         {% endif %}
       </div>
       <div class="flex items-center gap-2 mt-1">
@@ -66,12 +78,26 @@
   </div>
 
   <!-- ====== KPI METRIC CARDS ====== -->
-  <div class="flex flex-wrap sm:flex-nowrap gap-5 mb-10">
+  {% if trial_days_remaining is not none %}
+  <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 py-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200">
+    <div class="flex items-center gap-3">
+      <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001z"/></svg>
+      <p class="text-sm text-amber-800"><strong>{{ trial_days_remaining }} day{{ 's' if trial_days_remaining != 1 else '' }}</strong> left on your Premium trial. Keep lower commission &amp; boosted ranking.</p>
+    </div>
+    <a href="/billing" class="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-sm font-bold hover:from-amber-500 hover:to-yellow-600 transition whitespace-nowrap">Manage Plan</a>
+  </div>
+  {% elif not is_premium %}
+  <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 py-4 rounded-xl bg-blue-50 border border-blue-200">
+    <p class="text-sm text-blue-800">Upgrade to <strong>Premium</strong> for lower commission, boosted ranking, and advanced analytics.</p>
+    <a href="/billing" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition whitespace-nowrap">See Plans</a>
+  </div>
+  {% endif %}
+  <div class="flex flex-wrap gap-4 mb-10">
 
     <!-- Daily Capacity -->
-    <div class="bg-white p-6 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-blue-200 transition-all duration-300">
+    <div class="bg-white p-5 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-blue-200 transition-all duration-300">
       {% set cap_pct = (jobs_today / current_user.max_daily_jobs * 100) | int %}
-      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Today's Capacity</p>
+      <p class="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-2">Today's Capacity</p>
       <p class="text-4xl font-extrabold {{ 'text-red-600' if cap_pct >= 100 else ('text-amber-500' if cap_pct >= 75 else 'text-blue-600') }}">
         {{ jobs_today }}<span class="text-xl font-semibold text-gray-300 mx-1">/</span><span class="text-xl font-semibold text-gray-500">{{ current_user.max_daily_jobs }}</span>
       </p>
@@ -86,30 +112,30 @@
     </div>
 
     <!-- Active Dispatches Count -->
-    <div class="bg-white p-6 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-green-200 transition-all duration-300">
-      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Active Dispatches</p>
+    <div class="bg-white p-5 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-green-200 transition-all duration-300">
+      <p class="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-2">Active Dispatches</p>
       <p class="text-4xl font-extrabold text-green-600">{{ active_dispatches | length }}</p>
       <p class="text-xs text-gray-400 mt-3">Booked jobs in progress</p>
     </div>
 
     <!-- Total Earnings -->
-    <div class="bg-white p-6 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-emerald-200 transition-all duration-300">
-      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Earnings</p>
+    <div class="bg-white p-5 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-emerald-200 transition-all duration-300">
+      <p class="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-2">Earnings</p>
       <p class="text-4xl font-extrabold text-emerald-600">${{ "%.2f" | format(total_earnings) }}</p>
       <p class="text-xs text-gray-400 mt-3">From active jobs</p>
     </div>
 
     <!-- Working Hours -->
-    <div class="bg-white p-6 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-indigo-200 transition-all duration-300">
-      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Working Hours</p>
+    <div class="bg-white p-5 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-indigo-200 transition-all duration-300">
+      <p class="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-2">Working Hours</p>
       <p class="text-xl font-extrabold text-gray-800">{{ current_user.working_hours_start }}</p>
       <div class="w-6 h-px bg-gray-300 mx-auto my-1"></div>
       <p class="text-xl font-extrabold text-gray-800">{{ current_user.working_hours_end }}</p>
     </div>
 
     <!-- Reputation Score -->
-    <div class="bg-white p-6 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-amber-200 transition-all duration-300">
-      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Reputation</p>
+    <div class="bg-white p-5 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-amber-200 transition-all duration-300">
+      <p class="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-2">Reputation</p>
       {% if current_user.reputation_score %}
       <p class="text-4xl font-extrabold {{ 'text-green-600' if current_user.reputation_score >= 80 else ('text-amber-500' if current_user.reputation_score >= 50 else 'text-red-500') }}">
         {{ current_user.reputation_score }}<span class="text-xl font-semibold text-gray-300">%</span>
@@ -130,24 +156,121 @@
     </div>
 
     <!-- Profession -->
-    <div class="bg-white p-6 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-purple-200 transition-all duration-300">
-      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Profession</p>
+    <div class="bg-white p-5 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-purple-200 transition-all duration-300">
+      <p class="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-2">Profession</p>
       <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mx-auto mb-2">
-        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 002-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
       </div>
       <p class="text-sm font-extrabold text-blue-700">{{ current_user.profession | capitalize if current_user.profession else 'Not set' }}</p>
     </div>
   </div>
 
+  <!-- ====== BOOST CTA ====== -->
+  <div class="mb-10 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-sm p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <div>
+        <p class="text-white font-bold text-sm">Boost your profile</p>
+        <p class="text-indigo-100 text-xs">Pin to the top of search results for 24h — paid from your earnings.</p>
+        {% if is_boosted %}
+        <p class="text-indigo-200 text-[11px] mt-0.5">Active until {{ boosted_until.strftime('%b %d, %H:%M') }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <form method="POST" action="/contractor/boost">
+      <button type="submit" class="px-5 py-2.5 rounded-xl bg-white text-indigo-700 font-bold text-sm hover:bg-indigo-50 transition shadow active:scale-95 whitespace-nowrap">
+        {% if is_boosted %}Boost Again{% else %}Boost — ${{ '%.0f' | format(boost_price) }}{% endif %}
+      </button>
+    </form>
+  </div>
+
+  <!-- ====== TRUST & VERIFICATION ====== -->
+  <section class="mb-10">
+    <h2 class="text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+      <svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+      Trust &amp; Verification
+    </h2>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Current Tier</p>
+          {% if current_user.verification_level and current_user.verification_level != 'none' %}
+          <p class="text-lg font-extrabold text-green-700">{{ current_user.verification_level | title }}</p>
+          {% else %}
+          <p class="text-lg font-extrabold text-gray-400">Unverified</p>
+          {% endif %}
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Trust Ladder</p>
+          <p class="text-xs text-gray-500 mt-1">Bronze → Silver → Gold → Verified Pro</p>
+        </div>
+      </div>
+
+      {% if verification_request and verification_request.status == 'pending' %}
+      <div class="flex items-center gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl">
+        <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div>
+          <p class="text-sm font-semibold text-amber-800">Request pending review</p>
+          <p class="text-xs text-amber-600">You applied for <strong>{{ verification_request.requested_level }}</strong>. An admin will review your documents shortly.</p>
+        </div>
+      </div>
+      {% else %}
+        {% if verification_request and verification_request.status == 'rejected' %}
+        <div class="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl mb-5">
+          <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          <div>
+            <p class="text-sm font-semibold text-red-800">Previous request rejected</p>
+            {% if verification_request.review_notes %}<p class="text-xs text-red-600">Reason: {{ verification_request.review_notes }}</p>{% endif %}
+            <p class="text-xs text-red-600">You can submit a new request below.</p>
+          </div>
+        </div>
+        {% endif %}
+        <form method="POST" action="/verification/submit" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Requested Tier</label>
+            <select name="requested_level" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
+              <option value="Bronze">Bronze — Email, phone, basic ID</option>
+              <option value="Silver">Silver — Government ID + complete profile</option>
+              <option value="Gold">Gold — Trade license + insurance</option>
+              <option value="Verified Pro">Verified Pro — License, insurance, background check</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">ID Document (link)</label>
+            <input type="text" name="id_document_url" placeholder="https://…" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Trade License (link)</label>
+            <input type="text" name="license_document_url" placeholder="https://…" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Insurance (link)</label>
+            <input type="text" name="insurance_document_url" placeholder="https://…" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Notes</label>
+            <input type="text" name="notes" placeholder="Anything the reviewer should know" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2" />
+          </div>
+          <div class="sm:col-span-2">
+            <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition shadow-md hover:shadow-blue-200">Submit for Verification</button>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+
   <!-- ====== ACTIVE DISPATCHES TABLE ====== -->
   <section>
-    <h2 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+    <h2 class="text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
       <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
       Active Dispatches
     </h2>
 
     {% if active_dispatches %}
-    <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100">
+    <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse" aria-label="Active job dispatches">
           <thead>
@@ -165,33 +288,33 @@
             <tr class="hover:bg-blue-50/50 transition-colors duration-200 group" id="dispatch-{{ job.id }}">
               <td class="px-6 py-4">
                 <p class="text-sm font-semibold text-gray-800 max-w-xs truncate">{{ job.description }}</p>
-                <span class="inline-flex mt-1 items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs font-bold rounded-full">
-                  <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span>Booked
-                </span>
-                {% if escrow %}
-                <div class="mt-1.5 flex items-center gap-1.5">
+                <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100">
+                    <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span>Booked
+                  </span>
+                  {% if escrow %}
                   {% if escrow.status == 'held' %}
-                  <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     ${{ escrow.contractor_payout }} payout
                   </span>
                   {% elif escrow.status == 'released' %}
-                  <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full border border-blue-100">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     Paid ${{ escrow.contractor_payout }}
                   </span>
                   {% elif escrow.status == 'disputed' %}
-                  <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-full">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-full border border-red-100">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                     Frozen
                   </span>
                   {% endif %}
+                  {% endif %}
                 </div>
-                {% endif %}
               </td>
               <td class="px-6 py-4">
                 <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  <div class="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ring-2 ring-white shadow-sm">
                     {{ job.customer.full_name[0] | upper if job.customer else '?' }}
                   </div>
                   <div>
@@ -209,18 +332,43 @@
                 {{ job.created_at.strftime('%b %d, %Y') }}
               </td>
               <td class="px-6 py-4">
-                <div class="flex items-center gap-2">
-                  <a href="/chat/{{ job.id }}" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg hover:bg-blue-100 transition">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <a href="/chat/{{ job.id }}" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg hover:bg-blue-100 transition border border-blue-100">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                     Chat
                   </a>
+                  {% if job.status == 'booked' %}
+                  <form method="POST" action="/jobs/{{ job.id }}/start" class="inline">
+                    <button type="submit" class="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-semibold rounded-lg hover:bg-green-100 transition border border-green-100">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                      Start Job
+                    </button>
+                  </form>
+                  {% elif job.status == 'in_progress' %}
+                  <form method="POST" action="/jobs/{{ job.id }}/mark-complete" class="inline">
+                    <button type="submit" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg hover:bg-indigo-100 transition border border-indigo-100">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                      Mark Complete
+                    </button>
+                  </form>
+                  {% elif job.status == 'completed_pending' %}
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded-lg border border-amber-100">
+                    Awaiting customer confirmation
+                  </span>
+                  {% endif %}
+                  {% if escrow and escrow.status in ('held', 'released') %}
+                  <a href="/jobs/{{ job.id }}/receipt" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-100 transition border border-gray-100">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Receipt
+                  </a>
+                  {% endif %}
                   <button
                     onclick="cancelJob({{ job.id }}, this)"
-                    class="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-100 transition"
+                    class="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-100 transition border border-red-100"
                     aria-label="Cancel and reroute job {{ job.id }}"
                   >
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    Cancel & Reroute
+                    Cancel
                   </button>
                 </div>
               </td>
@@ -231,13 +379,13 @@
       </div>
     </div>
     {% else %}
-    <div class="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200 hover:border-blue-300 transition-all duration-300">
+    <div class="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200 shadow-sm hover:border-blue-300 transition-all duration-300">
       <div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mb-3">
         <svg class="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       </div>
-      <p class="text-gray-600 font-semibold text-sm">No active dispatches</p>
-      <p class="text-gray-400 text-xs mt-1 mb-3">Jobs matched to you by the AI engine will appear here.</p>
-      <a href="/contractors" class="px-4 py-2 bg-blue-50 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-100 transition">Browse Contractors</a>
+      <p class="text-gray-700 font-semibold text-sm mb-1">No active dispatches</p>
+      <p class="text-gray-400 text-xs max-w-xs mb-4">Jobs matched to you by the AI engine will appear here.</p>
+      <a href="/contractors" class="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl hover:bg-blue-700 transition shadow-sm">Browse Available Jobs</a>
     </div>
     {% endif %}
   </section>
@@ -246,19 +394,19 @@
 <!-- ====== CANCEL CONFIRMATION MODAL ====== -->
 <div id="cancel-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
   <div class="bg-white max-w-sm w-full rounded-2xl shadow-2xl p-8 text-center animate-fade-in">
-    <div class="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+    <div class="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4 ring-1 ring-red-100">
       <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
     </div>
-    <h3 class="text-lg font-bold text-gray-900 mb-2">Cancel & Reroute?</h3>
-    <p class="text-gray-500 text-sm mb-6">Our AI engine will automatically find the next best available contractor for this customer.</p>
+    <h3 class="text-lg font-bold text-gray-900 mb-2">Cancel this job?</h3>
+    <p class="text-gray-500 text-sm mb-6">If work hasn't started, we'll try to reroute the customer to another pro. If it has, the customer is refunded any held payment.</p>
     <div class="flex gap-3">
       <button onclick="document.getElementById('cancel-modal').classList.add('hidden')"
         class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition">
         Keep Job
       </button>
       <button id="confirm-cancel-btn"
-        class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition active:scale-95">
-        Yes, Reroute
+        class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition active:scale-95 shadow-sm">
+        Yes, Cancel
       </button>
     </div>
   </div>
@@ -277,26 +425,25 @@ function cancelJob(jobId, btn) {
 document.getElementById('confirm-cancel-btn').addEventListener('click', async () => {
   if (!pendingCancelJobId) return;
   const btn = document.getElementById('confirm-cancel-btn');
-  btn.textContent = 'Rerouting…';
+  btn.textContent = 'Cancelling…';
   btn.disabled = true;
 
   try {
-    const token = document.cookie.split('; ').find(r => r.startsWith('access_token='))?.split('=')[1];
     const res = await fetch(`/api/v1/jobs/${pendingCancelJobId}/cancel`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
+      method: 'POST'
     });
     if (res.ok) {
-      document.getElementById(`dispatch-${pendingCancelJobId}`)?.remove();
-      document.getElementById('cancel-modal').classList.add('hidden');
+      window.location.reload();
     } else {
-      alert('Failed to cancel job. Please try again.');
+      let msg = 'Failed to cancel job. Please try again.';
+      try { const data = await res.json(); if (data && data.detail) msg = data.detail; } catch (e) {}
+      alert(msg);
     }
   } catch(err) {
     alert('Network error. Please try again.');
   }
 
-  btn.textContent = 'Yes, Reroute';
+  btn.textContent = 'Yes, Cancel';
   btn.disabled = false;
   pendingCancelJobId = null;
 });

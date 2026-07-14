@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Query, UploadFile, File
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import Any, List, Dict, Optional
 from pydantic import BaseModel
 import json
 import jwt
+import os
+import uuid
+from pathlib import Path
 from jwt.exceptions import InvalidTokenError
 
 from app.api.dependencies import get_db, get_current_user
@@ -138,6 +141,22 @@ async def chat_triage(
         matched_list = matches["matched"]
         rejected_list = matches["rejected"]
 
+        # Surface verification tier + reputation as trust anchors in the AI reply
+        if matched_list:
+            top = matched_list[0]
+            tier = (top.get("verification_level") or "").strip()
+            rep = top.get("reputation_score")
+            anchors = []
+            if tier and tier.lower() != "none":
+                anchors.append(f"{tier} verified")
+            if rep:
+                anchors.append(f"{rep}% reputation")
+            if anchors:
+                bot_reply = (
+                    f"{bot_reply}\n\nTop match: {top.get('full_name')} "
+                    f"({', '.join(anchors)}) — you're protected by escrow on every booking."
+                )
+
     # 3. Write Audit Log
     structured_decision = {
         "triage_extraction": triage_data,
@@ -244,6 +263,28 @@ async def dismiss_draft(
     return {"status": "dismissed"}
 
 
+UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "static" / "uploads"
+_ALLOWED_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mov", ".pdf", ".doc", ".docx", ".txt"}
+
+
+@router.post("/upload")
+async def upload_chat_media(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload an image/video/file for a chat message. Returns a served URL."""
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _ALLOWED_EXT:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"{uuid.uuid4().hex}{ext}"
+    (UPLOAD_DIR / name).write_bytes(data)
+    return {"url": f"/static/uploads/{name}", "name": file.filename}
+
+
 @router.websocket("/ws/{conversation_id}")
 async def websocket_endpoint(
     websocket: WebSocket, 
@@ -275,13 +316,28 @@ async def websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_text()
-            
+
+            # Support JSON messages carrying an attachment
+            content = data
+            attachment_url = None
+            attachment_type = None
+            try:
+                parsed = json.loads(data)
+                if isinstance(parsed, dict):
+                    content = parsed.get("content", "")
+                    attachment_url = parsed.get("attachment_url")
+                    attachment_type = parsed.get("attachment_type")
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
+
             # Save to DB asynchronously
             async with async_session_maker() as db:
                 new_msg = DirectMessage(
                     conversation_id=conversation_id,
                     sender_id=user_id,
-                    content=data
+                    content=content,
+                    attachment_url=attachment_url,
+                    attachment_type=attachment_type,
                 )
                 db.add(new_msg)
                 await db.commit()

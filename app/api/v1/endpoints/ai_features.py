@@ -51,7 +51,7 @@ async def ai_dispute_analysis(
         messages_result = await db.exec(
             select(DirectMessage)
             .where(DirectMessage.conversation_id == conversation.id)
-            .order_by(DirectMessage.created_at)
+            .order_by(DirectMessage.timestamp)
         )
         messages = list(messages_result.all())
         chat_history = [

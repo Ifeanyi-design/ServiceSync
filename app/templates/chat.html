@@ -3,160 +3,401 @@
 {% block title %}Chat with {{ partner.full_name }} — ServiceSync{% endblock %}
 {% block meta_description %}Real-time peer-to-peer chat for your booked service job on ServiceSync.{% endblock %}
 
+{% block extra_head %}
+<style>
+  /* Full viewport chat layout */
+  .chat-page-wrapper {
+    height: calc(100dvh - 64px);
+    display: flex;
+    flex-direction: column;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  /* Glassmorphic chat container */
+  .chat-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.6);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+
+  /* Chat header */
+  .chat-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 50%, #312e81 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .chat-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 200px;
+    height: 200px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  /* Message thread */
+  #message-thread {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem;
+    scroll-behavior: smooth;
+    background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%);
+    background-image:
+      radial-gradient(circle at 2px 2px, rgba(99,102,241,0.04) 1px, transparent 0);
+    background-size: 24px 24px;
+  }
+  #message-thread::-webkit-scrollbar { width: 4px; }
+  #message-thread::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 99px; }
+
+  /* Message bubbles */
+  .bubble-mine {
+    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+    color: white;
+    border-radius: 20px 20px 4px 20px;
+    box-shadow: 0 2px 12px rgba(37,99,235,0.3);
+  }
+  .bubble-theirs {
+    background: white;
+    color: #1f2937;
+    border-radius: 20px 20px 20px 4px;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .bubble-draft {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1.5px solid #f59e0b;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(245,158,11,0.15);
+  }
+
+  /* Message entrance animation */
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .msg-enter { animation: msgIn 0.2s ease-out both; }
+
+  /* Input area */
+  .chat-input-bar {
+    background: white;
+    border-top: 1px solid rgba(0,0,0,0.06);
+    padding: 0.75rem 1rem;
+  }
+
+  /* Quick action chips */
+  .quick-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.875rem;
+    border-radius: 999px;
+    background: rgba(37,99,235,0.06);
+    border: 1px solid rgba(37,99,235,0.15);
+    color: #2563eb;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .quick-chip:hover {
+    background: rgba(37,99,235,0.12);
+    border-color: rgba(37,99,235,0.3);
+    transform: translateY(-1px);
+  }
+
+  /* Send button */
+  .send-btn {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    box-shadow: 0 2px 12px rgba(37,99,235,0.35);
+    transition: all 0.15s ease;
+  }
+  .send-btn:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(37,99,235,0.45); }
+  .send-btn:active { transform: scale(0.95); }
+
+  /* Emoji picker */
+  .emoji-picker {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: rgba(255,255,255,0.95);
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+
+  /* Escrow pill */
+  .escrow-pill {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 12px;
+    padding: 0.375rem 0.75rem;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+<div class="chat-page-wrapper pt-3">
 
   <!-- Breadcrumb -->
-  <nav class="flex items-center space-x-2 text-sm text-gray-400 mb-4" aria-label="Breadcrumb">
-    <a href="/messages" class="hover:text-blue-600 transition">Messages</a>
-    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-gray-600 font-medium">{{ partner.full_name }}</span>
+  <nav class="flex items-center gap-1.5 text-xs text-gray-400 mb-2 flex-shrink-0" aria-label="Breadcrumb">
+    <a href="/messages" class="hover:text-blue-600 transition flex items-center gap-1">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      Messages
+    </a>
+    <svg class="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-gray-600 font-semibold">{{ partner.full_name }}</span>
   </nav>
 
-  <!-- Chat Window -->
-  <div class="max-w-4xl mx-auto h-[80vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden" id="chat-window">
+  <!-- Main chat container -->
+  <div class="chat-container">
 
     <!-- ====== CHAT HEADER ====== -->
-    <div class="bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between flex-shrink-0">
-      <div class="flex items-center gap-3">
-        <!-- Avatar -->
-        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ring-2 ring-blue-100">
-          {{ partner.full_name[0] | upper }}
-        </div>
-        <div>
-          <p class="font-bold text-gray-900 text-sm leading-tight">{{ partner.full_name }}</p>
-          <div class="flex items-center gap-1.5 mt-0.5">
-            <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse" id="online-indicator"></span>
-            <p class="text-xs text-gray-400" id="connection-status">Connecting…</p>
+    <div class="chat-header px-4 sm:px-5 py-4 flex-shrink-0">
+      <div class="relative flex items-center justify-between">
+
+        <!-- Left: Partner info -->
+        <div class="flex items-center gap-3">
+          <!-- Avatar with ring glow -->
+          {% if partner.role == 'contractor' %}
+          <a href="/contractors/{{ partner.id }}" class="relative flex-shrink-0 group" title="View profile">
+          {% else %}
+          <div class="relative flex-shrink-0">
+          {% endif %}
+            <div class="w-11 h-11 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white font-black text-base shadow-lg ring-2 ring-white/30 overflow-hidden group-hover:ring-white">
+              {% if partner.avatar_url %}<img src="{{ partner.avatar_url }}" alt="{{ partner.full_name }}" class="w-full h-full object-cover" />{% else %}{{ partner.full_name[0] | upper }}{% endif %}
+            </div>
+            <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-indigo-900 bg-green-400 animate-pulse" id="status-dot"></span>
+          {% if partner.role == 'contractor' %}</a>{% else %}</div>{% endif %}
+          <div>
+            <p class="font-bold text-white text-sm leading-tight">{{ partner.full_name }}</p>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span class="text-xs text-blue-200 font-medium" id="connection-status">Connecting…</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Job Details -->
-      <div class="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2">
-        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 002-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-        <span class="text-xs text-gray-600 font-semibold">Job #{{ conversation.job_id }}</span>
-        <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
-        <span class="text-xs font-semibold px-2 py-0.5 bg-green-50 text-green-700 rounded-full">Escrow Secured</span>
+        <!-- Right: Escrow + Job info -->
+        <div class="flex items-center gap-2">
+          {% if job %}
+          <!-- Job pill -->
+          <div class="escrow-pill hidden sm:flex items-center gap-2 text-white text-xs font-semibold">
+            <svg class="w-3.5 h-3.5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <span>Job #{{ job.id }}</span>
+          </div>
+          <!-- Escrow status -->
+          {% if escrow %}
+          {% set e = escrow.status %}
+          <div class="escrow-pill flex items-center gap-1.5 text-xs font-bold
+            {% if e == 'held' %}text-green-300
+            {% elif e == 'released' %}text-emerald-300
+            {% elif e == 'disputed' %}text-red-300
+            {% elif e == 'refunded' %}text-amber-300
+            {% else %}text-blue-200{% endif %}">
+            {% if e == 'held' %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg> Escrow Held
+            {% elif e == 'released' %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Released
+            {% elif e == 'disputed' %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Disputed
+            {% elif e == 'refunded' %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg> Refunded
+            {% elif e == 'in_progress' %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 005.4-5.4l-2.7 2.7-2-2 2.7-2.7z"/></svg> In Progress
+            {% else %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg> Unfunded{% endif %}
+          </div>
+          {% endif %}
+          {% endif %}
+        </div>
       </div>
     </div>
 
+    <!-- ====== JOB QUICK ACTIONS BAR ====== -->
+    {% if job %}
+    <div class="flex-shrink-0 px-4 sm:px-5 py-2.5 border-b border-gray-100/80" style="background: linear-gradient(to right, rgba(248,250,255,0.9), rgba(245,248,255,0.9));">
+      {% set e_status = escrow.status if escrow else 'none' %}
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Job #{{ job.id }}</span>
+        <span class="w-px h-4 bg-gray-200"></span>
+
+        {% if current_user.id == job.customer_id %}
+          {% if job.status == 'booked' and e_status != 'held' %}
+          <a href="/jobs/{{ job.id }}/pay"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold transition shadow-sm shadow-blue-200 active:scale-95">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            Pay &amp; Secure Escrow
+          </a>
+          {% elif job.status == 'completed_pending' %}
+          <form method="POST" action="/jobs/{{ job.id }}/confirm" class="inline">
+            <button type="submit"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-xs font-bold transition shadow-sm shadow-green-200 active:scale-95">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              Confirm &amp; Release Payment
+            </button>
+          </form>
+          {% elif e_status == 'held' %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100">
+             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg> Escrow funded — awaiting work
+          </span>
+          {% endif %}
+
+        {% elif current_user.id == job.assigned_contractor_id %}
+          {% if job.status == 'booked' %}
+          <form method="POST" action="/jobs/{{ job.id }}/start" class="inline">
+            <button type="submit"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-bold transition shadow-sm shadow-emerald-200 active:scale-95">
+               Start Job
+            </button>
+          </form>
+          {% elif job.status == 'in_progress' %}
+          <form method="POST" action="/jobs/{{ job.id }}/mark-complete" class="inline">
+            <button type="submit"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition shadow-sm shadow-indigo-200 active:scale-95">
+               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Mark Complete
+            </button>
+          </form>
+          {% elif job.status == 'completed_pending' %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-bold border border-amber-100">
+             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Awaiting customer confirmation
+          </span>
+          {% endif %}
+        {% endif %}
+
+        {% if job.status == 'completed' %}
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 text-gray-500 text-xs font-bold">✅ Job Completed</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     <!-- ====== MESSAGE THREAD ====== -->
-    <div id="message-thread" class="flex-1 overflow-y-auto px-6 py-6 flex flex-col space-y-4 bg-gray-50/30 scroll-smooth">
+    <div id="message-thread" class="flex-1 min-h-0">
 
       <!-- Date divider -->
-      <div class="flex items-center gap-3 my-2">
-        <div class="flex-1 border-t border-gray-200"></div>
-        <span class="text-xs text-gray-400 font-medium flex-shrink-0">Conversation started</span>
-        <div class="flex-1 border-t border-gray-200"></div>
+      <div class="flex items-center gap-3 my-4">
+        <div class="flex-1 border-t border-gray-100"></div>
+        <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex-shrink-0 px-2">Conversation started</span>
+        <div class="flex-1 border-t border-gray-100"></div>
       </div>
 
       <!-- Historic messages from DB -->
       {% for message in past_messages %}
-      <div class="flex {% if message.sender_id == current_user.id %}flex-row-reverse{% endif %} items-end gap-2 group animate-fade-in"
+      {% if not message.content.startswith('[AI DRAFT') %}
+      <div class="flex {% if message.sender_id == current_user.id %}flex-row-reverse{% endif %} items-end gap-2 group py-1 msg-enter"
            id="msg-db-{{ message.id }}">
 
         {% if message.sender_id != current_user.id %}
-        <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mb-0.5">
-          {{ partner.full_name[0] | upper }}
-        </div>
+         <div class="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-[11px] font-bold mb-0.5 ring-2 ring-purple-100 overflow-hidden">
+           {% if partner.avatar_url %}<img src="{{ partner.avatar_url }}" alt="" class="w-full h-full object-cover" />{% else %}{{ partner.full_name[0] | upper }}{% endif %}
+         </div>
         {% endif %}
 
-        <div class="flex flex-col {% if message.sender_id == current_user.id %}items-end{% else %}items-start{% endif %} max-w-[70%]">
-          {% if message.content.startswith('[AI DRAFT') %}
-            <!-- Drafts are now transient — should never appear in DB history -->
-          {% else %}
-            <div class="px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm
-              {% if message.sender_id == current_user.id %}
-                bg-blue-600 text-white rounded-br-none
-              {% else %}
-                bg-white border border-gray-100 text-gray-800 rounded-bl-none
-              {% endif %}">
-              {{ message.content }}
-            </div>
-          {% endif %}
-          <span class="text-[10px] text-gray-400 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div class="flex flex-col {{ 'items-end' if message.sender_id == current_user.id else 'items-start' }} max-w-[72%] sm:max-w-[62%]">
+           <div class="px-4 py-2.5 text-sm leading-relaxed {{ 'bubble-mine' if message.sender_id == current_user.id else 'bubble-theirs' }}">
+             {% if message.attachment_url %}
+               {% if message.attachment_type == 'image' %}
+               <img src="{{ message.attachment_url }}" alt="attachment" class="rounded-xl max-w-[220px] max-h-[220px] object-cover my-1" />
+               {% elif message.attachment_type == 'video' %}
+               <video src="{{ message.attachment_url }}" controls class="rounded-xl max-w-[220px] my-1"></video>
+               {% else %}
+               <a href="{{ message.attachment_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-blue-100 underline mb-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l3-3m-3 3l-3-3M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> File</a>
+               {% endif %}
+             {% endif %}
+             {% if message.content %}<p class="whitespace-pre-wrap">{{ message.content }}</p>{% endif %}
+           </div>
+          <span class="text-[10px] text-gray-400 mt-0.5 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 select-none">
             {{ message.timestamp.strftime('%H:%M') }}
           </span>
         </div>
       </div>
+      {% endif %}
       {% endfor %}
 
-      <!-- JS messages will be appended here -->
+      <!-- Live messages appended here -->
       <div id="live-messages"></div>
 
       <!-- Scroll anchor -->
-      <div id="scroll-anchor"></div>
+      <div id="scroll-anchor" class="h-2"></div>
     </div>
 
     <!-- ====== INPUT AREA ====== -->
-    <div class="flex-shrink-0 p-4 border-t border-gray-200 bg-white">
-      <form id="message-form" onsubmit="sendMessage(event)" class="flex items-center gap-2">
-        <!-- File Attach -->
-        <button type="button" onclick="document.getElementById('file-input').click()"
-          class="w-10 h-10 flex-shrink-0 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 flex items-center justify-center transition-all active:scale-95"
-          title="Attach file">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-        </button>
-        <input type="file" id="file-input" class="hidden" accept="image/*,.pdf,.doc,.docx" onchange="handleFileSelect(event)" />
+    <div class="chat-input-bar flex-shrink-0">
+      <!-- Quick reply chips -->
+       <div class="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-0.5 scrollbar-hide">
+         <button type="button" class="quick-chip flex-shrink-0" onclick="insertQuick('I am on my way!')">On my way</button>
+         <button type="button" class="quick-chip flex-shrink-0" onclick="insertQuick('Job looks good, thank you!')">Looks good</button>
+         <button type="button" class="quick-chip flex-shrink-0" onclick="insertQuick('Can we reschedule?')">Reschedule</button>
+         <button type="button" class="quick-chip flex-shrink-0" onclick="insertQuick('Can you send me a quote?')">Request quote</button>
+       </div>
 
-        <!-- Emoji Picker -->
-        <div class="relative">
+      <!-- Attachment preview -->
+      <div id="attachment-preview" class="hidden flex items-center gap-2 mb-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl"></div>
+
+      <!-- Message form -->
+      <form id="message-form" onsubmit="sendMessage(event)" class="flex items-end gap-2">
+        <!-- Attach -->
+        <button type="button" onclick="document.getElementById('file-input').click()"
+          class="w-9 h-9 flex-shrink-0 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-blue-600 flex items-center justify-center transition-all active:scale-90"
+          title="Attach file">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+        </button>
+        <input type="file" id="file-input" class="hidden" accept="image/*,video/*,.pdf,.doc,.docx,.txt" onchange="handleFileSelect(event)" />
+
+        <!-- Emoji -->
+        <div class="relative flex-shrink-0">
           <button type="button" onclick="toggleEmojiPicker()"
-            class="w-10 h-10 flex-shrink-0 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 flex items-center justify-center transition-all active:scale-95"
+            class="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-blue-600 flex items-center justify-center transition-all active:scale-90"
             title="Emoji">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           </button>
-          <div id="emoji-picker" class="hidden absolute bottom-12 left-0 bg-white border border-gray-200 rounded-2xl shadow-2xl p-3 z-50 w-72 max-h-48 overflow-y-auto">
-            <div class="grid grid-cols-8 gap-1">
-              <button type="button" onclick="insertEmoji('👍')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">👍</button>
-              <button type="button" onclick="insertEmoji('👍👍')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">👍👍</button>
-              <button type="button" onclick="insertEmoji('👋')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">👋</button>
-              <button type="button" onclick="insertEmoji('😊')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">😊</button>
-              <button type="button" onclick="insertEmoji('🙏')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">🙏</button>
-              <button type="button" onclick="insertEmoji('✅')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">✅</button>
-              <button type="button" onclick="insertEmoji('🔧')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">🔧</button>
-              <button type="button" onclick="insertEmoji('⚡')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">⚡</button>
-              <button type="button" onclick="insertEmoji('💰')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">💰</button>
-              <button type="button" onclick="insertEmoji('🏠')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">🏠</button>
-              <button type="button" onclick="insertEmoji('🛠️')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">🛠️</button>
-              <button type="button" onclick="insertEmoji('📅')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">📅</button>
-              <button type="button" onclick="insertEmoji('🤝')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">🤝</button>
-              <button type="button" onclick="insertEmoji('⏰')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">⏰</button>
-              <button type="button" onclick="insertEmoji('⚠️')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">⚠️</button>
-              <button type="button" onclick="insertEmoji('📸')" class="p-1.5 hover:bg-gray-100 rounded-lg text-lg transition">📸</button>
+           <div id="emoji-picker" class="hidden absolute bottom-12 left-0 emoji-picker rounded-2xl p-3 z-50 w-64 shadow-xl">
+             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Emojis</p>
+             <div class="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto">
+              {% for em in ['👍','👋','😊','🙏','✅','🔧','⚡','💰','🏠','🛠️','📅','🤝','⏰','⚠️','📸','🎉','💯','🔑','🚿','🪚','🪛','🔌','💧','🌡️'] %}
+              <button type="button" onclick="insertEmoji('{{ em }}')" class="p-1.5 hover:bg-gray-100 rounded-lg text-base transition">{{ em }}</button>
+              {% endfor %}
             </div>
           </div>
         </div>
 
+        <!-- Input field -->
         <input
           id="message-input"
           type="text"
           placeholder="Type a message…"
           autocomplete="off"
-          class="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-full px-5 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-gray-400"
+          class="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition placeholder-gray-400 shadow-inner"
           aria-label="Message input"
         />
-        <button
-          type="submit"
-          id="send-button"
-          class="w-10 h-10 flex-shrink-0 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-md hover:shadow-blue-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Send message"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+
+        <!-- Send -->
+        <button type="submit" id="send-button"
+          class="send-btn w-10 h-10 flex-shrink-0 rounded-full text-white flex items-center justify-center active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
+          aria-label="Send message">
+          <svg class="w-4 h-4 translate-x-0.5 -translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
           </svg>
         </button>
       </form>
+
       <!-- Typing indicator -->
-      <p id="typing-indicator" class="text-xs text-gray-400 mt-1.5 pl-14 hidden flex items-center gap-1">
-        <span class="flex gap-0.5">
+      <div id="typing-indicator" class="hidden flex items-center gap-2 mt-2 pl-1">
+        <div class="flex gap-0.5 items-center">
           <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0ms"></span>
           <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:150ms"></span>
           <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:300ms"></span>
-        </span>
-        {{ partner.full_name.split()[0] }} is typing…
-      </p>
+        </div>
+        <span class="text-xs text-gray-400">{{ partner.full_name.split()[0] }} is typing…</span>
+      </div>
     </div>
   </div>
 </div>
@@ -164,51 +405,72 @@
 
 {% block extra_scripts %}
 <script>
-  // ====== WebSocket Setup ======
+  // ====== Config ======
   const conversationId = {{ conversation.id }};
   const partnerName    = {{ partner.full_name | tojson }};
   const partnerInitial = partnerName[0].toUpperCase();
+  const partnerAvatar  = {{ partner.avatar_url | tojson }};
   const currentUserId  = {{ current_user.id }};
 
   const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
   const wsUrl = `${wsProtocol}://${location.host}/api/v1/chat/ws/${conversationId}`;
 
   let socket = null;
-  let typingTimeout = null;
-  const statusEl = document.getElementById('connection-status');
-  const indicator = document.getElementById('online-indicator');
-  const liveMessages = document.getElementById('live-messages');
-  const scrollAnchor = document.getElementById('scroll-anchor');
-  const typingIndicator = document.getElementById('typing-indicator');
-  const messageInput = document.getElementById('message-input');
+  const statusEl       = document.getElementById('connection-status');
+  const statusDot      = document.getElementById('status-dot');
+  const liveMessages   = document.getElementById('live-messages');
+  const scrollAnchor   = document.getElementById('scroll-anchor');
+  const typingIndicator= document.getElementById('typing-indicator');
+  const messageInput   = document.getElementById('message-input');
 
+  // ====== WebSocket ======
   function connectWebSocket() {
     socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
       statusEl.textContent = 'Online';
-      indicator.classList.replace('bg-gray-400', 'bg-green-400');
+      statusDot.classList.remove('bg-gray-400','bg-red-400');
+      statusDot.classList.add('bg-green-400');
     };
 
     socket.onclose = () => {
       statusEl.textContent = 'Reconnecting…';
-      indicator.classList.replace('bg-green-400', 'bg-red-400');
+      statusDot.classList.remove('bg-green-400');
+      statusDot.classList.add('bg-red-400');
       setTimeout(connectWebSocket, 3000);
     };
 
-    socket.onerror = () => {
-      statusEl.textContent = 'Connection error';
-    };
+    socket.onerror = () => { statusEl.textContent = 'Connection error'; };
 
-    socket.onmessage = (event) => {
-      appendBubble('partner', event.data, 'delivered');
-      // Show then hide typing indicator briefly
-      typingIndicator.classList.remove('hidden');
-      setTimeout(() => typingIndicator.classList.add('hidden'), 2000);
-    };
+     socket.onmessage = (event) => {
+       typingIndicator.classList.add('hidden');
+       let text = event.data, attachment = null;
+       try {
+         const p = JSON.parse(event.data);
+         if (p && typeof p === 'object') {
+           text = p.content || '';
+           if (p.attachment_url) attachment = { url: p.attachment_url, type: p.attachment_type };
+         }
+       } catch (e) {}
+       appendBubble('partner', text, 'delivered', attachment);
+     };
   }
 
   connectWebSocket();
+
+  // Typing indicator on compose
+  let composeTyping = null;
+  messageInput.addEventListener('input', () => {
+    clearTimeout(composeTyping);
+    // Note: real typing events would go over WS — this is a local UX hint
+    composeTyping = setTimeout(() => {}, 3000);
+  });
+
+  // ====== Quick Replies ======
+  function insertQuick(text) {
+    messageInput.value = text;
+    messageInput.focus();
+  }
 
   // ====== Emoji Picker ======
   function toggleEmojiPicker() {
@@ -219,82 +481,134 @@
     messageInput.focus();
     document.getElementById('emoji-picker').classList.add('hidden');
   }
-  // Close emoji picker on outside click
   document.addEventListener('click', (e) => {
     const picker = document.getElementById('emoji-picker');
-    const btn = e.target.closest('[onclick="toggleEmojiPicker()"]');
-    if (!picker.contains(e.target) && !btn) picker.classList.add('hidden');
+    if (!picker.contains(e.target) && !e.target.closest('[onclick="toggleEmojiPicker()"]')) {
+      picker.classList.add('hidden');
+    }
   });
 
   // ====== File Attach ======
-  function handleFileSelect(event) {
+  let pendingAttachment = null; // { url, type, name }
+
+  function attachmentTypeFor(file) {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type.startsWith('video/')) return 'video';
+    return 'file';
+  }
+
+  function renderPendingPreview() {
+    const bar = document.getElementById('attachment-preview');
+    if (!pendingAttachment) { bar.classList.add('hidden'); bar.innerHTML = ''; return; }
+    bar.classList.remove('hidden');
+    const thumb = pendingAttachment.type === 'image'
+      ? `<img src="${pendingAttachment.url}" class="w-9 h-9 rounded-lg object-cover" alt="" />`
+      : `<div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>`;
+    bar.innerHTML = `${thumb}
+      <span class="text-xs text-gray-500 truncate flex-1">${escHtml(pendingAttachment.name)}</span>
+      <button type="button" onclick="clearAttachment()" class="text-gray-400 hover:text-red-500 p-1" title="Remove">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>`;
+  }
+
+  function clearAttachment() {
+    pendingAttachment = null;
+    document.getElementById('file-input').value = '';
+    renderPendingPreview();
+  }
+
+  async function handleFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
-    // For MVP: just notify the user that file sending will be available soon
-    messageInput.value = `📎 ${file.name}`;
-    messageInput.focus();
+    const bar = document.getElementById('attachment-preview');
+    bar.classList.remove('hidden');
+    bar.innerHTML = `<span class="text-xs text-gray-400">Uploading ${escHtml(file.name)}…</span>`;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const resp = await fetch('/api/v1/chat/upload', { method: 'POST', body: fd });
+      if (!resp.ok) throw new Error('upload failed');
+      const data = await resp.json();
+      pendingAttachment = { url: data.url, type: attachmentTypeFor(file), name: data.name || file.name };
+      renderPendingPreview();
+      messageInput.focus();
+    } catch (e) {
+      bar.innerHTML = `<span class="text-xs text-red-500">Upload failed. Try again.</span>`;
+      setTimeout(() => { if (!pendingAttachment) { bar.classList.add('hidden'); bar.innerHTML = ''; } }, 2500);
+    }
   }
 
   // ====== Read Receipts ======
   function getReceiptIcon(status) {
-    if (status === 'sent') return '<span class="text-blue-400 ml-1">✓</span>';
-    if (status === 'delivered') return '<span class="text-blue-400 ml-1">✓✓</span>';
-    if (status === 'read') return '<span class="text-blue-500 ml-1">✓✓</span>';
+    if (status === 'sent')      return '<span class="opacity-60 ml-0.5 text-[10px]">✓</span>';
+    if (status === 'delivered') return '<span class="opacity-80 ml-0.5 text-[10px]">✓✓</span>';
+    if (status === 'read')      return '<span class="text-cyan-300 ml-0.5 text-[10px]">✓✓</span>';
     return '';
   }
 
-  // ====== Append Bubble ======
+  // ====== HTML Escape ======
   function escHtml(t) {
     return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  function appendBubble(side, text, status) {
+  // ====== Attachment markup ======
+  function attachmentHtml(att) {
+    if (!att || !att.url) return '';
+    if (att.type === 'image') {
+      return `<img src="${att.url}" alt="attachment" class="rounded-xl max-w-[220px] max-h-[220px] object-cover my-1" />`;
+    }
+    if (att.type === 'video') {
+      return `<video src="${att.url}" controls class="rounded-xl max-w-[220px] my-1"></video>`;
+    }
+    return `<a href="${att.url}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 underline mb-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l3-3m-3 3l-3-3M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> File</a>`;
+  }
+
+  // ====== Append Bubble ======
+  function appendBubble(side, text, status, attachment) {
     const isMine = side === 'mine';
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const receipt = isMine ? getReceiptIcon(status || 'sent') : '';
 
     const wrapper = document.createElement('div');
-    wrapper.className = `flex ${isMine ? 'flex-row-reverse' : ''} items-end gap-2 group animate-fade-in`;
+    wrapper.className = `flex ${isMine ? 'flex-row-reverse' : ''} items-end gap-2 group py-1 msg-enter`;
 
     if (!isMine) {
-      wrapper.innerHTML += `<div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mb-0.5">${partnerInitial}</div>`;
+      wrapper.innerHTML += `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-[11px] font-bold mb-0.5 ring-2 ring-purple-100">${partnerInitial}</div>`;
     }
 
-    // Check if this is an AI draft message
+    // Check for AI draft
     const draftMatch = text.match(/^\[AI DRAFT:(\d+)\]\s*(.*)/s);
     if (draftMatch) {
       const draftId = parseInt(draftMatch[1]);
       const draftContent = draftMatch[2];
       const inner = document.createElement('div');
-      inner.className = 'flex flex-col items-start max-w-[70%]';
+      inner.className = 'flex flex-col items-start max-w-[75%] sm:max-w-[65%]';
       inner.innerHTML = `
-        <div class="px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-bl-none">
-          <div class="flex items-center gap-1.5 mb-1.5">
-            <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-            <span class="text-xs font-bold text-amber-600">AI Draft</span>
+        <div class="bubble-draft px-4 py-3 text-sm leading-relaxed">
+          <div class="flex items-center gap-1.5 mb-2">
+            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            <span class="text-xs font-black text-amber-700 uppercase tracking-wide">AI Draft</span>
           </div>
-          ${escHtml(draftContent)}
+          <p class="text-amber-900 whitespace-pre-wrap">${escHtml(draftContent)}</p>
         </div>
-        <div class="flex items-center gap-2 mt-1.5">
+        <div class="flex items-center gap-2 mt-2">
           <button onclick="approveDraft(${draftId})"
-            class="text-xs font-semibold text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-lg transition">
-            Approve & Send
+            class="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 px-3.5 py-1.5 rounded-xl transition shadow-sm active:scale-95">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Approve &amp; Send
           </button>
-          <button onclick="dismissDraft(this)"
-            class="text-xs font-semibold text-gray-400 hover:text-red-500 px-2 py-1 rounded-lg transition">
-            Dismiss
-          </button>
+          <button onclick="dismissDraft(this)" class="text-xs font-semibold text-gray-400 hover:text-gray-600 px-2.5 py-1.5 rounded-xl hover:bg-gray-100 transition">Dismiss</button>
         </div>
         <span class="text-[10px] text-gray-400 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">${now}</span>`;
       wrapper.appendChild(inner);
     } else {
       const inner = document.createElement('div');
-      inner.className = `flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[70%]`;
+      inner.className = `flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[72%] sm:max-w-[62%]`;
+      const attHtml = attachmentHtml(attachment);
+      const textHtml = text ? `<p class="whitespace-pre-wrap">${escHtml(text)}</p>` : '';
       inner.innerHTML = `
-        <div class="px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${isMine ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white border border-gray-100 text-gray-800 rounded-bl-none'}">
-          ${escHtml(text)}
-        </div>
-        <span class="text-[10px] text-gray-400 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">${now}${receipt}</span>`;
+        <div class="px-4 py-2.5 text-sm leading-relaxed ${isMine ? 'bubble-mine' : 'bubble-theirs'}">${attHtml}${textHtml}</div>
+        <span class="text-[10px] text-gray-400 mt-0.5 px-1 opacity-0 group-hover:opacity-100 transition-opacity select-none">${now}${receipt}</span>`;
       wrapper.appendChild(inner);
     }
 
@@ -306,18 +620,24 @@
   function sendMessage(event) {
     event.preventDefault();
     const text = messageInput.value.trim();
-    if (!text || !socket || socket.readyState !== WebSocket.OPEN) return;
+    if ((!text && !pendingAttachment) || !socket || socket.readyState !== WebSocket.OPEN) return;
 
-    socket.send(text);
-    appendBubble('mine', text, 'sent');
+    const att = pendingAttachment;
+    if (att) {
+      socket.send(JSON.stringify({ content: text, attachment_url: att.url, attachment_type: att.type }));
+    } else {
+      socket.send(text);
+    }
+    appendBubble('mine', text, 'sent', att);
+    clearAttachment();
     messageInput.value = '';
     messageInput.focus();
 
-    // Simulate delivery receipt after 500ms
+    // Simulate delivery receipt
     setTimeout(() => {
-      const lastSent = liveMessages.querySelector('.group:last-child span.text-blue-400');
-      if (lastSent) lastSent.textContent = '✓✓';
-    }, 500);
+      const spans = liveMessages.querySelectorAll('.msg-enter:last-child span.opacity-0');
+      if (spans.length) spans[spans.length-1].textContent = spans[spans.length-1].textContent.replace('✓','✓✓');
+    }, 600);
   }
 
   // Scroll to bottom on load
@@ -328,19 +648,14 @@
     fetch('/api/v1/chat/approve-draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        conversation_id: conversationId,
-        draft_id: draftId
-      })
+      body: JSON.stringify({ conversation_id: conversationId, draft_id: draftId })
     }).then(r => r.json()).then(data => {
-      if (data.status === 'sent') {
-        location.reload();
-      }
+      if (data.status === 'sent') location.reload();
     }).catch(() => alert('Failed to send draft.'));
   }
 
   function dismissDraft(btn) {
-    const wrapper = btn.closest('.animate-fade-in');
+    const wrapper = btn.closest('.msg-enter');
     if (wrapper) wrapper.remove();
   }
 </script>

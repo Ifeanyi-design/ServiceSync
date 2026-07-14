@@ -1,16 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form
+from fastapi.responses import RedirectResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from decimal import Decimal
+from datetime import datetime
 from typing import Any
 
 from app.api.dependencies import get_db, get_current_user
 from app.models.all_models import Job, User, Escrow, Dispute
 from app.services.escrow_service import (
     create_escrow, release_escrow, refund_escrow,
-    penalty_split_escrow, open_dispute, resolve_dispute,
+    penalty_split_escrow, open_dispute, resolve_dispute, calculate_fees,
+    fund_escrow as fund_escrow_service,
 )
+from app.services.subscription_service import commission_rate
 from app.services.alert_service import alert_dispute_opened, alert_escrow_released
+from app.services.reputation_service import recalculate_reputation
 
 router = APIRouter()
 
@@ -18,32 +23,36 @@ router = APIRouter()
 @router.post("/{job_id}/fund")
 async def fund_escrow(
     job_id: int,
+    quoted_amount: Decimal = Form(...),
+    card_name: str = Form(default=""),
+    card_number: str = Form(default=""),
+    card_exp: str = Form(default=""),
+    card_cvc: str = Form(default=""),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Customer funds escrow for a booked job."""
+    """Customer pays and funds the escrow for a booked job (mock card capture)."""
     if current_user.role != "customer":
         raise HTTPException(status_code=403, detail="Only customers can fund escrow")
 
     job = await db.get(Job, job_id)
     if not job or job.customer_id != current_user.id:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.status != "booked":
-        raise HTTPException(status_code=400, detail="Job must be booked before funding escrow")
-
-    # Check if escrow already exists
-    existing = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
-    if existing.first():
-        raise HTTPException(status_code=400, detail="Escrow already exists for this job")
 
     contractor = await db.get(User, job.assigned_contractor_id)
     if not contractor:
         raise HTTPException(status_code=400, detail="No contractor assigned")
 
-    # Use contractor's base pricing as the amount
-    amount = Decimal(str(contractor.base_pricing or 50.00))
+    # Mock card validation (demo only — no real PII stored)
+    digits = "".join(ch for ch in card_number if ch.isdigit())
+    if len(digits) < 12:
+        raise HTTPException(status_code=400, detail="Enter a valid card number")
+    card_brand = "Visa" if digits.startswith("4") else "Mastercard" if digits.startswith("5") else "Card"
+    card_last4 = digits[-4:]
 
-    escrow = await create_escrow(db, job, current_user, contractor, amount)
+    escrow = await fund_escrow_service(
+        db, job, current_user, contractor, quoted_amount, card_brand, card_last4,
+    )
     await db.commit()
     await db.refresh(escrow)
 
@@ -83,7 +92,13 @@ async def release_funds(
         if job:
             job.status = "completed"
             db.add(job)
-        
+
+        # Recompute contractor reputation now that a job is completed
+        try:
+            await recalculate_reputation(db, escrow.contractor_id)
+        except Exception:
+            pass
+
         await db.commit()
         await db.refresh(escrow)
 

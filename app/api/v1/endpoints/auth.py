@@ -26,6 +26,10 @@ async def signup(user_in: UserCreate, db: AsyncSession = Depends(get_db)) -> Any
     user_data = user_in.model_dump()
     user_data["hashed_password"] = get_password_hash(user_data.pop("password"))
     db_user = User(**user_data)
+    # New contractors get a 14-day premium trial
+    if db_user.role == "contractor":
+        from app.services.subscription_service import start_trial
+        start_trial(db_user)
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)

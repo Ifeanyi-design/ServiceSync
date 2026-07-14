@@ -147,8 +147,18 @@
                   {% elif vl == 'silver' %}
                     <span class="inline-flex px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[9px] font-bold rounded-full flex-shrink-0">Silver</span>
                   {% elif vl == 'bronze' %}
-                    <span class="inline-flex px-1.5 py-0.5 bg-orange-50 text-orange-700 text-[9px] font-bold rounded-full flex-shrink-0">Bronze</span>
+                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-orange-50 text-orange-700 text-[9px] font-bold rounded-full flex-shrink-0">Bronze</span>
                   {% endif %}
+                {% endif %}
+                {% if contractor.is_premium %}
+                  <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-[9px] font-bold rounded-full flex-shrink-0" title="Premium Pro">
+                    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001z"/></svg>Pro
+                  </span>
+                {% endif %}
+                {% if contractor.is_boosted %}
+                  <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] font-bold rounded-full flex-shrink-0" title="Boosted">
+                    🔥 Boosted
+                  </span>
                 {% endif %}
               </div>
 
@@ -312,6 +322,7 @@
       const rating  = c.reputation_score || null;
       const veri    = c.verification_level || null;
       const avail   = c.availability_status || null;
+      const premium = c.is_premium ? true : false;
 
       let badgeHtml = '';
       if (veri) {
@@ -320,6 +331,12 @@
         else if (vl === 'gold') badgeHtml = `<span class="inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-700 text-[9px] font-bold rounded-full flex-shrink-0">Gold</span>`;
         else if (vl === 'silver') badgeHtml = `<span class="inline-flex px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[9px] font-bold rounded-full flex-shrink-0">Silver</span>`;
         else if (vl === 'bronze') badgeHtml = `<span class="inline-flex px-1.5 py-0.5 bg-orange-50 text-orange-700 text-[9px] font-bold rounded-full flex-shrink-0">Bronze</span>`;
+      }
+      if (premium) {
+        badgeHtml += `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-[9px] font-bold rounded-full flex-shrink-0" title="Premium Pro"><svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001z"/></svg>Pro</span>`;
+      }
+      if (c.is_boosted) {
+        badgeHtml += `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] font-bold rounded-full flex-shrink-0" title="Boosted">🔥 Boosted</span>`;
       }
 
       let ratingHtml = '';

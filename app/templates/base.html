@@ -15,12 +15,26 @@
           fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
           colors: {
             brand: { 50:'#eff6ff', 100:'#dbeafe', 500:'#3b82f6', 600:'#2563eb', 700:'#1d4ed8', 900:'#1e3a8a' },
+            navy: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
+            cyan: { 400: '#22d3ee', 500: '#06b6d4' },
           },
-          animation: { 'fade-in': 'fadeIn .3s ease-out', 'slide-down': 'slideDown .25s ease-out' },
+          animation: {
+            'fade-in': 'fadeIn .3s ease-out',
+            'slide-down': 'slideDown .25s ease-out',
+            'slide-up': 'slideUp .3s ease-out',
+            'toast-in': 'toastIn .35s cubic-bezier(.175,.885,.32,1.275)',
+            'toast-out': 'toastOut .25s ease-in forwards',
+            'pulse-glow': 'pulseGlow 2s infinite',
+          },
           keyframes: {
             fadeIn:    { from: { opacity:'0', transform:'translateY(-6px)' }, to: { opacity:'1', transform:'translateY(0)' } },
             slideDown: { from: { opacity:'0', transform:'translateY(-12px)' }, to: { opacity:'1', transform:'translateY(0)' } },
+            slideUp:   { from: { opacity:'0', transform:'translateY(12px)' }, to: { opacity:'1', transform:'translateY(0)' } },
+            toastIn:   { from: { opacity:'0', transform:'translateX(100%)' }, to: { opacity:'1', transform:'translateX(0)' } },
+            toastOut:  { from: { opacity:'1', transform:'translateX(0)' }, to: { opacity:'0', transform:'translateX(100%)' } },
+            pulseGlow: { '0%,100%': { boxShadow:'0 0 0 0 rgba(59,130,246,0.4)' }, '50%': { boxShadow:'0 0 0 8px rgba(59,130,246,0)' } },
           },
+          backdropBlur: { xl: '24px' },
         }
       }
     }
@@ -29,12 +43,165 @@
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
   <style>
     [x-cloak] { display: none !important; }
-    .nav-link { @apply text-gray-600 hover:text-blue-600 font-medium transition-colors duration-200 text-sm; }
-    .dropdown-enter { animation: slideDown .2s ease-out; }
+
+    /* ====== Premium Design System ====== */
+    :root {
+      --navy-900: #0f172a;
+      --navy-800: #1e293b;
+      --electric-blue: #3b82f6;
+      --cyan-accent: #06b6d4;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --glass-bg: rgba(255,255,255,0.85);
+      --glass-border: rgba(255,255,255,0.3);
+      --glass-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    }
+
+    /* Glassmorphic Navbar */
+    .navbar-glass {
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-bottom: 1px solid rgba(255,255,255,0.5);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+    }
+
+    /* Nav link with active indicator */
+    .nav-link {
+      position: relative;
+      color: #475569;
+      font-weight: 500;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: #2563eb; }
+    .nav-link.active {
+      color: #2563eb;
+      font-weight: 600;
+    }
+    .nav-link.active::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #3b82f6, #06b6d4);
+      border-radius: 99px;
+    }
+
+    /* Dropdown animation */
+    .dropdown-enter { animation: slideDown .22s ease-out; }
+
+    /* Mobile menu animation */
+    .mobile-menu-open { animation: slideDown .25s ease-out; }
+
+    /* Skeleton shimmer */
+    .skeleton {
+      background: linear-gradient(90deg, #f0f4f8 25%, #e2e8f0 50%, #f0f4f8 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Toast notification */
+    #toast-container {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast-item {
+      pointer-events: all;
+      min-width: 320px;
+      max-width: 420px;
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.06);
+      animation: toastIn .35s cubic-bezier(.175,.885,.32,1.275);
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+    .toast-success { background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: #065f46; }
+    .toast-error   { background: linear-gradient(135deg, #fef2f2, #fee2e2); color: #991b1b; }
+    .toast-info    { background: linear-gradient(135deg, #eff6ff, #dbeafe); color: #1e40af; }
+    .toast-warning { background: linear-gradient(135deg, #fffbeb, #fef3c7); color: #92400e; }
+
+    /* Page transition */
+    @keyframes pageFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    main { animation: pageFadeIn .3s ease-out; }
+
+    /* Notification bell pulse */
+    .notif-dot {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 10px;
+      height: 10px;
+      background: #ef4444;
+      border-radius: 50%;
+      border: 2px solid white;
+      animation: pulseGlow 2s infinite;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* Glass card utility */
+    .glass-card {
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.5);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+
+    /* Gradient text utility */
+    .gradient-text {
+      background: linear-gradient(135deg, #3b82f6, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Premium button */
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: white;
+      font-weight: 700;
+      border-radius: 12px;
+      padding: 0.625rem 1.5rem;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      box-shadow: 0 4px 14px rgba(37,99,235,0.35);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+      box-shadow: 0 6px 20px rgba(37,99,235,0.45);
+      transform: translateY(-1px);
+    }
+    .btn-primary:active { transform: scale(0.98); }
   </style>
 
   {% block extra_head %}{% endblock %}
@@ -42,112 +209,141 @@
 
 <body class="min-h-screen bg-gray-50 text-gray-900 font-sans antialiased flex flex-col">
 
+  <!-- =====================  TOAST CONTAINER  ===================== -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
   <!-- =====================  NAVBAR  ===================== -->
-  <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-lg shadow-sm border-b border-gray-100">
+  <nav class="navbar-glass sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between items-center h-16">
 
         <!-- Logo -->
-        <a href="/" class="flex items-center space-x-2 group">
-          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md group-hover:shadow-blue-300 transition-shadow duration-300">
+        <a href="/" class="flex items-center space-x-2.5 group" aria-label="ServiceSync Home">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg group-hover:shadow-blue-300 transition-all duration-300 group-hover:scale-105">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
           </div>
-          <span class="text-lg font-bold tracking-tight text-gray-900">Service<span class="text-blue-600">Sync</span></span>
+          <span class="text-lg font-extrabold tracking-tight text-gray-900">Service<span class="gradient-text">Sync</span></span>
         </a>
 
         <!-- Center Nav Links -->
-        <div class="hidden md:flex items-center space-x-6">
+        <div class="hidden md:flex items-center space-x-1">
+          {% set path = request.url.path %}
           {% if current_user %}
             {% if current_user.role == 'customer' %}
-              <a href="/search" class="nav-link">Find a Pro</a>
-              <a href="/contractors" class="nav-link">Browse Contractors</a>
-              <a href="/dashboard/customer" class="nav-link">My Jobs</a>
-              <a href="/messages" class="nav-link">Messages</a>
+              <a href="/search" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/search' %}active{% endif %}">Find a Pro</a>
+              <a href="/contractors" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path.startswith('/contractors') %}active{% endif %}">Browse Contractors</a>
+              <a href="/dashboard/customer" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/dashboard/customer' %}active{% endif %}">My Jobs</a>
+              <a href="/messages" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/messages' %}active{% endif %}">Messages</a>
             {% elif current_user.role == 'contractor' %}
-              <a href="/dashboard/contractor" class="nav-link">My Dispatch</a>
-              <a href="/messages" class="nav-link">Messages</a>
-              <a href="/drafts" class="nav-link">Drafts</a>
-              <a href="/integrations" class="nav-link">Integrations</a>
+              <a href="/dashboard/contractor" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/dashboard/contractor' %}active{% endif %}">My Dispatch</a>
+              <a href="/messages" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/messages' %}active{% endif %}">Messages</a>
+              <a href="/drafts" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/drafts' %}active{% endif %}">Drafts</a>
+              <a href="/analytics" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/analytics' %}active{% endif %}">Analytics</a>
+              <a href="/wallet" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/wallet' %}active{% endif %}">Wallet</a>
+              <a href="/billing" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/billing' %}active{% endif %}">Plan</a>
             {% elif current_user.role == 'admin' %}
-              <a href="/admin" class="nav-link">Admin Dashboard</a>
+              <a href="/admin" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/admin' %}active{% endif %}">Admin Dashboard</a>
             {% endif %}
           {% else %}
-            <a href="/search" class="nav-link">Find a Pro</a>
-            <a href="/contractors" class="nav-link">Browse Contractors</a>
-            <a href="#how-it-works" class="nav-link">How It Works</a>
-            <a href="#pricing" class="nav-link">Pricing</a>
+            <a href="/search" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/search' %}active{% endif %}">Find a Pro</a>
+            <a href="/contractors" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition">Browse</a>
+            <a href="#how-it-works" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition">How It Works</a>
           {% endif %}
         </div>
 
         <!-- Right: Auth Controls -->
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center gap-2">
           {% if current_user %}
+            <!-- Notification Bell -->
+            <button onclick="showToast('You have no new notifications.', 'info')" class="relative p-2.5 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200" aria-label="Notifications" id="notif-btn">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+              </svg>
+              <span class="notif-dot" aria-hidden="true"></span>
+            </button>
+
             <!-- Authenticated User Menu -->
             <div class="relative" id="user-menu-wrapper">
               <button
                 id="user-menu-btn"
                 onclick="toggleDropdown()"
-                class="flex items-center space-x-2 px-3 py-1.5 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 group"
+                class="flex items-center space-x-2 px-3 py-1.5 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 group"
                 aria-haspopup="true"
                 aria-expanded="false"
               >
-                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
                   {{ current_user.full_name[0] | upper }}
                 </div>
                 <span class="hidden sm:block text-sm font-semibold text-gray-700 group-hover:text-blue-700 max-w-[120px] truncate">
                   {{ current_user.full_name }}
                 </span>
-                <svg class="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-transform duration-200" id="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-transform duration-200" id="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
                 </svg>
               </button>
 
               <!-- Dropdown Menu -->
               <div
                 id="user-dropdown"
-                class="hidden absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 dropdown-enter"
+                class="hidden absolute right-0 mt-2 w-56 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100/80 py-1.5 dropdown-enter"
                 role="menu"
+                style="box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);"
               >
-                <div class="px-4 py-2 border-b border-gray-100 mb-1">
-                  <p class="text-xs text-gray-400 uppercase tracking-wide font-semibold">{{ current_user.role | capitalize }}</p>
-                  <p class="text-sm font-semibold text-gray-800 truncate">{{ current_user.full_name }}</p>
+                <div class="px-4 py-2.5 border-b border-gray-100 mb-1">
+                  <p class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">{{ current_user.role | capitalize }}</p>
+                  <p class="text-sm font-bold text-gray-900 truncate">{{ current_user.full_name }}</p>
+                  <p class="text-xs text-gray-400 truncate">{{ current_user.email }}</p>
                 </div>
+
                 {% if current_user.role == 'customer' %}
-                  <a href="/dashboard/customer" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                  <a href="/dashboard/customer" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition rounded-lg mx-1" role="menuitem">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                     <span>My Jobs</span>
                   </a>
-                  <a href="/messages" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                  <a href="/messages" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition rounded-lg mx-1" role="menuitem">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                     <span>Messages</span>
+                  </a>
+                  <a href="/payment-methods" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition rounded-lg mx-1" role="menuitem">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    <span>Payment Methods</span>
+                  </a>
+                  <a href="/settings" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition rounded-lg mx-1" role="menuitem">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span>Settings</span>
                   </a>
                 {% elif current_user.role == 'contractor' %}
-                  <a href="/dashboard/contractor" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                  <a href="/dashboard/contractor" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition rounded-lg mx-1" role="menuitem">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     <span>My Dispatch</span>
                   </a>
-                  <a href="/messages" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                  <a href="/messages" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition rounded-lg mx-1" role="menuitem">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                     <span>Messages</span>
                   </a>
-                  <a href="/drafts" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                    <span>Drafts</span>
+                  <a href="/wallet" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition rounded-lg mx-1" role="menuitem">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    <span>Wallet</span>
                   </a>
-                  <a href="/integrations" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 015.656 0l4-4a4 4 0 01-5.656-5.656l-1.1 1.1"/></svg>
+                  <a href="/billing" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition rounded-lg mx-1" role="menuitem">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    <span>Billing &amp; Plan</span>
+                  </a>
+                  <a href="/integrations" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition rounded-lg mx-1" role="menuitem">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 015.656 0l4-4a4 4 0 01-5.656-5.656l-1.1 1.1"/></svg>
                     <span>Integrations</span>
                   </a>
                 {% elif current_user.role == 'admin' %}
-                  <a href="/admin" class="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition" role="menuitem">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                  <a href="/admin" class="flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition rounded-lg mx-1" role="menuitem">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                     <span>Admin Dashboard</span>
                   </a>
                 {% endif %}
-                <div class="border-t border-gray-100 mt-1 pt-1">
-                  <a href="/auth/logout" class="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition" role="menuitem">
+
+                <div class="border-t border-gray-100 mt-1 pt-1 mx-1">
+                  <a href="/auth/logout" class="flex items-center space-x-2.5 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition rounded-lg" role="menuitem">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                     <span>Sign Out</span>
                   </a>
@@ -157,16 +353,19 @@
 
           {% else %}
             <!-- Guest: Sign In / Sign Up -->
-            <a href="/auth/login" class="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors px-3 py-2">Sign In</a>
-            <a href="/auth/signup" class="px-5 py-2 rounded-full bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg hover:shadow-blue-200">
+            <a href="/auth/login" class="text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors px-3 py-2">Sign In</a>
+            <a href="/auth/signup" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm hover:from-blue-500 hover:to-indigo-500 transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5">
               Get Started
             </a>
           {% endif %}
 
           <!-- Mobile hamburger -->
-          <button id="mobile-menu-btn" onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition" aria-label="Toggle menu">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button id="mobile-menu-btn" onclick="toggleMobileMenu()" class="md:hidden p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition" aria-label="Toggle menu">
+            <svg class="w-5 h-5" id="hamburger-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+            <svg class="w-5 h-5 hidden" id="close-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </button>
         </div>
@@ -174,25 +373,33 @@
     </div>
 
     <!-- Mobile Menu -->
-    <div id="mobile-menu" class="hidden md:hidden border-t border-gray-100 bg-white px-4 pb-4 pt-2 space-y-1">
+    <div id="mobile-menu" class="hidden md:hidden border-t border-gray-100 bg-white/95 backdrop-blur-xl px-4 pb-5 pt-3 space-y-1">
         {% if current_user %}
           {% if current_user.role == 'customer' %}
-            <a href="/search" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Find a Pro</a>
-            <a href="/contractors" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Browse Contractors</a>
-            <a href="/dashboard/customer" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">My Jobs</a>
-            <a href="/messages" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Messages</a>
+            <a href="/search" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Find a Pro</a>
+            <a href="/contractors" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Browse Contractors</a>
+            <a href="/dashboard/customer" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">My Jobs</a>
+            <a href="/messages" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Messages</a>
+            <a href="/payment-methods" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Payment Methods</a>
+            <a href="/settings" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Settings</a>
           {% elif current_user.role == 'contractor' %}
-            <a href="/dashboard/contractor" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">My Dispatch</a>
-            <a href="/messages" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Messages</a>
-            <a href="/drafts" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Drafts</a>
-            <a href="/integrations" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Integrations</a>
+            <a href="/dashboard/contractor" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">My Dispatch</a>
+            <a href="/messages" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Messages</a>
+            <a href="/drafts" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Drafts</a>
+            <a href="/analytics" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Analytics</a>
+            <a href="/wallet" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Wallet</a>
+            <a href="/billing" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Billing &amp; Plan</a>
+          {% elif current_user.role == 'admin' %}
+            <a href="/admin" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Admin Dashboard</a>
           {% endif %}
-          <a href="/auth/logout" class="block px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition">Sign Out</a>
+          <div class="pt-2 border-t border-gray-100">
+            <a href="/auth/logout" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition">Sign Out</a>
+          </div>
       {% else %}
-        <a href="/search" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Find a Pro</a>
-        <a href="/contractors" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Browse Contractors</a>
-        <a href="/auth/login" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Sign In</a>
-        <a href="/auth/signup" class="block px-3 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition text-center mt-2">Get Started</a>
+        <a href="/search" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Find a Pro</a>
+        <a href="/contractors" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Browse Contractors</a>
+        <a href="/auth/login" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Sign In</a>
+        <a href="/auth/signup" class="block px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 transition text-center mt-2 shadow-md">Get Started</a>
       {% endif %}
     </div>
   </nav>
@@ -201,9 +408,12 @@
   <!-- =====================  GLOBAL MESSAGES  ===================== -->
   {% if global_error %}
     <div class="max-w-7xl mx-auto w-full px-4 pt-4 space-y-2" aria-live="polite">
-      <div class="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium shadow-sm bg-red-50 text-red-700 border border-red-200">
-        <span>{{ global_error }}</span>
-        <button onclick="this.parentElement.remove()" class="ml-4 opacity-60 hover:opacity-100 transition">&times;</button>
+      <div class="flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-medium shadow-sm bg-red-50 text-red-700 border border-red-200">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>{{ global_error }}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="ml-4 opacity-60 hover:opacity-100 transition text-lg leading-none">&times;</button>
       </div>
     </div>
   {% endif %}
@@ -215,46 +425,65 @@
 
   <!-- =====================  FOOTER  ===================== -->
   <footer class="bg-white border-t border-gray-100 mt-auto">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+    <!-- Gradient divider -->
+    <div class="h-px bg-gradient-to-r from-transparent via-blue-300 to-transparent opacity-60"></div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-8 mb-10">
         <!-- Brand -->
-        <div class="md:col-span-1">
-          <div class="flex items-center space-x-2 mb-3">
-            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
-              <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <div class="md:col-span-2">
+          <div class="flex items-center space-x-2.5 mb-4">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-md">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
-            <span class="font-bold text-gray-900">Service<span class="text-blue-600">Sync</span></span>
+            <span class="font-extrabold text-gray-900">Service<span class="gradient-text">Sync</span></span>
           </div>
-          <p class="text-sm text-gray-500 leading-relaxed">AI-native matching for home services. Powered by Gemini.</p>
+          <p class="text-sm text-gray-500 leading-relaxed mb-4">AI-native matching for home services. Powered by Gemini.</p>
+          <!-- Social links -->
+          <div class="flex items-center gap-3">
+            <a href="#" class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-blue-100 hover:text-blue-600 text-gray-500 flex items-center justify-center transition-all duration-200" aria-label="Twitter">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84"/></svg>
+            </a>
+            <a href="#" class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-blue-100 hover:text-blue-600 text-gray-500 flex items-center justify-center transition-all duration-200" aria-label="LinkedIn">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+            </a>
+          </div>
+          <!-- XPRIZE badge -->
+          <div class="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/50 text-xs font-bold text-blue-700" style="box-shadow: 0 0 0 2px rgba(59,130,246,0.1);">
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+            Built for Gemini XPRIZE
+          </div>
         </div>
         <!-- Links -->
         <div>
-          <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Platform</h4>
-          <ul class="space-y-2">
-            <li><a href="/search" class="text-sm text-gray-600 hover:text-blue-600 transition">Find a Pro</a></li>
-            <li><a href="/auth/signup" class="text-sm text-gray-600 hover:text-blue-600 transition">For Contractors</a></li>
+          <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Platform</h4>
+          <ul class="space-y-2.5">
+            <li><a href="/search" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Find a Pro</a></li>
+            <li><a href="/contractors" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Browse Contractors</a></li>
+            <li><a href="/auth/signup" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">For Contractors</a></li>
           </ul>
         </div>
         <div>
-          <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Company</h4>
-          <ul class="space-y-2">
-            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition">About</a></li>
-            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition">Blog</a></li>
+          <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Company</h4>
+          <ul class="space-y-2.5">
+            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">About</a></li>
+            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Blog</a></li>
+            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Careers</a></li>
           </ul>
         </div>
         <div>
-          <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Legal</h4>
-          <ul class="space-y-2">
-            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition">Privacy Policy</a></li>
-            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition">Terms of Service</a></li>
+          <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Legal</h4>
+          <ul class="space-y-2.5">
+            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Privacy Policy</a></li>
+            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Terms of Service</a></li>
+            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Cookie Policy</a></li>
           </ul>
         </div>
       </div>
       <div class="border-t border-gray-100 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <p class="text-xs text-gray-400">&copy; 2026 ServiceSync. All rights reserved. Built for Build with Gemini XPRIZE.</p>
-        <div class="flex items-center space-x-1 text-xs text-gray-400">
+        <p class="text-xs text-gray-400">&copy; 2026 ServiceSync. All rights reserved.</p>
+        <div class="flex items-center space-x-1.5 text-xs text-gray-400">
           <span>Powered by</span>
-          <span class="font-semibold text-blue-500">Gemini AI</span>
+          <span class="font-bold gradient-text">Gemini AI</span>
           <svg class="w-3.5 h-3.5 text-blue-500 ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
         </div>
       </div>
@@ -263,27 +492,88 @@
 
   <!-- =====================  GLOBAL JS  ===================== -->
   <script>
+    // ====== Dropdown Toggle ======
     function toggleDropdown() {
       const dropdown = document.getElementById('user-dropdown');
       const chevron  = document.getElementById('chevron-icon');
       const btn      = document.getElementById('user-menu-btn');
       const isOpen   = !dropdown.classList.contains('hidden');
       dropdown.classList.toggle('hidden', isOpen);
-      chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
-      btn.setAttribute('aria-expanded', String(!isOpen));
+      if (isOpen) {
+        chevron.style.transform = '';
+        btn.setAttribute('aria-expanded', 'false');
+      } else {
+        chevron.style.transform = 'rotate(180deg)';
+        btn.setAttribute('aria-expanded', 'true');
+        dropdown.classList.remove('hidden');
+        dropdown.style.animation = 'none';
+        requestAnimationFrame(() => {
+          dropdown.style.animation = '';
+          dropdown.classList.add('dropdown-enter');
+        });
+      }
     }
+
+    // ====== Mobile Menu Toggle ======
+    let mobileOpen = false;
     function toggleMobileMenu() {
-      document.getElementById('mobile-menu').classList.toggle('hidden');
+      const menu = document.getElementById('mobile-menu');
+      const hamburger = document.getElementById('hamburger-icon');
+      const closeIco  = document.getElementById('close-icon');
+      mobileOpen = !mobileOpen;
+      menu.classList.toggle('hidden', !mobileOpen);
+      hamburger.classList.toggle('hidden', mobileOpen);
+      closeIco.classList.toggle('hidden', !mobileOpen);
+      if (mobileOpen) menu.classList.add('mobile-menu-open');
     }
+
     // Close dropdown when clicking outside
     document.addEventListener('click', function(e) {
       const wrapper = document.getElementById('user-menu-wrapper');
       if (wrapper && !wrapper.contains(e.target)) {
         const dropdown = document.getElementById('user-dropdown');
         const chevron  = document.getElementById('chevron-icon');
+        const btn      = document.getElementById('user-menu-btn');
         if (dropdown) dropdown.classList.add('hidden');
         if (chevron)  chevron.style.transform = '';
+        if (btn)      btn.setAttribute('aria-expanded', 'false');
       }
+    });
+
+    // ====== Toast System ======
+    function showToast(message, type = 'info', duration = 4000) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const icons = {
+        success: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+        error:   '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+        info:    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+        warning: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>',
+      };
+      toast.className = `toast-item toast-${type}`;
+      toast.innerHTML = `
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">${icons[type]||icons.info}</svg>
+        <span class="flex-1">${message}</span>
+        <button onclick="dismissToast(this.parentElement)" class="flex-shrink-0 opacity-60 hover:opacity-100 transition text-lg leading-none ml-2">&times;</button>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => dismissToast(toast), duration);
+    }
+
+    function dismissToast(el) {
+      if (!el || !el.parentElement) return;
+      el.style.animation = 'toastOut .25s ease-in forwards';
+      setTimeout(() => el.remove(), 260);
+    }
+
+    // Auto-dismiss flash messages as toasts
+    document.addEventListener('DOMContentLoaded', () => {
+      // Convert URL params to toasts
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('paid')) showToast('Payment secured! Funds are held in escrow until you confirm the job is done.', 'success');
+      if (params.get('cancelled')) showToast('Job cancelled. Any held payment has been refunded.', 'info');
+      if (params.get('error')) showToast(params.get('error').replace(/_/g, ' '), 'error');
+      if (params.get('success')) showToast(params.get('success').replace(/_/g, ' '), 'success');
     });
   </script>
 

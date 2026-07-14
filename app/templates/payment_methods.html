@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Methods — ServiceSync{% endblock %}
+{% block meta_description %}Manage your saved payment methods on ServiceSync. Add cards, bank accounts, and mobile money.{% endblock %}
+
+{% block extra_head %}
+<style>
+  .method-card { transition: all 0.2s ease; }
+  .method-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+
+  .add-form-section { transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); overflow: hidden; }
+
+  .provider-chip { transition: all 0.15s ease; }
+  .provider-chip.selected {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    color: white;
+    border-color: #2563eb;
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); max-height: 0; }
+    to   { opacity: 1; transform: translateY(0); max-height: 600px; }
+  }
+  .form-open { animation: slideDown 0.3s ease-out both; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+
+  <!-- Flash messages -->
+  {% if request.query_params.get('success') %}
+  <script>document.addEventListener('DOMContentLoaded',()=>showToast('{{ request.query_params.get("success") }}','success'));</script>
+  {% endif %}
+
+  <!-- Page Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Payment Methods</h1>
+      <p class="text-gray-500 text-sm mt-0.5">Manage how you pay for services on ServiceSync.</p>
+    </div>
+    <button onclick="toggleAddForm()"
+      class="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl transition shadow-md shadow-blue-200 active:scale-95">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Add Method
+    </button>
+  </div>
+
+  <!-- Security banner -->
+  <div class="flex items-center gap-3 px-4 py-3 mb-6 bg-emerald-50 border border-emerald-100 rounded-2xl">
+    <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+      <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+    </div>
+    <p class="text-sm text-emerald-700"><strong>Your data is safe.</strong> We never store your full card number. All payment info is encrypted with 256-bit SSL.</p>
+  </div>
+
+  <!-- Add New Method Form (collapsed by default) -->
+  <div id="add-form-section" class="hidden mb-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-blue-200 ring-2 ring-blue-100 p-6 form-open">
+      <h2 class="font-extrabold text-gray-900 mb-4 flex items-center gap-2">
+        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Add New Payment Method
+      </h2>
+
+      <!-- Type selector -->
+      <div class="flex gap-2 mb-5 bg-gray-100 rounded-xl p-1">
+        <button type="button" onclick="setType('card')" id="type-btn-card"
+          class="flex-1 py-2 rounded-lg text-xs font-bold transition bg-white shadow-sm text-blue-700">💳 Card</button>
+        <button type="button" onclick="setType('bank_transfer')" id="type-btn-bank_transfer"
+          class="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-500 transition">🏦 Bank Transfer</button>
+        <button type="button" onclick="setType('mobile_money')" id="type-btn-mobile_money"
+          class="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-500 transition">📱 Mobile Money</button>
+      </div>
+
+      <form method="POST" action="/payment-methods" id="add-method-form">
+        <input type="hidden" name="type" id="method-type" value="card" />
+        <input type="hidden" name="display_name" id="display-name-val" />
+
+        <!-- Card fields -->
+        <div id="fields-card" class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div class="col-span-2">
+              <label class="block text-xs font-bold text-gray-600 mb-1">Name on Card</label>
+              <input type="text" name="account_name" id="card-holder" placeholder="John Doe"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+            </div>
+            <div class="col-span-2">
+              <label class="block text-xs font-bold text-gray-600 mb-1">Card Number</label>
+              <input type="text" id="card-number-input" placeholder="4242 4242 4242 4242" maxlength="19"
+                oninput="onCardInput(this)"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 mb-1">Expiry</label>
+              <input type="text" name="expiry" placeholder="MM/YY" maxlength="5" oninput="fmtExp(this)"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 mb-1">CVC</label>
+              <input type="text" placeholder="123" maxlength="4"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Bank Transfer fields -->
+        <div id="fields-bank_transfer" class="hidden space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">Account Holder Name</label>
+            <input type="text" name="account_name" placeholder="John Doe"
+              class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">Bank Name</label>
+            <input type="text" name="bank_name" placeholder="First Bank"
+              class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">Account Number</label>
+            <input type="text" name="last4" placeholder="0123456789"
+              class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+          </div>
+        </div>
+
+        <!-- Mobile Money fields -->
+        <div id="fields-mobile_money" class="hidden space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-2">Provider</label>
+            <div class="grid grid-cols-2 gap-2">
+              {% for pval, pname in [('mpesa','M-Pesa'),('opay','Opay'),('mtn','MTN MoMo'),('paystack','Paystack')] %}
+              <label class="cursor-pointer">
+                <input type="radio" name="provider" value="{{ pval }}" class="hidden peer" {% if loop.first %}checked{% endif %} />
+                <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 border-gray-100 peer-checked:border-blue-400 peer-checked:bg-blue-50 transition">
+                  <span class="text-base">{% if pval=='mpesa' %}🇰🇪{% elif pval=='opay' %}🇳🇬{% elif pval=='mtn' %}📡{% else %}💳{% endif %}</span>
+                  <span class="text-sm font-semibold text-gray-700">{{ pname }}</span>
+                </div>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">Phone Number</label>
+            <input type="tel" name="phone" placeholder="+234 800 000 0000"
+              class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-5">
+          <button type="submit"
+            class="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm transition shadow-md shadow-blue-200 active:scale-95">
+            Save Payment Method
+          </button>
+          <button type="button" onclick="toggleAddForm()"
+            class="px-5 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Saved Methods List -->
+  {% if payment_methods %}
+  <div class="space-y-3">
+    {% for m in payment_methods %}
+    <div class="method-card bg-white rounded-2xl shadow-sm border border-gray-100 p-5" id="method-{{ m.id }}">
+      <div class="flex items-center gap-4">
+
+        <!-- Brand icon -->
+        <div class="flex-shrink-0">
+          {% if m.type == 'card' %}
+          <div class="w-14 h-9 rounded-lg flex items-center justify-center font-black text-sm
+            {% if m.brand == 'Visa' %}bg-[#1a1f71] text-white
+            {% elif m.brand == 'Mastercard' %}bg-[#eb001b] text-white
+            {% elif m.brand == 'Amex' %}bg-[#007bc1] text-white
+            {% else %}bg-gray-800 text-white{% endif %}">
+            {{ m.brand or 'CARD' }}
+          </div>
+          {% elif m.type == 'bank_transfer' %}
+          <div class="w-14 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>
+          </div>
+          {% else %}
+          <div class="w-14 h-9 rounded-lg bg-green-100 flex items-center justify-center text-lg">📱</div>
+          {% endif %}
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <p class="font-bold text-gray-900 text-sm">{{ m.display_name }}</p>
+            {% if m.is_default %}
+            <span class="px-2 py-0.5 bg-blue-100 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wide">Default</span>
+            {% endif %}
+          </div>
+          <p class="text-xs text-gray-400">
+            {% if m.type == 'card' %}
+              {% if m.expiry %}Expires {{ m.expiry }}{% endif %}
+            {% elif m.type == 'bank_transfer' %}
+              {% if m.bank_name %}{{ m.bank_name }}{% endif %}
+              {% if m.account_name %} · {{ m.account_name }}{% endif %}
+            {% else %}
+              {{ m.provider | title }}{% if m.phone %} · {{ m.phone }}{% endif %}
+            {% endif %}
+          </p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          {% if not m.is_default %}
+          <form method="POST" action="/payment-methods/{{ m.id }}/default" class="inline">
+            <button type="submit" class="text-xs font-semibold text-blue-600 hover:text-blue-800 px-2 py-1.5 rounded-lg hover:bg-blue-50 transition">
+              Set Default
+            </button>
+          </form>
+          {% endif %}
+          <form method="POST" action="/payment-methods/{{ m.id }}/delete" class="inline"
+            onsubmit="return confirm('Remove {{ m.display_name }}?')">
+            <button type="submit"
+              class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+    <div class="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
+      <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+      </svg>
+    </div>
+    <h3 class="text-lg font-bold text-gray-700 mb-1">No payment methods saved</h3>
+    <p class="text-gray-400 text-sm max-w-xs mb-5">Add a card, bank account, or mobile money account to pay for services quickly.</p>
+    <button onclick="toggleAddForm()"
+      class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-xl hover:from-blue-500 hover:to-indigo-500 transition shadow-md shadow-blue-200">
+      Add Your First Method
+    </button>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function toggleAddForm() {
+    const form = document.getElementById('add-form-section');
+    form.classList.toggle('hidden');
+    if (!form.classList.contains('hidden')) form.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function setType(type) {
+    ['card','bank_transfer','mobile_money'].forEach(t => {
+      document.getElementById(`type-btn-${t}`).className = t === type
+        ? 'flex-1 py-2 rounded-lg text-xs font-bold transition bg-white shadow-sm text-blue-700'
+        : 'flex-1 py-2 rounded-lg text-xs font-semibold text-gray-500 transition';
+      document.getElementById(`fields-${t}`).classList.toggle('hidden', t !== type);
+    });
+    document.getElementById('method-type').value = type;
+  }
+
+  function onCardInput(input) {
+    let v = input.value.replace(/\D/g,'').slice(0,16);
+    input.value = v.replace(/(\d{4})(?=\d)/g,'$1 ');
+    // Set brand & last4 hidden fields
+    const last4 = v.slice(-4);
+    let brand = '';
+    if (v.startsWith('4')) brand = 'Visa';
+    else if (v.startsWith('5')) brand = 'Mastercard';
+    else if (v.startsWith('34') || v.startsWith('37')) brand = 'Amex';
+    document.getElementById('display-name-val').value = brand ? `${brand} ••••  ${last4}` : `Card •••• ${last4}`;
+    const brandEl = document.querySelector('input[name="brand"]');
+    if (brandEl) brandEl.value = brand;
+  }
+
+  function fmtExp(input) {
+    let v = input.value.replace(/\D/g,'');
+    if (v.length >= 2) v = v.slice(0,2) + '/' + v.slice(2,4);
+    input.value = v;
+  }
+</script>
+{% endblock %}

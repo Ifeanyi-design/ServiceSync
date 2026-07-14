@@ -33,6 +33,11 @@
       <p class="text-2xl font-extrabold text-gray-900">{{ verified_contractors }}</p>
       <p class="text-xs text-gray-400 mt-0.5">of {{ total_contractors }} contractors</p>
     </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-amber-400">
+      <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Premium</p>
+      <p class="text-2xl font-extrabold text-gray-900">{{ premium_contractors }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">of {{ total_contractors }} contractors</p>
+    </div>
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-indigo-500">
       <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Jobs</p>
       <p class="text-2xl font-extrabold text-gray-900">{{ total_jobs }}</p>
@@ -64,6 +69,7 @@
       ('jobs', 'Jobs (' ~ total_jobs ~ ')'),
       ('escrows', 'Escrows (' ~ total_escrows ~ ')'),
       ('disputes', 'Disputes (' ~ all_disputes | length ~ ')'),
+      ('verifications', 'Verifications (' ~ pending_verifications ~ ')'),
       ('ai-logs', 'AI Logs (' ~ audit_logs | length ~ ')')
     ] %}
     {% for tab_id, tab_label in tabs %}
@@ -142,6 +148,7 @@
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Verification</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Reputation</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Availability</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Subscription</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
           </tr>
         </thead>
@@ -206,8 +213,18 @@
             </td>
             <td class="px-6 py-4">
               {% if user.role == 'contractor' %}
-              <div class="flex items-center gap-1">
-                <form method="POST" action="/admin/user/{{ user.id }}/verify" class="inline">
+                {% set tier = subscription_service.effective_tier(user) %}
+                {% if tier == 'premium' %}
+                  <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white">Premium</span>
+                {% else %}
+                  <span class="px-2.5 py-1 text-xs font-bold rounded-full bg-gray-100 text-gray-600">Free</span>
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-6 py-4">
+              {% if user.role == 'contractor' %}
+                <div class="flex items-center gap-1">
+                  <form method="POST" action="/admin/user/{{ user.id }}/verify" class="inline">
                   <select name="verification_level" onchange="this.form.submit()" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white cursor-pointer hover:border-blue-300 transition">
                     {% for level in ['none', 'bronze', 'silver', 'gold', 'verified_pro'] %}
                     <option value="{{ level }}" {{ 'selected' if (user.verification_level or 'none') == level }}>{{ level | replace('_', ' ') | capitalize }}</option>
@@ -397,6 +414,92 @@
     {% else %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
       <p class="text-gray-400 text-sm">No disputes yet. All clear!</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ====== TAB: VERIFICATIONS ====== -->
+  {% if active_tab == 'verifications' %}
+  <div class="space-y-4">
+    {% for vr in all_verifications %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+             <h3 class="text-sm font-bold text-gray-900">
+               {{ vr.contractor.full_name if vr.contractor else 'Contractor #' ~ vr.contractor_id }}
+             </h3>
+             {% if vr.contractor and subscription_service.is_premium(vr.contractor) %}
+             <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white" title="Priority review">Priority</span>
+             {% endif %}
+            <span class="px-2 py-0.5 text-xs font-bold rounded-full
+              {{ 'bg-green-50 text-green-700' if vr.status == 'approved' else
+                 'bg-red-50 text-red-700' if vr.status == 'rejected' else
+                 'bg-amber-50 text-amber-700' }}">
+              {{ vr.status }}
+            </span>
+            <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-50 text-blue-700">
+              Requesting: {{ vr.requested_level }}
+            </span>
+          </div>
+          <p class="text-xs text-gray-400">Request #{{ vr.id }} · Contractor #{{ vr.contractor_id }}{% if vr.contractor %} · {{ vr.contractor.email }}{% endif %}</p>
+        </div>
+        <p class="text-xs text-gray-400">{{ vr.created_at.strftime('%b %d, %Y %H:%M') if vr.created_at else '' }}</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div class="bg-gray-50 rounded-xl p-3">
+          <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">ID Document</p>
+          {% if vr.id_document_url %}<a href="{{ vr.id_document_url }}" target="_blank" class="text-sm text-blue-600 hover:underline break-all">View</a>{% else %}<p class="text-sm text-gray-400">Not provided</p>{% endif %}
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3">
+          <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Trade License</p>
+          {% if vr.license_document_url %}<a href="{{ vr.license_document_url }}" target="_blank" class="text-sm text-blue-600 hover:underline break-all">View</a>{% else %}<p class="text-sm text-gray-400">Not provided</p>{% endif %}
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3">
+          <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Insurance</p>
+          {% if vr.insurance_document_url %}<a href="{{ vr.insurance_document_url }}" target="_blank" class="text-sm text-blue-600 hover:underline break-all">View</a>{% else %}<p class="text-sm text-gray-400">Not provided</p>{% endif %}
+        </div>
+      </div>
+
+      {% if vr.notes %}
+      <div class="bg-gray-50 rounded-xl p-4 mb-4">
+        <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Contractor Notes</p>
+        <p class="text-sm text-gray-700">{{ vr.notes }}</p>
+      </div>
+      {% endif %}
+
+      {% if vr.status == 'rejected' and vr.review_notes %}
+      <div class="bg-red-50 rounded-xl p-4 mb-4 border border-red-100">
+        <p class="text-xs font-bold text-red-600 uppercase tracking-wide mb-1">Rejection Reason</p>
+        <p class="text-sm text-red-800">{{ vr.review_notes }}</p>
+      </div>
+      {% endif %}
+
+      {% if vr.status == 'pending' %}
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 mt-4 pt-4 border-t border-gray-100">
+        <form method="POST" action="/admin/verification/{{ vr.id }}/approve" class="inline">
+          <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition shadow-sm">
+            Approve → {{ vr.requested_level }}
+          </button>
+        </form>
+        <form method="POST" action="/admin/verification/{{ vr.id }}/reject" class="flex items-end gap-2 flex-1">
+          <div class="flex-1">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Rejection Reason (optional)</label>
+            <input type="text" name="review_notes" placeholder="Why is this being rejected?"
+              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
+          </div>
+          <button type="submit" class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 text-sm font-semibold rounded-lg transition">
+            Reject
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+      <p class="text-gray-400 text-sm">No verification requests yet.</p>
     </div>
     {% endfor %}
   </div>

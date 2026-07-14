@@ -6,7 +6,7 @@ import httpx
 
 from app.api.dependencies import get_db
 from app.core.database import async_session_maker
-from app.models.all_models import OmnichannelIntegration, User, Conversation, DirectMessage, AIDraft
+from app.models.all_models import OmnichannelIntegration, User, Conversation, DirectMessage, AIDraft, StripeEvent
 from app.core.config import settings
 from app.models.audit_log import AIOperationsAuditLog
 from app.services.gemini_service import generate_contractor_reply
@@ -14,6 +14,56 @@ from app.services.gemini_service import generate_contractor_reply
 router = APIRouter()
 
 META_VERIFY_TOKEN = "your_secure_verify_token" 
+
+
+@router.post("/stripe")
+async def stripe_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Hardened Stripe webhook: verifies the signature and records each event
+    once (idempotent) using the StripeEvent table.
+
+    - Requires STRIPE_WEBHOOK_SECRET; rejects unverified payloads.
+    - Duplicate deliveries (same event id) are acknowledged without reprocessing.
+    """
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    if not settings.STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Stripe webhooks not configured")
+    if not sig_header:
+        raise HTTPException(status_code=400, detail="Missing Stripe signature")
+
+    try:
+        import stripe
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except Exception:
+        # Includes stripe.error.SignatureVerificationError
+        raise HTTPException(status_code=400, detail="Signature verification failed")
+
+    event_id = event.get("id")
+    event_type = event.get("type", "unknown")
+
+    # Idempotency: skip if we've already stored this event.
+    existing = await db.exec(select(StripeEvent).where(StripeEvent.stripe_event_id == event_id))
+    if existing.first():
+        return {"status": "duplicate", "event_id": event_id}
+
+    record = StripeEvent(
+        stripe_event_id=event_id,
+        event_type=event_type,
+        processed=True,
+        payload=dict(event),
+    )
+    db.add(record)
+    await db.commit()
+
+    return {"status": "received", "event_id": event_id, "type": event_type}
 
 @router.get("/{platform}")
 async def verify_webhook(

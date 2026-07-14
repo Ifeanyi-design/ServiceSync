@@ -1,0 +1,131 @@
+{% macro escrow_timeline(escrow, job=None) %}
+{# ─────────────────────────────────────────────
+   Reusable Escrow Timeline Component
+   Usage: {% from "escrow_timeline.html" import escrow_timeline %}
+          {{ escrow_timeline(escrow) }}
+   ───────────────────────────────────────────── #}
+
+{% set es = escrow.status %}
+
+{# Step order mapping #}
+{% set steps_config = [
+  ('created',            'Created',          '📋', 'Job created and escrow initialized'),
+  ('held',               'Funded',           '🔒', 'Payment held securely in escrow'),
+  ('in_progress',        'In Progress',      '🔨', 'Work is underway'),
+  ('completed_pending',  'Confirming',       '⏳', 'Awaiting your confirmation'),
+  ('released',           'Released',         '✅', 'Payment released to contractor'),
+] %}
+
+{% set order_map = {
+  'created': 0,
+  'held': 1,
+  'in_progress': 2,
+  'completed_pending': 3,
+  'released': 4,
+  'refunded': 4,
+  'disputed': 3,
+} %}
+
+{% set current_idx = order_map.get(es, 1) %}
+
+<div class="escrow-timeline-widget">
+
+  {# Special status banners #}
+  {% if es == 'disputed' %}
+  <div class="mb-4 flex items-center gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-2xl">
+    <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+    <div>
+      <p class="text-sm font-bold text-red-700">Dispute In Progress</p>
+      <p class="text-xs text-red-500 mt-0.5">Funds are frozen. Our mediation team is reviewing your case.</p>
+    </div>
+  </div>
+  {% elif es == 'refunded' %}
+  <div class="mb-4 flex items-center gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl">
+    <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+    <div>
+      <p class="text-sm font-bold text-amber-700">Refunded</p>
+      <p class="text-xs text-amber-600 mt-0.5">Payment was returned to the customer.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── 5-step horizontal timeline ── #}
+  <div class="relative">
+    {# Background connector track #}
+    <div class="absolute top-5 left-[2.25rem] right-[2.25rem] h-0.5 bg-gray-100 rounded-full" style="z-index:0;"></div>
+    {# Progress fill #}
+    {% if current_idx > 0 %}
+    <div class="absolute top-5 left-[2.25rem] h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
+      style="width: calc({{ [current_idx, 4] | min }} / 4 * (100% - 4.5rem)); z-index:0;">
+    </div>
+    {% endif %}
+
+    {# Steps #}
+    <div class="relative flex items-start justify-between" style="z-index:1;">
+      {% for key, label, icon, desc in steps_config %}
+      {% set step_idx = loop.index0 %}
+      {% set is_done    = step_idx <  current_idx %}
+      {% set is_current = step_idx == current_idx and es not in ['disputed','refunded'] %}
+      {% set is_future  = step_idx >  current_idx %}
+
+      <div class="flex flex-col items-center text-center w-[20%]">
+        {# Dot #}
+        <div class="w-10 h-10 rounded-full flex items-center justify-center text-base mb-2 shadow-sm ring-2 ring-white
+          {% if is_done %}bg-gradient-to-br from-blue-500 to-indigo-600 text-white
+          {% elif is_current %}bg-gradient-to-br from-blue-500 to-indigo-600 text-white ring-4 ring-blue-100
+          {% elif es == 'disputed' and step_idx == 3 %}bg-red-100 text-red-500
+          {% elif es == 'refunded' and step_idx == 4 %}bg-amber-100 text-amber-500
+          {% else %}bg-gray-100 text-gray-300{% endif %}">
+          {% if is_done %}
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          {% elif is_current %}
+          <span class="animate-pulse">{{ icon }}</span>
+          {% elif es == 'disputed' and step_idx == 3 %}⚠️
+          {% elif es == 'refunded' and step_idx == 4 %}↩️
+          {% else %}{{ icon }}{% endif %}
+        </div>
+        {# Label #}
+        <p class="text-[11px] font-bold leading-tight
+          {% if is_current %}text-blue-600
+          {% elif is_done %}text-gray-700
+          {% else %}text-gray-300{% endif %}">
+          {{ label }}
+        </p>
+        {# Desc — only on current step #}
+        {% if is_current %}
+        <p class="text-[10px] text-blue-400 mt-0.5 leading-tight hidden sm:block">{{ desc }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Amount breakdown ── #}
+  {% if escrow.amount is defined %}
+  <div class="mt-5 pt-4 border-t border-gray-100">
+    <div class="grid grid-cols-3 gap-3">
+      <div class="text-center bg-blue-50/50 rounded-xl p-3">
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Paid</p>
+        <p class="text-base font-extrabold text-gray-900">${{ '%.2f' | format(escrow.amount | float) }}</p>
+      </div>
+      {% if escrow.platform_fee is defined %}
+      <div class="text-center bg-gray-50 rounded-xl p-3">
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Platform Fee</p>
+        <p class="text-base font-extrabold text-gray-500">${{ '%.2f' | format(escrow.platform_fee | float) }}</p>
+      </div>
+      {% endif %}
+      {% if escrow.contractor_payout is defined %}
+      <div class="text-center bg-emerald-50 rounded-xl p-3">
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Pro Payout</p>
+        <p class="text-base font-extrabold text-emerald-600">${{ '%.2f' | format(escrow.contractor_payout | float) }}</p>
+      </div>
+      {% endif %}
+    </div>
+    {% if escrow.currency and escrow.currency != 'USD' %}
+    <p class="text-[10px] text-gray-400 text-center mt-2">Displayed in {{ escrow.currency }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endmacro %}

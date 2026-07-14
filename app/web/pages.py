@@ -1,14 +1,20 @@
-from fastapi import APIRouter, Request, Depends, HTTPException, Form, status
+from fastapi import APIRouter, Request, Depends, HTTPException, Form, status, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from sqlalchemy.orm import selectinload
 from typing import Optional
+from datetime import datetime, timedelta
+from decimal import Decimal
 
 from app.api.dependencies import get_current_user_optional, get_current_user, get_db
-from app.models.all_models import User, Job, Conversation, DirectMessage, OmnichannelIntegration, Review, Escrow, Dispute, AIDraft
+from app.models.all_models import User, Job, Conversation, DirectMessage, OmnichannelIntegration, Review, Escrow, Dispute, AIDraft, VerificationRequest, WalletTransaction, Receipt
 from app.core.config import settings
+from app.services import subscription_service
+from app.services import wallet_service
+from app.services.escrow_service import calculate_fees, fund_escrow
+from app.services.subscription_service import commission_rate
 from pathlib import Path
 
 try:
@@ -18,8 +24,21 @@ except ImportError:
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates.env.globals["is_premium"] = subscription_service.is_premium
 
 router = APIRouter()
+
+
+def _flash_from_query(request: Request) -> Optional[dict]:
+    """Map ?paid=1 / ?cancelled=1 / ?error=... query params to a dashboard flash message."""
+    params = request.query_params
+    if params.get("paid"):
+        return {"kind": "success", "message": "Payment secured! Funds are held in escrow until you confirm the job is done."}
+    if params.get("cancelled"):
+        return {"kind": "success", "message": "Job cancelled. Any held payment has been refunded."}
+    if params.get("error"):
+        return {"kind": "error", "message": params["error"].replace("_", " ").capitalize()}
+    return None
 
 def format_location(obj) -> str:
     if not obj:
@@ -176,6 +195,374 @@ async def save_autonomy(
     return RedirectResponse(url="/integrations?saved=autonomy", status_code=302)
 
 
+@router.post("/verification/submit")
+async def submit_verification(
+    requested_level: str = Form(...),
+    id_document_url: str = Form(default=""),
+    license_document_url: str = Form(default=""),
+    insurance_document_url: str = Form(default=""),
+    notes: str = Form(default=""),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Contractor submits documents to request a verification tier."""
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+
+    valid_levels = {"Bronze", "Silver", "Gold", "Verified Pro"}
+    if requested_level not in valid_levels:
+        requested_level = "Bronze"
+
+    # If there is already a pending request, don't create a duplicate
+    existing = await db.exec(
+        select(VerificationRequest).where(
+            VerificationRequest.contractor_id == current_user.id,
+            VerificationRequest.status == "pending",
+        )
+    )
+    if existing.first():
+        return RedirectResponse(url="/dashboard/contractor?verify=pending", status_code=302)
+
+    req = VerificationRequest(
+        contractor_id=current_user.id,
+        requested_level=requested_level,
+        id_document_url=id_document_url.strip() or None,
+        license_document_url=license_document_url.strip() or None,
+        insurance_document_url=insurance_document_url.strip() or None,
+        notes=notes.strip() or None,
+        status="pending",
+    )
+    db.add(req)
+    await db.commit()
+    return RedirectResponse(url="/dashboard/contractor?verify=submitted", status_code=302)
+
+
+@router.get("/billing", response_class=HTMLResponse)
+async def billing_page(request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Contractor subscription / billing page (Free vs Premium)."""
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+
+    # Self-heal expired trials/subscriptions on load
+    current_user = await subscription_service.enforce_expiry(db, current_user)
+
+    tier = subscription_service.effective_tier(current_user)
+    ctx = {
+        "request": request,
+        "current_user": current_user,
+        "effective_tier": tier,
+        "is_premium": tier == "premium",
+        "is_trialing": subscription_service.is_trial_active(current_user),
+        "trial_days_remaining": subscription_service.trial_days_remaining(current_user),
+        "commission_rate": float(subscription_service.commission_rate(current_user)) * 100,
+        "free_fee_pct": settings.PLATFORM_FEE_PCT_FREE * 100,
+        "premium_fee_pct": settings.PLATFORM_FEE_PCT_PREMIUM * 100,
+        "premium_price": settings.PREMIUM_MONTHLY_PRICE,
+        "trial_days": settings.PREMIUM_TRIAL_DAYS,
+        "wallet_balance": float((await wallet_service.get_wallet(db, current_user.id)).available_balance),
+    }
+    return templates.TemplateResponse(request=request, name="billing.html", context=ctx)
+
+
+@router.post("/billing/upgrade")
+async def billing_upgrade(
+    payment_method: str = Form(default="card"),
+    card_number: str = Form(default=""),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upgrade to Premium. Payment can be taken by card or from cleared wallet earnings."""
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+
+    price = Decimal(str(settings.PREMIUM_MONTHLY_PRICE))
+
+    if payment_method == "wallet":
+        from app.services import wallet_service
+        try:
+            await wallet_service.pay_subscription_from_wallet(
+                db, current_user.id, price,
+                reference=f"sub_wallet_{current_user.id}_{int(datetime.utcnow().timestamp())}",
+                note="Premium subscription (paid from earnings)",
+            )
+        except ValueError as e:
+            return RedirectResponse(url=f"/billing?error={e}", status_code=302)
+    else:
+        # Mock card capture (Stripe when STRIPE_SECRET_KEY is set)
+        from app.services.payment_gateway import capture_payment
+        digits = "".join(ch for ch in card_number if ch.isdigit())
+        card_brand = "Visa" if digits.startswith("4") else "Mastercard" if digits.startswith("5") else "Card"
+        card_last4 = digits[-4:] if len(digits) >= 12 else "0000"
+        capture_payment(price, "usd", card_brand, card_last4,
+                        metadata={"kind": "subscription", "contractor_id": str(current_user.id)})
+
+    subscription_service.upgrade_to_premium(current_user)
+    db.add(current_user)
+    await db.commit()
+    return RedirectResponse(url="/billing?upgraded=1", status_code=302)
+
+
+@router.post("/billing/cancel")
+async def billing_cancel(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+    subscription_service.cancel_subscription(current_user)
+    db.add(current_user)
+    await db.commit()
+    return RedirectResponse(url="/billing?cancelled=1", status_code=302)
+
+
+@router.post("/contractor/boost")
+async def contractor_boost(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Spend cleared wallet earnings to boost profile to the top of search for 24h."""
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+    price = Decimal(str(settings.BOOST_PRICE))
+    try:
+        await wallet_service.pay_subscription_from_wallet(
+            db, current_user.id, price,
+            reference=f"boost_{current_user.id}_{int(datetime.utcnow().timestamp())}",
+            note="24h search boost",
+        )
+    except ValueError as e:
+        return RedirectResponse(url=f"/dashboard/contractor?error={e}", status_code=302)
+    current_user.boosted_until = datetime.utcnow() + timedelta(hours=24)
+    db.add(current_user)
+    await db.commit()
+    return RedirectResponse(url="/dashboard/contractor?boosted=1", status_code=302)
+
+
+@router.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Premium-only advanced analytics dashboard for contractors."""
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+
+    current_user = await subscription_service.enforce_expiry(db, current_user)
+    premium = subscription_service.is_premium(current_user)
+
+    metrics = None
+    earnings_released = 0.0
+    earnings_pending = 0.0
+    active_jobs = 0
+    if premium:
+        from app.services.reputation_service import compute_reputation_metrics
+        metrics = await compute_reputation_metrics(db, current_user.id)
+
+        # Earnings from escrows
+        escrows_result = await db.exec(select(Escrow).where(Escrow.contractor_id == current_user.id))
+        for e in escrows_result.all():
+            if e.status == "released":
+                earnings_released += float(e.contractor_payout)
+            elif e.status == "held":
+                earnings_pending += float(e.contractor_payout)
+
+        jobs_result = await db.exec(
+            select(Job).where(Job.assigned_contractor_id == current_user.id, Job.status == "booked")
+        )
+        active_jobs = len(jobs_result.all())
+
+    return templates.TemplateResponse(request=request, name="analytics.html", context={
+        "request": request,
+        "current_user": current_user,
+        "is_premium": premium,
+        "metrics": metrics,
+        "earnings_released": earnings_released,
+        "earnings_pending": earnings_pending,
+        "active_jobs": active_jobs,
+    })
+
+
+@router.get("/wallet", response_class=HTMLResponse)
+async def wallet_page(request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Contractor earnings wallet: pending (clearing) + available balances + history."""
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+
+    current_user = await subscription_service.enforce_expiry(db, current_user)
+    wallet = await wallet_service.get_wallet(db, current_user.id)
+
+    txns_result = await db.exec(
+        select(WalletTransaction)
+        .where(WalletTransaction.contractor_id == current_user.id)
+        .order_by(WalletTransaction.created_at.desc())
+    )
+    txns = txns_result.all()
+
+    clearing_days = settings.PREMIUM_CLEARING_DAYS if subscription_service.is_premium(current_user) else settings.CLEARING_DAYS
+    return templates.TemplateResponse(request=request, name="wallet.html", context={
+        "request": request,
+        "current_user": current_user,
+        "is_premium": subscription_service.is_premium(current_user),
+        "wallet": wallet,
+        "transactions": txns,
+        "clearing_days": clearing_days,
+    })
+
+
+@router.post("/wallet/withdraw")
+async def wallet_withdraw(
+    amount: float = Form(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+    try:
+        txn = await wallet_service.withdraw(
+            db, current_user.id, Decimal(str(amount)),
+            reference=f"wd_{current_user.id}_{int(datetime.utcnow().timestamp())}",
+            note="Withdrawal to linked account",
+        )
+    except ValueError as e:
+        return RedirectResponse(url=f"/wallet?error={e}", status_code=302)
+    return RedirectResponse(url="/wallet?withdrawn=1", status_code=302)
+
+
+@router.get("/jobs/{job_id}/pay", response_class=HTMLResponse)
+async def pay_job_page(request: Request, job_id: int, error: Optional[str] = None, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Customer payment screen: review quote, platform fee, contractor payout, pay & secure escrow."""
+    if current_user.role != "customer":
+        return RedirectResponse(url="/")
+
+    job = await db.get(Job, job_id)
+    if not job or job.customer_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    contractor = await db.get(User, job.assigned_contractor_id) if job.assigned_contractor_id else None
+    result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
+    escrow = result.first()
+
+    # Determine the amount to show (quote if present, else contractor base pricing)
+    amount = (escrow.quoted_amount if escrow and escrow.quoted_amount else Decimal(str(contractor.base_pricing or 50.00))) if (escrow or contractor) else Decimal("50.00")
+    if escrow and escrow.status == "held":
+        # Already funded
+        return RedirectResponse(url=f"/dashboard/customer", status_code=302)
+
+    fees = calculate_fees(Decimal(str(amount)), rate=commission_rate(contractor))
+    from app.models.all_models import PaymentMethod
+    pm_result = await db.exec(select(PaymentMethod).where(PaymentMethod.user_id == current_user.id))
+    saved_methods = pm_result.all()
+    return templates.TemplateResponse(request=request, name="pay_job.html", context={
+        "request": request,
+        "current_user": current_user,
+        "job": job,
+        "contractor": contractor,
+        "amount": float(amount),
+        "platform_fee": float(fees["platform_fee"]),
+        "contractor_payout": float(fees["contractor_payout"]),
+        "is_funded": escrow is not None and escrow.status == "held",
+        "error": error,
+        "format_location": format_location,
+        "currency": _detect_currency(current_user),
+        "saved_methods": saved_methods,
+    })
+
+
+@router.get("/jobs/{job_id}/receipt", response_class=HTMLResponse)
+async def job_receipt_page(request: Request, job_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Customer payment receipt / invoice (also visible to the contractor)."""
+    job = await db.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if current_user.id not in (job.customer_id, job.assigned_contractor_id):
+        return RedirectResponse(url="/")
+
+    receipt_result = await db.exec(
+        select(Receipt).where(Receipt.job_id == job_id).order_by(Receipt.issued_at.desc())
+    )
+    receipt = receipt_result.first()
+    if not receipt:
+        return RedirectResponse(url=f"/jobs/{job_id}/pay", status_code=302)
+
+    contractor = await db.get(User, receipt.contractor_id)
+    customer = await db.get(User, receipt.customer_id)
+    return templates.TemplateResponse(request=request, name="receipt.html", context={
+        "request": request,
+        "current_user": current_user,
+        "receipt": receipt,
+        "job": job,
+        "contractor": contractor,
+        "customer": customer,
+        "format_location": format_location,
+    })
+
+
+@router.post("/escrow/{job_id}/fund", response_class=HTMLResponse)
+async def web_fund_escrow(
+    job_id: int,
+    quoted_amount: float = Form(...),
+    payment_type: str = Form(default="card"),
+    card_brand: str = Form(default=""),
+    card_last4: str = Form(default=""),
+    card_number: str = Form(default=""),
+    bank_account_number: str = Form(default=""),
+    mobile_provider: str = Form(default=""),
+    mobile_phone: str = Form(default=""),
+    saved_method_id: Optional[int] = Form(default=None),
+    currency: str = Form(default="USD"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Customer pays & funds the escrow from the pay page; redirects to dashboard."""
+    if current_user.role != "customer":
+        return RedirectResponse(url="/")
+
+    job = await db.get(Job, job_id)
+    if not job or job.customer_id != current_user.id:
+        return RedirectResponse(url="/dashboard/customer?error=job_not_found", status_code=302)
+    if job.status != "booked":
+        return RedirectResponse(url="/dashboard/customer?error=not_bookable", status_code=302)
+
+    contractor = await db.get(User, job.assigned_contractor_id) if job.assigned_contractor_id else None
+    if not contractor:
+        return RedirectResponse(url="/dashboard/customer?error=no_contractor", status_code=302)
+
+    # Process payment method
+    final_brand = card_brand
+    final_last4 = card_last4
+
+    if saved_method_id:
+        from app.models.all_models import PaymentMethod
+        method = await db.get(PaymentMethod, saved_method_id)
+        if method and method.user_id == current_user.id:
+            final_brand = method.brand or (method.provider.title() if method.provider else "Card")
+            final_last4 = method.last4 or ""
+    else:
+        if payment_type == 'card':
+            if not final_last4 and card_number:
+                digits = "".join(ch for ch in card_number if ch.isdigit())
+                final_last4 = digits[-4:] if len(digits) >= 4 else ""
+                if digits.startswith("4"):
+                    final_brand = "Visa"
+                elif digits.startswith("5"):
+                    final_brand = "Mastercard"
+                else:
+                    final_brand = "Card"
+        elif payment_type == 'bank':
+            final_brand = "Bank Transfer"
+            final_last4 = bank_account_number[-4:] if len(bank_account_number) >= 4 else ""
+        elif payment_type == 'mobile':
+            final_brand = mobile_provider.title() if mobile_provider else "Mobile"
+            digits = "".join(ch for ch in mobile_phone if ch.isdigit())
+            final_last4 = digits[-4:] if len(digits) >= 4 else ""
+
+    if not final_brand:
+        final_brand = "Card"
+
+    try:
+        from app.services.escrow_service import fund_escrow
+        await fund_escrow(
+            db, job, current_user, contractor,
+            Decimal(str(quoted_amount)), final_brand, final_last4,
+        )
+    except ValueError as e:
+        return RedirectResponse(url=f"/jobs/{job_id}/pay?error={e}", status_code=302)
+
+    await db.commit()
+    return RedirectResponse(url="/dashboard/customer?paid=1", status_code=302)
+
+
 @router.post("/integrations/connect")
 async def connect_integration(
     request: Request,
@@ -268,6 +655,7 @@ async def admin_dashboard(request: Request, current_user: User = Depends(get_cur
     total_customers = len([u for u in all_users if u.role == "customer"])
     total_contractors = len([u for u in all_users if u.role == "contractor"])
     verified_contractors = len([u for u in all_users if u.role == "contractor" and u.verification_level and u.verification_level != "none"])
+    premium_contractors = len([u for u in all_users if u.role == "contractor" and subscription_service.is_premium(u)])
 
     jobs_result = await db.exec(select(Job))
     all_jobs = list(jobs_result.all())
@@ -287,6 +675,21 @@ async def admin_dashboard(request: Request, current_user: User = Depends(get_cur
     all_disputes = list(disputes_result.all())
     pending_disputes = len([d for d in all_disputes if d.status != "resolved"])
 
+    # Verification requests (with contractor loaded). Premium contractors get
+    # priority review — sorted premium-first, then newest-first within each group.
+    vr_result = await db.exec(
+        select(VerificationRequest)
+        .options(selectinload(VerificationRequest.contractor))
+    )
+    all_verifications = list(vr_result.all())
+    all_verifications.sort(
+        key=lambda v: (
+            0 if (v.contractor and subscription_service.is_premium(v.contractor)) else 1,
+            -(v.created_at.timestamp() if v.created_at else 0),
+        )
+    )
+    pending_verifications = len([v for v in all_verifications if v.status == "pending"])
+
     return templates.TemplateResponse(request=request, name="admin_dashboard.html", context={
         "request": request,
         "current_user": current_user,
@@ -300,6 +703,8 @@ async def admin_dashboard(request: Request, current_user: User = Depends(get_cur
         "total_customers": total_customers,
         "total_contractors": total_contractors,
         "verified_contractors": verified_contractors,
+        "premium_contractors": premium_contractors,
+        "subscription_service": subscription_service,
         "all_jobs": all_jobs,
         "total_jobs": total_jobs,
         "open_jobs": open_jobs,
@@ -312,6 +717,8 @@ async def admin_dashboard(request: Request, current_user: User = Depends(get_cur
         "disputed_escrows": disputed_escrows,
         "all_disputes": all_disputes,
         "pending_disputes": pending_disputes,
+        "all_verifications": all_verifications,
+        "pending_verifications": pending_verifications,
         "format_location": format_location,
     })
 
@@ -332,6 +739,59 @@ async def admin_verify_user(
     db.add(user)
     await db.commit()
     return RedirectResponse(url="/admin?tab=users", status_code=302)
+
+
+@router.post("/admin/verification/{req_id}/approve")
+async def admin_approve_verification(
+    req_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.role != "admin":
+        return RedirectResponse(url="/")
+    req = await db.get(VerificationRequest, req_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.status != "pending":
+        return RedirectResponse(url="/admin?tab=verifications", status_code=302)
+
+    from datetime import datetime as _dt
+    req.status = "approved"
+    req.reviewed_by = current_user.id
+    req.reviewed_at = _dt.utcnow()
+
+    contractor = await db.get(User, req.contractor_id)
+    if contractor:
+        contractor.verification_level = req.requested_level
+        db.add(contractor)
+    db.add(req)
+    await db.commit()
+    return RedirectResponse(url="/admin?tab=verifications", status_code=302)
+
+
+@router.post("/admin/verification/{req_id}/reject")
+async def admin_reject_verification(
+    req_id: int,
+    review_notes: str = Form(default=""),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.role != "admin":
+        return RedirectResponse(url="/")
+    req = await db.get(VerificationRequest, req_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.status != "pending":
+        return RedirectResponse(url="/admin?tab=verifications", status_code=302)
+
+    from datetime import datetime as _dt
+    req.status = "rejected"
+    req.review_notes = review_notes.strip() or None
+    req.reviewed_by = current_user.id
+    req.reviewed_at = _dt.utcnow()
+    db.add(req)
+    await db.commit()
+    return RedirectResponse(url="/admin?tab=verifications", status_code=302)
 
 
 @router.post("/admin/user/{user_id}/toggle-availability")
@@ -386,12 +846,17 @@ async def admin_release_escrow(
     if not escrow:
         raise HTTPException(status_code=404, detail="Escrow not found")
     from app.services.escrow_service import release_escrow
+    from app.services.reputation_service import recalculate_reputation
     try:
         escrow = await release_escrow(db, escrow)
         job = await db.get(Job, escrow.job_id)
         if job:
             job.status = "completed"
             db.add(job)
+        try:
+            await recalculate_reputation(db, escrow.contractor_id)
+        except Exception:
+            pass
         await db.commit()
     except ValueError:
         pass
@@ -418,6 +883,83 @@ async def admin_refund_escrow(
     return RedirectResponse(url="/admin?tab=escrows", status_code=302)
 
 
+@router.post("/jobs/{job_id}/start")
+async def web_start_job(job_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+    job = await db.get(Job, job_id)
+    if job and job.assigned_contractor_id == current_user.id and job.status == "booked":
+        job.status = "in_progress"
+        job.started_at = datetime.utcnow()
+        db.add(job)
+        from app.services.job_action_service import log_job_action
+        try:
+            await log_job_action(db, job_id, current_user.id, "started")
+        except Exception:
+            pass
+        await db.commit()
+    return RedirectResponse(url="/dashboard/contractor", status_code=302)
+
+
+@router.post("/jobs/{job_id}/mark-complete")
+async def web_mark_complete(job_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+    job = await db.get(Job, job_id)
+    if job and job.assigned_contractor_id == current_user.id and job.status == "in_progress":
+        job.status = "completed_pending"
+        job.completed_at = datetime.utcnow()
+        db.add(job)
+        from app.services.job_action_service import log_job_action
+        try:
+            await log_job_action(db, job_id, current_user.id, "marked_complete")
+        except Exception:
+            pass
+        await db.commit()
+    return RedirectResponse(url="/dashboard/contractor", status_code=302)
+
+
+@router.post("/jobs/{job_id}/confirm")
+async def web_confirm_job(job_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "customer":
+        return RedirectResponse(url="/")
+    # Delegate to the API action endpoint
+    from app.api.v1.endpoints.jobs import job_action
+    try:
+        await job_action(job_id, "confirm", current_user, db)
+    except Exception:
+        pass
+    return RedirectResponse(url="/dashboard/customer", status_code=302)
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def web_cancel_job(job_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Customer cancels a booking (before/after funding). Refunds escrow if held."""
+    if current_user.role != "customer":
+        return RedirectResponse(url="/")
+    job = await db.get(Job, job_id)
+    if not job or job.customer_id != current_user.id:
+        return RedirectResponse(url="/dashboard/customer?error=job_not_found", status_code=302)
+    if job.status not in ("booked", "in_progress", "completed_pending"):
+        return RedirectResponse(url="/dashboard/customer?error=cannot_cancel", status_code=302)
+
+    # Refund the customer if the escrow was funded
+    result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
+    escrow = result.first()
+    if escrow and escrow.status == "held":
+        from app.services.escrow_service import refund_escrow
+        try:
+            await refund_escrow(db, escrow, reason="customer_cancelled")
+        except ValueError:
+            pass
+
+    job.status = "cancelled"
+    db.add(job)
+    await db.commit()
+    return RedirectResponse(url="/dashboard/customer?cancelled=1", status_code=302)
+
+
+
 @router.get("/dashboard/customer", response_class=HTMLResponse)
 async def customer_dashboard(request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if current_user.role != "customer":
@@ -433,22 +975,94 @@ async def customer_dashboard(request: Request, current_user: User = Depends(get_
         escrow = escrow_result.first()
         if escrow:
             escrow_map[job.id] = escrow
-    
+
+    # Which of these jobs already have a review
+    job_ids = [j.id for j in customer_jobs if j.id is not None]
+    reviewed_job_ids = set()
+    if job_ids:
+        reviews_result = await db.exec(select(Review).where(Review.job_id.in_(job_ids)))
+        reviewed_job_ids = {r.job_id for r in reviews_result.all()}
+        
+    # Load conversation mapping for chat buttons
+    conversation_map = {}
+    if job_ids:
+        conv_result = await db.exec(select(Conversation).where(Conversation.job_id.in_(job_ids)))
+        for conv in conv_result.all():
+            conversation_map[conv.job_id] = conv.id
+
     return templates.TemplateResponse(request=request, name="customer_dashboard.html", context={
         "request": request,
         "current_user": current_user,
         "customer_jobs": customer_jobs,
         "escrow_map": escrow_map,
+        "conversation_map": conversation_map,
+        "reviewed_job_ids": reviewed_job_ids,
+        "active_statuses": ["open", "matched", "booked", "in_progress", "completed_pending"],
+        "flash": _flash_from_query(request),
         "format_location": format_location
     })
+
+@router.post("/jobs/{job_id}/review")
+async def submit_review(
+    job_id: int,
+    rating: int = Form(...),
+    comment: str = Form(default=""),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Customer leaves a review on a completed job. Recomputes contractor reputation."""
+    if current_user.role != "customer":
+        return RedirectResponse(url="/")
+
+    job = await db.get(Job, job_id)
+    if not job or job.customer_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "completed":
+        raise HTTPException(status_code=400, detail="You can only review completed jobs")
+    if not job.assigned_contractor_id:
+        raise HTTPException(status_code=400, detail="No contractor assigned to this job")
+
+    # Prevent duplicate reviews for the same job
+    existing = await db.exec(select(Review).where(Review.job_id == job_id))
+    if existing.first():
+        return RedirectResponse(url="/dashboard/customer", status_code=302)
+
+    rating = max(1, min(5, rating))
+    review = Review(
+        job_id=job_id,
+        contractor_id=job.assigned_contractor_id,
+        rating=rating,
+        comment=comment.strip() or None,
+    )
+    db.add(review)
+    await db.flush()
+
+    # Recompute reputation from the new review
+    from app.services.reputation_service import recalculate_reputation
+    try:
+        await recalculate_reputation(db, job.assigned_contractor_id)
+    except Exception:
+        pass
+
+    await db.commit()
+    return RedirectResponse(url="/dashboard/customer", status_code=302)
+
 
 @router.get("/dashboard/contractor", response_class=HTMLResponse)
 async def contractor_dashboard(request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if current_user.role != "contractor":
         return RedirectResponse(url="/")
-        
-    # Get active dispatches (booked jobs assigned to this contractor)
-    result = await db.exec(select(Job).options(selectinload(Job.customer)).where(Job.assigned_contractor_id == current_user.id, Job.status == "booked").order_by(Job.created_at.desc()))
+
+    # Self-heal expired trial/subscription
+    current_user = await subscription_service.enforce_expiry(db, current_user)
+
+    # Get active dispatches (booked / in_progress / awaiting confirmation)
+    result = await db.exec(
+        select(Job).options(selectinload(Job.customer)).where(
+            Job.assigned_contractor_id == current_user.id,
+            Job.status.in_(["booked", "in_progress", "completed_pending"]),
+        ).order_by(Job.created_at.desc())
+    )
     active_dispatches = result.all()
     
     jobs_today = len(active_dispatches) # Simplification: assuming all active are today's capacity
@@ -464,6 +1078,23 @@ async def contractor_dashboard(request: Request, current_user: User = Depends(ge
             if escrow.status in ("released", "held"):
                 total_earnings += float(escrow.contractor_payout)
     
+    # Latest verification request (for the trust/verification card)
+    vr_result = await db.exec(
+        select(VerificationRequest)
+        .where(VerificationRequest.contractor_id == current_user.id)
+        .order_by(VerificationRequest.created_at.desc())
+    )
+    verification_request = vr_result.first()
+
+    wallet = await wallet_service.get_wallet(db, current_user.id)
+    is_boosted = bool(current_user.boosted_until and current_user.boosted_until > datetime.utcnow())
+    qs = request.query_params
+    flash = None
+    if qs.get("boosted"):
+        flash = {"kind": "success", "message": "Profile boosted! You'll appear at the top of search results for 24 hours."}
+    elif qs.get("error"):
+        flash = {"kind": "error", "message": qs["error"].replace("_", " ").capitalize()}
+
     return templates.TemplateResponse(request=request, name="contractor_dashboard.html", context={
         "request": request,
         "current_user": current_user,
@@ -471,6 +1102,15 @@ async def contractor_dashboard(request: Request, current_user: User = Depends(ge
         "jobs_today": jobs_today,
         "escrow_map": escrow_map,
         "total_earnings": total_earnings,
+        "verification_request": verification_request,
+        "effective_tier": subscription_service.effective_tier(current_user),
+        "is_premium": subscription_service.is_premium(current_user),
+        "trial_days_remaining": subscription_service.trial_days_remaining(current_user),
+        "wallet_balance": float(wallet.available_balance),
+        "boost_price": settings.BOOST_PRICE,
+        "is_boosted": is_boosted,
+        "boosted_until": current_user.boosted_until,
+        "flash": flash,
         "format_location": format_location
     })
 
@@ -585,13 +1225,21 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
     
     msg_result = await db.exec(select(DirectMessage).where(DirectMessage.conversation_id == conversation_id).order_by(DirectMessage.timestamp.asc()))
     past_messages = msg_result.all()
-    
+
+    job = await db.get(Job, conversation.job_id)
+    escrow = None
+    if job:
+        e_result = await db.exec(select(Escrow).where(Escrow.job_id == job.id))
+        escrow = e_result.first()
+
     return templates.TemplateResponse(request=request, name="chat.html", context={
         "request": request,
         "current_user": current_user,
         "conversation": conversation,
         "partner": partner,
-        "past_messages": past_messages
+        "past_messages": past_messages,
+        "job": job,
+        "escrow": escrow,
     })
 
 
@@ -631,3 +1279,193 @@ async def drafts_page(
         "current_user": current_user,
         "drafts_with_context": drafts_with_context,
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PAYMENT METHODS
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Currency mapping by country
+COUNTRY_CURRENCY_MAP = {
+    "Nigeria": "NGN", "NG": "NGN",
+    "United Kingdom": "GBP", "UK": "GBP", "GB": "GBP",
+    "Kenya": "KES", "KE": "KES",
+    "Ghana": "GHS", "GH": "GHS",
+    "United States": "USD", "US": "USD",
+    "Canada": "CAD", "CA": "CAD",
+}
+
+def _detect_currency(user: User) -> str:
+    """Detect currency from user's country field."""
+    country = getattr(user, 'country', None) or ''
+    return COUNTRY_CURRENCY_MAP.get(country, 'USD')
+
+
+@router.get("/payment-methods", response_class=HTMLResponse)
+async def payment_methods_page(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.all_models import PaymentMethod
+    result = await db.exec(select(PaymentMethod).where(PaymentMethod.user_id == current_user.id))
+    methods = result.all()
+    return templates.TemplateResponse(request=request, name="payment_methods.html", context={
+        "request": request,
+        "current_user": current_user,
+        "payment_methods": methods,
+    })
+
+
+@router.post("/payment-methods", response_class=HTMLResponse)
+async def add_payment_method(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    type: str = Form(default="card"),
+    provider: str = Form(default="visa"),
+    display_name: str = Form(default=""),
+    last4: Optional[str] = Form(default=None),
+    brand: Optional[str] = Form(default=None),
+    expiry: Optional[str] = Form(default=None),
+    account_name: Optional[str] = Form(default=None),
+    bank_name: Optional[str] = Form(default=None),
+    phone: Optional[str] = Form(default=None),
+):
+    from app.models.all_models import PaymentMethod
+    method = PaymentMethod(
+        user_id=current_user.id,
+        type=type, provider=provider, display_name=display_name,
+        last4=last4, brand=brand, expiry=expiry,
+        account_name=account_name, bank_name=bank_name, phone=phone,
+    )
+    db.add(method)
+    await db.commit()
+    return RedirectResponse(url="/payment-methods?success=Payment+method+added", status_code=303)
+
+
+@router.post("/payment-methods/{method_id}/delete", response_class=HTMLResponse)
+async def delete_payment_method(
+    request: Request,
+    method_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.all_models import PaymentMethod
+    method = await db.get(PaymentMethod, method_id)
+    if method and method.user_id == current_user.id:
+        await db.delete(method)
+        await db.commit()
+    return RedirectResponse(url="/payment-methods", status_code=303)
+
+
+@router.post("/payment-methods/{method_id}/default", response_class=HTMLResponse)
+async def set_default_payment_method(
+    request: Request,
+    method_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.all_models import PaymentMethod
+    # Unset all defaults
+    result = await db.exec(select(PaymentMethod).where(PaymentMethod.user_id == current_user.id))
+    for m in result.all():
+        m.is_default = (m.id == method_id)
+        db.add(m)
+    await db.commit()
+    return RedirectResponse(url="/payment-methods", status_code=303)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CUSTOMER SETTINGS
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/settings", response_class=HTMLResponse)
+async def customer_settings_page(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    flash = _flash_from_query(request)
+    return templates.TemplateResponse(request=request, name="customer_settings.html", context={
+        "request": request,
+        "current_user": current_user,
+        "flash": flash,
+    })
+
+
+@router.post("/settings/profile", response_class=HTMLResponse)
+async def update_profile(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    full_name: str = Form(default=""),
+    phone: Optional[str] = Form(default=None),
+    city: Optional[str] = Form(default=None),
+    country: Optional[str] = Form(default=None),
+):
+    if full_name:
+        current_user.full_name = full_name
+    if phone is not None:
+        current_user.phone = phone
+    if city is not None:
+        current_user.city = city
+    if country is not None:
+        current_user.country = country
+    db.add(current_user)
+    await db.commit()
+    return RedirectResponse(url="/settings?success=Profile+updated", status_code=303)
+
+
+_AVATAR_DIR = BASE_DIR / "static" / "uploads"
+_AVATAR_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+
+
+@router.post("/settings/avatar", response_class=HTMLResponse)
+async def update_avatar(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    avatar: UploadFile = File(...),
+):
+    import uuid
+    ext = Path(avatar.filename or "").suffix.lower()
+    if ext not in _AVATAR_EXT:
+        return RedirectResponse(url="/settings?error=Unsupported+image+type", status_code=303)
+    data = await avatar.read()
+    if len(data) > 5 * 1024 * 1024:
+        return RedirectResponse(url="/settings?error=Image+too+large+(max+5MB)", status_code=303)
+    _AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"avatar_{current_user.id}_{uuid.uuid4().hex}{ext}"
+    (_AVATAR_DIR / name).write_bytes(data)
+    current_user.avatar_url = f"/static/uploads/{name}"
+    db.add(current_user)
+    await db.commit()
+    return RedirectResponse(url="/settings?success=Photo+updated", status_code=303)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CUSTOMER DISPUTE FILING
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/escrow/{job_id}/dispute", response_class=HTMLResponse)
+async def file_dispute(
+    request: Request,
+    job_id: int,
+    reason: str = Form(default=""),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    job = await db.get(Job, job_id)
+    if not job or job.customer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
+    escrow = result.first()
+    if not escrow:
+        raise HTTPException(status_code=404, detail="Escrow not found")
+    try:
+        from app.services.escrow_service import open_dispute
+        await open_dispute(db, escrow, current_user, reason or "Customer dispute")
+        await db.commit()
+    except ValueError as e:
+        return RedirectResponse(url=f"/dashboard/customer?error={str(e)}", status_code=303)
+    return RedirectResponse(url="/dashboard/customer?success=Dispute+filed", status_code=303)

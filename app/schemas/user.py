@@ -55,6 +55,8 @@ class UserResponse(BaseModel):
     verification_level: Optional[str] = None
     reputation_score: Optional[float] = None
     availability_status: Optional[str] = None
+    subscription_tier: str = "free"
+    subscription_status: str = "active"
 
     class Config:
         from_attributes = True

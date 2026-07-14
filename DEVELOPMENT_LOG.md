@@ -69,6 +69,11 @@
 | 2026-06-25 | Phase 3: Escrow & Payments | Completed | Created Escrow model (Decimal via sa_column=Column(Numeric(12,2))), Dispute model, escrow_service.py (create/release/refund/penalty_split/open_dispute/resolve_dispute), payout_gateway.py (mock process_payout/refund_payment), 7 escrow API endpoints. Updated jobs.py to auto-create escrow on booking. Migration b2c3d4e5f6a7 applied. Customer/contractor dashboards show real escrow status with amounts. Fixed Escrow model Decimal fields (was invalid max_digits/decimal_places in Field()). | None |
 | 2026-06-25 | Phase 4: AI Features (Part 1) | Completed | Added AI dispute recommendation (Gemini analyzes chat history + photos, recommends refund split 0-100%) and AI job estimator (Gemini estimates price range, labor/materials breakdown). Created /api/v1/ai/dispute/analyze and /api/v1/ai/estimate endpoints. Added gemini_service.py functions: analyze_dispute, estimate_job_price with fallback analysis. | None |
 | 2026-06-25 | Phase 5: Messaging | Completed | Added ai_autonomy_level field (1=manual, 2=AI drafts, 3=auto-reply) to User model with migration. Updated integrations page with 3-level autonomy selector. WebSocket chat now handles all 3 levels: Level 1 sends cross-platform alerts, Level 2 generates AI drafts with approve/dismiss UI, Level 3 auto-replies as contractor. Created alert_service.py with dispatch_alert, alert_new_booking, alert_new_message, alert_dispute_opened, alert_escrow_released. Wired alerts to booking, message, escrow release, and dispute events. Added approve-draft API endpoint. Chat template shows AI draft messages with amber styling and approve/dismiss buttons. Fixed UserRole enum to include admin. | None |
+| 2026-07-11 | Audit bug fix (Phase 4) | Completed | Fixed AI dispute analyzer ordering by non-existent `DirectMessage.created_at` → `DirectMessage.timestamp` in ai_features.py. This endpoint was previously broken at runtime. | None |
+| 2026-07-11 | Phase 6: Verification & Reputation | Completed | Reputation auto-calculation implemented (reputation_service.py) from real signals: avg rating, completion rate, dispute rate, repeat-customer rate → composite 0-100 score. Recalc hooks on escrow release, admin release, and new review. Customer review flow added (POST /jobs/{id}/review + inline rating form on customer dashboard). Verification admin workflow added: VerificationRequest model + migration e6f7a8b9c0d1, contractor submit form on dashboard, admin approve/reject queue tab. AI triage now surfaces top match verification tier + reputation as trust anchors. | Migrations must be applied: `alembic upgrade head`. |
+| 2026-07-11 | Phase 7: Premium Features | Completed | Free vs Premium subscription model. User model gained subscription_tier/status + trial/sub dates (migration f7a8b9c0d1e2). subscription_service.py: effective tier, 14-day trial, tier-based commission (free 15% / premium 5%), upgrade/cancel, self-healing expiry. Escrow commission now tier-based (escrow_service.calculate_fees(rate=...)). Matching engine boosts premium contractors (search ranking). New contractors auto-granted 14-day premium trial (web + API signup). Billing page (/billing) + analytics page (/analytics, premium-only) with upsell. Premium badges on listing/profile/search/contractors; ads on free-tier public profiles; trial banner on contractor dashboard. Admin sees Premium metric + per-user subscription column + priority verification review for premium. | Run `alembic upgrade head`. |
+| 2026-07-14 | Phase 10: Chat media, avatars & payment hardening | Completed | (1) Chat attachments end-to-end: `/api/v1/chat/upload` endpoint (image/video/file, 10MB cap, allow-listed extensions) + WebSocket JSON envelope `{content, attachment_url, attachment_type}` persisted on `DirectMessage`. Frontend `chat.html` now uploads on file select, shows a removable preview, sends the attachment over WS, and renders images/video/file bubbles for both live and historic messages. (2) Profile photo upload: `POST /settings/avatar` (5MB cap, image types) writes to `static/uploads` and sets `User.avatar_url`; settings page gained a photo uploader + error toast; avatars already surface in chat header/bubbles. (3) Payment hardening: added `POST /api/v1/webhooks/stripe` with Stripe signature verification (`construct_event`) and idempotent processing via the `StripeEvent` table (duplicate event ids acknowledged without reprocessing); requires `STRIPE_WEBHOOK_SECRET`. (4) Reviewed admin dashboard + emoji usage across templates — emojis are intentional design (category/demo/status icons); no destructive sweep performed. | App boots clean (`python -c "import app.main"`). No new migrations needed — `avatar_url` (k5l6m7n8o9p0), `attachment_url/type`, and `StripeEvent` tables already migrated. |
+| 2026-07-12 | Phase 9: Real Transaction Flow & Job Lifecycle | Completed | Closed the biggest UX gap: money now actually moves through the UI. (1) Customer Pay screen `/jobs/{id}/pay` with mock card capture → escrow `unfunded`→`held` (amount = agreed quote, not hardcoded). (2) Two-sided job lifecycle: contractor Start / Mark Complete, customer Confirm & Release; statuses `booked→in_progress→completed_pending→completed`; JobAction audit log. (3) Contractor Wallet `/wallet`: pending (clearing) vs available balances, clearing window (free 5d / premium 2d), Withdraw action, transaction history. Released payouts credit the wallet as pending and clear over time. (4) Chat modernised: in-chat job quick-actions (pay/start/confirm) so the whole flow stays in one screen; softer message bubbles. (5) Light UI pass. (6) Stripe-ready payment layer: `payment_gateway.py` captures card at funding and pays out at release/withdrawal via Stripe Connect when `STRIPE_SECRET_KEY` + contractor `stripe_account_id` are set; otherwise runs in safe mock mode (demo works with zero config). BizLive (Phase 8) deferred — not core to the transaction loop. | Migration `g1h2i3j4k5l6`: escrow quoted_amount/card meta, job started/completed timestamps, JobAction + ContractorWallet + WalletTransaction tables. Migration `h2i3j4k5l6m7`: user.stripe_account_id. |
 
 ---
 
@@ -76,11 +81,7 @@
 
 | Date | Feature | Status | Notes | Issues |
 |---|---|---|---|---|
-| 2026-06-17 | Contractor availability logic | Pending | Implement logic to update and check availability when accepting jobs, and update dashboard to show availability status. | None |
-| 2026-06-17 | Verification tier model and admin workflow | Pending | Create admin endpoints to review and approve verification documents, update verification level accordingly. | None |
-| 2026-06-17 | Reputation score calculation | Pending | Implement computation of reputation score based on completion rate, on-time rate, response time, dispute rate, and review count; update after job completion. | None |
-| 2026-06-17 | Premium tier | Pending | Implement Free vs Premium subscription model. | Needs billing model. |
-| 2026-06-17 | BizLive | Pending | Livestream, AI clips, profile video gallery. | Deferred until marketplace core works. |
+| 2026-06-17 | BizLive | Pending | Livestream, AI clips, profile video gallery (Phase 8 — not started). | Deferred until marketplace core works. |
 
 ---
 
@@ -105,7 +106,12 @@
 | Gemini service | `app/services/gemini_service.py` |
 | Matching engine | `app/services/matching_engine.py` |
 | Escrow service | `app/services/escrow_service.py` |
+| Reputation service | `app/services/reputation_service.py` |
 | Payout gateway | `app/services/payout_gateway.py` |
+| Payment gateway (Stripe) | `app/services/payment_gateway.py` |
+| Webhooks (Meta/Telegram/Stripe) | `app/api/v1/endpoints/webhooks.py` |
+| Chat upload + WS attachments | `app/api/v1/endpoints/chat.py` |
+| Avatar upload | `app/web/pages.py` (`/settings/avatar`) |
 | Job endpoints | `app/api/v1/endpoints/jobs.py` |
 | Escrow endpoints | `app/api/v1/endpoints/escrow.py` |
 | AI features | `app/api/v1/endpoints/ai_features.py` |
@@ -117,6 +123,9 @@
 | Migration | `alembic/versions/8f3d1c9a2b7e_add_global_location_fields.py` |
 | Migration | `alembic/versions/a1b2c3d4e5f6_add_review_and_verification_fields.py` |
 | Migration | `alembic/versions/b2c3d4e5f6a7_add_escrow_and_dispute_tables.py` |
+| Migration | `alembic/versions/e6f7a8b9c0d1_add_verification_request_table.py` |
+| Migration | `alembic/versions/f7a8b9c0d1e2_add_subscription_fields_to_user.py` |
+| Subscription service | `app/services/subscription_service.py` |
 | Contractor listing | `app/templates/contractor_listing.html` |
 | Contractor profile | `app/templates/contractor_profile.html` |
 | Messages list | `app/templates/messages.html` |
@@ -140,6 +149,37 @@
 10. ~~Add mock payout gateway for testing~~ ✅ Done
 11. ~~Implement AI dispute recommendation endpoint (Gemini reads chat/photos and suggests refund split)~~ ✅ Done
 12. ~~Implement AI job estimator (image upload to expected price range)~~ ✅ Done
-13. Implement premium tier subscription model (Free vs Premium).
-14. Implement BizLive livestream and video clip features (deferred until MVP marketplace and escrow are stable).
-15. Add testing and polishing for MVP.
+13. ~~Implement reputation score auto-calculation after job completion + review flow~~ ✅ Done (Phase 6)
+14. ~~Implement verification admin approve/reject workflow~~ ✅ Done (Phase 6)
+15. ~~Implement premium tier subscription model (Free vs Premium) — Phase 7~~ ✅ Done
+16. ~~Implement real transaction flow, two-sided job lifecycle, contractor wallet/withdrawal, chat + UI polish — Phase 9~~ ✅ Done
+17. Implement BizLive livestream and video clip features — Phase 8, DEFERRED (not core to transaction loop).
+18. Add testing and polishing for MVP.
+
+---
+
+## Current Phase Status
+
+- **Phases 1–7, 9 and 10: COMPLETE.**
+- **Phase 8 (BizLive) — DEFERRED** (not required for the core marketplace; revisit only if a demo needs video).
+- All migrations applied. Run `alembic upgrade head` before starting the server.
+
+### Next session — suggested starting points
+- Wire real Stripe PaymentIntent confirmation on the client `pay_job` screen (server currently creates the intent; add JS card element for live mode).
+- Handle specific Stripe event types in the webhook (`payment_intent.succeeded`, `charge.refunded`) to auto-sync escrow status.
+- Optional: contractor-side avatar upload from the contractor dashboard (endpoint is generic — reuse `/settings/avatar` or add a contractor settings page).
+- Optional: image lightbox / download affordance for chat attachments.
+
+---
+
+### Required actions
+Run migrations before starting the server:
+
+```
+alembic upgrade head
+```
+
+New migrations since baseline:
+- `e6f7a8b9c0d1` — verification request table
+- `f7a8b9c0d1e2` — subscription fields
+- `g1h2i3j4k5l6` — transaction flow (escrow funding, job lifecycle, contractor wallet)

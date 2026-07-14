@@ -133,6 +133,10 @@ async def signup_submit(
         hashed_password=get_password_hash(password),
         role=role,
     )
+    # New contractors get a 14-day premium trial
+    if role == "contractor":
+        from app.services.subscription_service import start_trial
+        start_trial(user)
     db.add(user)
     await db.commit()
     await db.refresh(user)
@@ -230,6 +234,9 @@ async def register_contractor_submit(
         ai_tone_preference=ai_tone_preference,
         trade_qualifications=qualifications_dict,
     )
+    # New contractors get a 14-day premium trial
+    from app.services.subscription_service import start_trial
+    start_trial(user)
     db.add(user)
     await db.commit()
     await db.refresh(user)

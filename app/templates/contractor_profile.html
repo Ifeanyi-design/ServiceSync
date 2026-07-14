@@ -45,6 +45,12 @@
                     <span class="inline-flex items-center px-2.5 py-0.5 bg-orange-50 text-orange-700 text-xs font-bold rounded-full">Bronze</span>
                   {% endif %}
                 {% endif %}
+                {% if is_premium(contractor) %}
+                  <span class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-xs font-bold rounded-full" title="Premium Pro">
+                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001z"/></svg>
+                    Premium Pro
+                  </span>
+                {% endif %}
               </div>
               <p class="text-gray-500 text-sm mb-2">{{ contractor.profession | capitalize if contractor.profession else 'Professional' }}</p>
               <div class="flex items-center gap-1.5 text-sm text-gray-500">
@@ -234,6 +240,26 @@
             </div>
           </div>
         </div>
+
+        {% if not is_premium(contractor) %}
+        <!-- Non-intrusive ad (free-tier profiles) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+            <span class="text-[10px] uppercase tracking-widest text-gray-300 font-semibold">Sponsored</span>
+          </div>
+          <a href="/auth/signup" class="block p-5 hover:bg-gray-50 transition">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+              <div>
+                <p class="text-sm font-bold text-gray-800">Are you a pro? Grow with ServiceSync</p>
+                <p class="text-xs text-gray-500">Verified leads, escrow payments, AI assistant.</p>
+              </div>
+            </div>
+          </a>
+        </div>
+        {% endif %}
 
       </div>
     </div>

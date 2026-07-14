@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from math import radians, sin, cos, sqrt, atan2
 
 from app.models.all_models import User, Job
+from app.core.config import settings
+from app.services.subscription_service import is_premium
 
 
 def _clean(value: Any) -> str:
@@ -73,7 +75,36 @@ _VERIFICATION_RANK = {
 def _trust_score(contractor: User) -> float:
     vrank = _VERIFICATION_RANK.get(_clean(contractor.verification_level), 0)
     rep = contractor.reputation_score or 0.0
-    return vrank * 100 + rep
+    premium_boost = settings.PREMIUM_SEARCH_BOOST if is_premium(contractor) else 0.0
+    return vrank * 100 + rep + premium_boost
+
+
+def _is_boosted(contractor: User, now) -> bool:
+    return bool(contractor.boosted_until and contractor.boosted_until > now)
+
+
+def _rank_score(contractor: User, distance: float, now) -> float:
+    """Composite ranking score: trust + proximity + availability + paid boost."""
+    score = _trust_score(contractor)
+
+    # Proximity: closer contractors score higher (up to ~200 within range)
+    if distance is not None and distance < 999:
+        score += max(0.0, 200.0 - distance)
+
+    # Availability nudges
+    avail = _clean(contractor.availability_status)
+    if avail == "available":
+        score += 100.0
+    elif avail == "busy":
+        score += 20.0
+    elif avail in ("away", "vacation"):
+        score -= 50.0
+
+    # Paid boost dominates everything else
+    if _is_boosted(contractor, now):
+        score += settings.BOOST_SEARCH_BOOST
+
+    return score
 
 
 async def find_matches(db: AsyncSession, profession: str, location: Dict[str, Any] | None = None) -> Dict[str, Any]:
@@ -95,6 +126,7 @@ async def find_matches(db: AsyncSession, profession: str, location: Dict[str, An
     matched = []
     rejected = []
     today = datetime.now(timezone.utc).date()
+    now = datetime.now(timezone.utc)
 
     for contractor in contractors:
         if profession_clean and not _has_same_text(profession_clean, contractor.profession):
@@ -146,10 +178,13 @@ async def find_matches(db: AsyncSession, profession: str, location: Dict[str, An
             "verification_level": contractor.verification_level,
             "reputation_score": contractor.reputation_score,
             "availability_status": contractor.availability_status,
+            "is_premium": is_premium(contractor),
+            "is_boosted": _is_boosted(contractor, now),
             "trust_score": _trust_score(contractor),
+            "rank_score": _rank_score(contractor, distance, now),
         })
 
-    matched.sort(key=lambda m: (-m["trust_score"], m["distance"]))
+    matched.sort(key=lambda m: (-m["rank_score"], m["distance"]))
 
     return {
         "matched": matched,

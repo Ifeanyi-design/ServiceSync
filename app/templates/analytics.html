@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics — ServiceSync{% endblock %}
+{% block meta_description %}Premium advanced analytics: earnings, completion rate, reputation breakdown, and dispute rate.{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto py-10 px-4 sm:px-6">
+
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Advanced Analytics</h1>
+      <p class="text-gray-500 text-sm mt-1">Your performance at a glance.</p>
+    </div>
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white shadow-sm">
+      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001z"/></svg>
+      Premium
+    </span>
+  </div>
+
+  {% if not is_premium %}
+  <!-- Upsell for free tier -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
+    <div class="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    </div>
+    <h2 class="text-lg font-bold text-gray-800 mb-1">Analytics is a Premium feature</h2>
+    <p class="text-gray-500 text-sm max-w-md mx-auto mb-5">Upgrade to see earnings trends, completion and on-time rates, reputation breakdown, and dispute analytics.</p>
+    <a href="/billing" class="inline-block px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-white font-bold text-sm hover:from-amber-500 hover:to-yellow-600 transition shadow-md">Upgrade to Premium</a>
+  </div>
+  {% else %}
+
+  <!-- Earnings -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Paid Out</p>
+      <p class="text-3xl font-extrabold text-emerald-600">${{ '%.2f' | format(earnings_released) }}</p>
+      <p class="text-xs text-gray-400 mt-1">Released from escrow</p>
+    </div>
+    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">In Escrow</p>
+      <p class="text-3xl font-extrabold text-amber-500">${{ '%.2f' | format(earnings_pending) }}</p>
+      <p class="text-xs text-gray-400 mt-1">Held, pending completion</p>
+    </div>
+    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Active Jobs</p>
+      <p class="text-3xl font-extrabold text-blue-600">{{ active_jobs }}</p>
+      <p class="text-xs text-gray-400 mt-1">Currently booked</p>
+    </div>
+  </div>
+
+  <!-- Reputation breakdown -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <h2 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-5">Reputation Breakdown</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+      <div>
+        <p class="text-xs text-gray-400 mb-1">Composite Score</p>
+        <p class="text-2xl font-extrabold text-gray-900">{{ metrics.score if metrics.score is not none else '—' }}{% if metrics.score is not none %}<span class="text-sm text-gray-300">/100</span>{% endif %}</p>
+      </div>
+      <div>
+        <p class="text-xs text-gray-400 mb-1">Avg Rating</p>
+        <p class="text-2xl font-extrabold text-amber-500">{{ metrics.average_rating if metrics.average_rating is not none else '—' }}{% if metrics.average_rating is not none %}<span class="text-sm text-gray-300">/5</span>{% endif %}</p>
+        <p class="text-xs text-gray-400">{{ metrics.review_count }} reviews</p>
+      </div>
+      <div>
+        <p class="text-xs text-gray-400 mb-1">Completion Rate</p>
+        <p class="text-2xl font-extrabold text-green-600">{{ (metrics.completion_rate * 100) | round(0) | int ~ '%' if metrics.completion_rate is not none else '—' }}</p>
+        <p class="text-xs text-gray-400">{{ metrics.completed_jobs }} done · {{ metrics.cancelled_jobs }} cancelled</p>
+      </div>
+      <div>
+        <p class="text-xs text-gray-400 mb-1">Dispute Rate</p>
+        <p class="text-2xl font-extrabold {{ 'text-red-500' if metrics.dispute_rate and metrics.dispute_rate > 0.1 else 'text-gray-900' }}">{{ (metrics.dispute_rate * 100) | round(0) | int ~ '%' if metrics.dispute_rate is not none else '—' }}</p>
+        <p class="text-xs text-gray-400">{{ metrics.dispute_count }} disputes</p>
+      </div>
+    </div>
+    {% if metrics.repeat_customer_rate is not none %}
+    <div class="mt-6 pt-5 border-t border-gray-100">
+      <p class="text-xs text-gray-400 mb-1">Repeat Customer Rate</p>
+      <p class="text-xl font-extrabold text-indigo-600">{{ (metrics.repeat_customer_rate * 100) | round(0) | int }}%</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
