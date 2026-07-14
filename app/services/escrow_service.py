@@ -1,5 +1,6 @@
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
+from typing import Optional
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 
@@ -61,6 +62,7 @@ async def fund_escrow(
     quoted_amount: Decimal,
     card_brand: str,
     card_last4: str,
+    payment_gateway_id: Optional[str] = None,
 ) -> Escrow:
     """Capture the customer's payment and move the escrow to ``held``.
 
@@ -79,10 +81,20 @@ async def fund_escrow(
     if escrow is None:
         escrow = Escrow(job_id=job.id, customer_id=customer.id, contractor_id=contractor.id)
 
-    capture = capture_payment(
-        quoted_amount, "usd", card_brand, card_last4,
-        metadata={"job_id": str(job.id), "customer_id": str(customer.id)},
-    )
+    if payment_gateway_id:
+        # Real gateway (e.g. Stripe PaymentIntent): payment already captured
+        # client-side, so skip the mock capture and record the reference.
+        from app.services.payment_gateway import payment_gateway
+        capture = {
+            "mode": "live",
+            "raw": {"payment_intent_id": payment_gateway_id},
+            "reference_id": payment_gateway_id,
+        }
+    else:
+        capture = capture_payment(
+            quoted_amount, "usd", card_brand, card_last4,
+            metadata={"job_id": str(job.id), "customer_id": str(customer.id)},
+        )
 
     escrow.quoted_amount = quoted_amount
     escrow.total_amount = quoted_amount

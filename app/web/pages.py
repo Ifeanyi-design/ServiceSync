@@ -15,6 +15,7 @@ from app.services import subscription_service
 from app.services import wallet_service
 from app.services.escrow_service import calculate_fees, fund_escrow
 from app.services.subscription_service import commission_rate
+from app.core.security import verify_password, get_password_hash
 from pathlib import Path
 
 try:
@@ -36,6 +37,8 @@ def _flash_from_query(request: Request) -> Optional[dict]:
         return {"kind": "success", "message": "Payment secured! Funds are held in escrow until you confirm the job is done."}
     if params.get("cancelled"):
         return {"kind": "success", "message": "Job cancelled. Any held payment has been refunded."}
+    if params.get("success"):
+        return {"kind": "success", "message": params["success"]}
     if params.get("error"):
         return {"kind": "error", "message": params["error"].replace("_", " ").capitalize()}
     return None
@@ -456,7 +459,43 @@ async def pay_job_page(request: Request, job_id: int, error: Optional[str] = Non
         "format_location": format_location,
         "currency": _detect_currency(current_user),
         "saved_methods": saved_methods,
+        "stripe_live": bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_PUBLISHABLE_KEY),
+        "stripe_pk": settings.STRIPE_PUBLISHABLE_KEY or "",
     })
+
+
+@router.post("/jobs/{job_id}/create-intent")
+async def create_job_payment_intent(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a Stripe PaymentIntent for the pay screen (live mode). Returns the
+    client_secret for Stripe Elements. In mock mode client_secret is null and the
+    frontend falls back to the demo form."""
+    if current_user.role != "customer":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    job = await db.get(Job, job_id)
+    if not job or job.customer_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    contractor = await db.get(User, job.assigned_contractor_id) if job.assigned_contractor_id else None
+    result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
+    escrow = result.first()
+    amount = (escrow.quoted_amount if escrow and escrow.quoted_amount
+              else Decimal(str((contractor.base_pricing if contractor else None) or 50.00)))
+
+    from app.services import payment_gateway
+    intent = payment_gateway.create_payment_intent(
+        Decimal(str(amount)), currency=_detect_currency(current_user).lower(),
+        metadata={"job_id": str(job_id), "customer_id": str(current_user.id)},
+    )
+    return {
+        "client_secret": intent.get("client_secret"),
+        "reference_id": intent.get("reference_id"),
+        "mode": intent.get("mode"),
+        "amount": float(amount),
+    }
 
 
 @router.get("/jobs/{job_id}/receipt", response_class=HTMLResponse)
@@ -501,6 +540,7 @@ async def web_fund_escrow(
     mobile_phone: str = Form(default=""),
     saved_method_id: Optional[int] = Form(default=None),
     currency: str = Form(default="USD"),
+    payment_intent_id: Optional[str] = Form(default=None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -555,6 +595,7 @@ async def web_fund_escrow(
         await fund_escrow(
             db, job, current_user, contractor,
             Decimal(str(quoted_amount)), final_brand, final_last4,
+            payment_gateway_id=payment_intent_id,
         )
     except ValueError as e:
         return RedirectResponse(url=f"/jobs/{job_id}/pay?error={e}", status_code=302)
@@ -1092,6 +1133,8 @@ async def contractor_dashboard(request: Request, current_user: User = Depends(ge
     flash = None
     if qs.get("boosted"):
         flash = {"kind": "success", "message": "Profile boosted! You'll appear at the top of search results for 24 hours."}
+    elif qs.get("success"):
+        flash = {"kind": "success", "message": qs["success"]}
     elif qs.get("error"):
         flash = {"kind": "error", "message": qs["error"].replace("_", " ").capitalize()}
 
@@ -1110,6 +1153,7 @@ async def contractor_dashboard(request: Request, current_user: User = Depends(ge
         "boost_price": settings.BOOST_PRICE,
         "is_boosted": is_boosted,
         "boosted_until": current_user.boosted_until,
+        "stripe_connected": bool(current_user.stripe_account_id),
         "flash": flash,
         "format_location": format_location
     })
@@ -1441,6 +1485,106 @@ async def update_avatar(
     db.add(current_user)
     await db.commit()
     return RedirectResponse(url="/settings?success=Photo+updated", status_code=303)
+
+
+@router.post("/settings/notifications", response_class=HTMLResponse)
+async def update_notifications(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Persist notification toggles. Checkboxes only POST when checked."""
+    form = await request.form()
+    keys = ["email-notifications", "sms-notifications", "job-updates", "promotions"]
+    prefs = {k: (k in form) for k in keys}
+    current_user.notification_prefs = prefs
+    db.add(current_user)
+    await db.commit()
+    return RedirectResponse(url="/settings?success=Preferences+saved", status_code=303)
+
+
+@router.post("/settings/password", response_class=HTMLResponse)
+async def change_password(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+):
+    if not verify_password(current_password, current_user.hashed_password):
+        return RedirectResponse(url="/settings?error=Current+password+is+incorrect", status_code=303)
+    if len(new_password) < 8:
+        return RedirectResponse(url="/settings?error=New+password+must+be+at+least+8+characters", status_code=303)
+    if new_password != confirm_password:
+        return RedirectResponse(url="/settings?error=Passwords+do+not+match", status_code=303)
+    current_user.hashed_password = get_password_hash(new_password)
+    db.add(current_user)
+    await db.commit()
+    return RedirectResponse(url="/settings?success=Password+updated", status_code=303)
+
+
+@router.post("/settings/delete", response_class=HTMLResponse)
+async def delete_account(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    confirm_password: str = Form(...),
+):
+    """Soft-delete: deactivate the account, scramble login, and clear the session."""
+    if not verify_password(confirm_password, current_user.hashed_password):
+        return RedirectResponse(url="/settings?error=Password+is+incorrect", status_code=303)
+    import uuid as _uuid
+    current_user.is_active = False
+    current_user.availability_status = "Vacation"
+    # Invalidate credentials so the account can no longer log in.
+    current_user.hashed_password = get_password_hash(_uuid.uuid4().hex)
+    current_user.email = f"deleted_{current_user.id}_{_uuid.uuid4().hex[:8]}@deleted.local"
+    db.add(current_user)
+    await db.commit()
+    resp = RedirectResponse(url="/?success=Account+deleted", status_code=303)
+    resp.delete_cookie("access_token")
+    return resp
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STRIPE CONNECT ONBOARDING (contractor payouts)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/contractor/stripe/connect")
+async def stripe_connect(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Start (or resume) Stripe Connect onboarding so the contractor can receive payouts."""
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/", status_code=303)
+    from app.services import payment_gateway
+
+    if not current_user.stripe_account_id:
+        acct = payment_gateway.create_connect_account(current_user.email)
+        if not acct.get("success"):
+            return RedirectResponse(url=f"/contractor/dashboard?error=Stripe+error", status_code=303)
+        current_user.stripe_account_id = acct["account_id"]
+        db.add(current_user)
+        await db.commit()
+
+    base = str(request.base_url).rstrip("/")
+    link = payment_gateway.create_onboarding_link(
+        current_user.stripe_account_id,
+        return_url=f"{base}/contractor/stripe/return",
+        refresh_url=f"{base}/contractor/stripe/connect",
+    )
+    if not link.get("success"):
+        return RedirectResponse(url="/contractor/dashboard?error=Stripe+onboarding+failed", status_code=303)
+    return RedirectResponse(url=link["url"], status_code=303)
+
+
+@router.get("/contractor/stripe/return")
+async def stripe_connect_return(current_user: User = Depends(get_current_user)):
+    """Landing after Stripe onboarding (or the mock shortcut)."""
+    return RedirectResponse(url="/contractor/dashboard?success=Payouts+connected", status_code=303)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

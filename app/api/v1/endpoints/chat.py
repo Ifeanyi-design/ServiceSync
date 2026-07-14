@@ -263,7 +263,7 @@ async def dismiss_draft(
     return {"status": "dismissed"}
 
 
-UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "static" / "uploads"
+UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent.parent / "static" / "uploads"
 _ALLOWED_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mov", ".pdf", ".doc", ".docx", ".txt"}
 
 

@@ -13,10 +13,10 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# Mount static files if the directory exists
+# Mount static files (create the dir so it's always available for uploads)
 static_dir = Path(__file__).resolve().parent / "static"
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+(static_dir / "uploads").mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)

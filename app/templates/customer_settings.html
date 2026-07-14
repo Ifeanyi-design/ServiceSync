@@ -154,31 +154,35 @@
           <p class="text-xs text-gray-400 mt-0.5">Choose how we contact you</p>
         </div>
       </div>
-      <div class="px-6 py-5 divide-y divide-gray-50">
-        {% for pref_id, pref_label, pref_desc, default_on in [
-          ('email-notifications', 'Email Notifications', 'Job updates, receipts, and important alerts', True),
-          ('sms-notifications', 'SMS Notifications', 'Quick alerts for urgent job events', True),
-          ('job-updates', 'Job Status Updates', 'When job status changes (booked, started, completed)', True),
-          ('promotions', 'Promotional Emails', 'Tips, new features, and special offers', False),
-        ] %}
-        <div class="py-4 flex items-center justify-between">
-          <div>
-            <p class="text-sm font-semibold text-gray-800">{{ pref_label }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ pref_desc }}</p>
+      {% set prefs = current_user.notification_prefs or {} %}
+      <form method="POST" action="/settings/notifications">
+        <div class="px-6 py-5 divide-y divide-gray-50">
+          {% for pref_id, pref_label, pref_desc, default_on in [
+            ('email-notifications', 'Email Notifications', 'Job updates, receipts, and important alerts', True),
+            ('sms-notifications', 'SMS Notifications', 'Quick alerts for urgent job events', True),
+            ('job-updates', 'Job Status Updates', 'When job status changes (booked, started, completed)', True),
+            ('promotions', 'Promotional Emails', 'Tips, new features, and special offers', False),
+          ] %}
+          <div class="py-4 flex items-center justify-between">
+            <div>
+              <p class="text-sm font-semibold text-gray-800">{{ pref_label }}</p>
+              <p class="text-xs text-gray-400 mt-0.5">{{ pref_desc }}</p>
+            </div>
+            <label class="toggle-switch ml-4 flex-shrink-0">
+              <input type="checkbox" name="{{ pref_id }}" id="{{ pref_id }}"
+                {% if prefs.get(pref_id, default_on) %}checked{% endif %} />
+              <span class="slider"></span>
+            </label>
           </div>
-          <label class="toggle-switch ml-4 flex-shrink-0">
-            <input type="checkbox" id="{{ pref_id }}" {% if default_on %}checked{% endif %} />
-            <span class="slider"></span>
-          </label>
+          {% endfor %}
         </div>
-        {% endfor %}
-      </div>
-      <div class="px-6 pb-5">
-        <button type="button" onclick="saveNotifications()"
-          class="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl transition shadow-md active:scale-95">
-          Save Preferences
-        </button>
-      </div>
+        <div class="px-6 pb-5">
+          <button type="submit"
+            class="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl transition shadow-md active:scale-95">
+            Save Preferences
+          </button>
+        </div>
+      </form>
     </div>
 
     <!-- ====== SECTION 3: Payment Methods ====== -->
@@ -213,14 +217,27 @@
         </div>
       </div>
       <div class="px-6 py-5 space-y-3">
-        <a href="#"
+        <button type="button" onclick="document.getElementById('pw-form').classList.toggle('hidden')"
           class="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group">
           <div class="flex items-center gap-3">
             <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
             <span class="text-sm font-semibold text-gray-700">Change Password</span>
           </div>
           <svg class="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        </a>
+        </button>
+
+        <form id="pw-form" method="POST" action="/settings/password" class="hidden px-4 py-4 rounded-xl border border-gray-100 bg-gray-50 space-y-3">
+          <input type="password" name="current_password" required placeholder="Current password"
+            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+          <input type="password" name="new_password" required minlength="8" placeholder="New password (min 8 characters)"
+            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+          <input type="password" name="confirm_password" required minlength="8" placeholder="Confirm new password"
+            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+          <button type="submit"
+            class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-xl transition active:scale-95">
+            Update Password
+          </button>
+        </form>
 
         <a href="/auth/logout"
           class="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group">
@@ -238,29 +255,25 @@
               <p class="text-sm font-bold text-red-600">Delete Account</p>
               <p class="text-xs text-red-400 mt-0.5">Permanently delete your account and all data</p>
             </div>
-            <button type="button" onclick="confirmDelete()"
+            <button type="button" onclick="document.getElementById('delete-form').classList.toggle('hidden')"
               class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition active:scale-95">
               Delete
             </button>
           </div>
+          <form id="delete-form" method="POST" action="/settings/delete" class="hidden mt-3 px-4 py-4 rounded-xl border border-red-200 bg-red-50 space-y-3"
+            onsubmit="return confirm('This will permanently deactivate your account. Continue?')">
+            <p class="text-xs text-red-500">Enter your password to confirm deletion. This cannot be undone.</p>
+            <input type="password" name="confirm_password" required placeholder="Your password"
+              class="w-full px-4 py-2.5 rounded-xl border border-red-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-red-400/25 transition" />
+            <button type="submit"
+              class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition active:scale-95">
+              Permanently Delete Account
+            </button>
+          </form>
         </div>
       </div>
     </div>
 
   </div>
 </div>
-{% endblock %}
-
-{% block extra_scripts %}
-<script>
-  function saveNotifications() {
-    showToast('Notification preferences saved', 'success');
-  }
-
-  function confirmDelete() {
-    if (confirm('Are you sure you want to permanently delete your account? This cannot be undone.')) {
-      showToast('Account deletion requested. Our team will process this within 24h.', 'info');
-    }
-  }
-</script>
 {% endblock %}

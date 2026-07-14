@@ -23,6 +23,87 @@ def _stripe_available() -> bool:
     return bool(settings.STRIPE_SECRET_KEY)
 
 
+def is_live() -> bool:
+    """True when real Stripe calls will be made."""
+    return _stripe_available()
+
+
+def create_connect_account(email: str, country: str = "US") -> dict:
+    """Create a Stripe Connect Express account for a contractor.
+
+    Returns {success, mode, account_id}. In mock mode returns a fake id so the
+    onboarding UI is demoable without keys.
+    """
+    if _stripe_available():
+        try:
+            import stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            acct = stripe.Account.create(
+                type="express",
+                email=email,
+                capabilities={"transfers": {"requested": True}},
+            )
+            return {"success": True, "mode": "stripe", "account_id": acct["id"]}
+        except Exception as e:  # pragma: no cover - network path
+            return {"success": False, "mode": "stripe", "error": str(e)}
+    return {"success": True, "mode": "mock", "account_id": f"acct_mock_{email.split('@')[0]}"}
+
+
+def create_onboarding_link(account_id: str, return_url: str, refresh_url: str) -> dict:
+    """Create a Stripe account onboarding link. Mock mode returns the return_url
+    so the demo flow completes immediately."""
+    if _stripe_available() and not account_id.startswith("acct_mock_"):
+        try:
+            import stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            link = stripe.AccountLink.create(
+                account=account_id,
+                return_url=return_url,
+                refresh_url=refresh_url,
+                type="account_onboarding",
+            )
+            return {"success": True, "mode": "stripe", "url": link["url"]}
+        except Exception as e:  # pragma: no cover
+            return {"success": False, "mode": "stripe", "error": str(e)}
+    return {"success": True, "mode": "mock", "url": return_url}
+
+
+def create_payment_intent(
+    amount: Decimal,
+    currency: str = "usd",
+    metadata: Optional[dict] = None,
+) -> dict:
+    """Create a PaymentIntent for client-side confirmation (Stripe Elements).
+
+    Returns {success, mode, client_secret, reference_id}. In mock mode
+    `client_secret` is None and the caller should fall back to the mock form.
+    """
+    if _stripe_available():
+        try:
+            import stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            intent = stripe.PaymentIntent.create(
+                amount=int(amount * 100),
+                currency=currency,
+                automatic_payment_methods={"enabled": True},
+                metadata=metadata or {},
+            )
+            return {
+                "success": True,
+                "mode": "stripe",
+                "client_secret": intent["client_secret"],
+                "reference_id": intent["id"],
+            }
+        except Exception as e:  # pragma: no cover
+            return {"success": False, "mode": "stripe", "error": str(e)}
+    return {
+        "success": True,
+        "mode": "mock",
+        "client_secret": None,
+        "reference_id": f"pi_mock_{int(datetime.utcnow().timestamp())}",
+    }
+
+
 def capture_payment(
     amount: Decimal,
     currency: str = "usd",

@@ -1,3 +1,7 @@
 .env
 __pycache__/
 *.pyc
+
+# Uploaded media (keep the folder, ignore contents)
+app/static/uploads/*
+!app/static/uploads/.gitkeep

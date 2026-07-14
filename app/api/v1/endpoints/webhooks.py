@@ -57,13 +57,55 @@ async def stripe_webhook(
     record = StripeEvent(
         stripe_event_id=event_id,
         event_type=event_type,
-        processed=True,
+        processed=False,
         payload=dict(event),
     )
     db.add(record)
     await db.commit()
 
+    # Act on the events we care about, keeping escrow in sync with Stripe.
+    try:
+        await _handle_stripe_event(db, event_type, event)
+        record.processed = True
+        await db.commit()
+    except Exception as e:  # pragma: no cover - defensive
+        # Event is stored; leave processed=False for later reconciliation.
+        import logging
+        logging.getLogger(__name__).error("Stripe event %s handling failed: %s", event_id, e)
+
     return {"status": "received", "event_id": event_id, "type": event_type}
+
+
+async def _handle_stripe_event(db: AsyncSession, event_type: str, event: dict) -> None:
+    """Sync escrow state from Stripe events (idempotent — safe to re-run)."""
+    from datetime import datetime
+    from app.models.all_models import Escrow
+
+    obj = (event.get("data") or {}).get("object") or {}
+
+    if event_type == "payment_intent.succeeded":
+        intent_id = obj.get("id")
+        if not intent_id:
+            return
+        res = await db.exec(select(Escrow).where(Escrow.payment_gateway_id == intent_id))
+        escrow = res.first()
+        if escrow and escrow.status in ("unfunded", "pending"):
+            escrow.status = "held"
+            escrow.funded_at = datetime.utcnow()
+            db.add(escrow)
+            await db.commit()
+
+    elif event_type in ("charge.refunded", "charge.refund.updated"):
+        intent_id = obj.get("payment_intent")
+        if not intent_id:
+            return
+        res = await db.exec(select(Escrow).where(Escrow.payment_gateway_id == intent_id))
+        escrow = res.first()
+        if escrow and escrow.status != "refunded":
+            escrow.status = "refunded"
+            escrow.refunded_at = datetime.utcnow()
+            db.add(escrow)
+            await db.commit()
 
 @router.get("/{platform}")
 async def verify_webhook(

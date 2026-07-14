@@ -99,6 +99,12 @@ class User(SQLModel, table=True):
     avatar_url: Optional[str] = None
     cover_url: Optional[str] = None
 
+    # Notification preferences (email/sms/job-updates/promotions toggles)
+    notification_prefs: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+    # Soft-delete / deactivation
+    is_active: bool = Field(default=True)
+
     # Subscription / monetization (Phase 7)
     subscription_tier: str = Field(default="free")  # free, premium
     subscription_status: str = Field(default="active")  # active, trialing, cancelled, expired
