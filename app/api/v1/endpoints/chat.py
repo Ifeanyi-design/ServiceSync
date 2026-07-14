@@ -46,41 +46,45 @@ class ConnectionManager:
                 del self.active_connections[conversation_id]
 
     async def broadcast_to_conversation(self, message: str, conversation_id: int, sender_websocket: WebSocket):
+        # Fan out locally, then to other instances via the hub. We exclude the
+        # sender by user_id so we don't need the (per-connection) websocket object
+        # once the message crosses an instance boundary.
+        sender_uid = None
         if conversation_id in self.active_connections:
-            dead = []
             for connection, uid in self.active_connections[conversation_id]:
-                if connection != sender_websocket:
-                    try:
-                        await connection.send_text(message)
-                    except Exception:
-                        dead.append((connection, uid))
-            for d in dead:
-                self.active_connections[conversation_id].remove(d)
+                if connection == sender_websocket:
+                    sender_uid = uid
+                    break
+        await self._deliver(conversation_id, message, sender_uid)
+        from app.services.broadcast_hub import publish
+        await publish(conversation_id, message, exclude_user_id=sender_uid)
+
+    async def _deliver(self, conversation_id: int, message: str, exclude_user_id: Optional[int] = None):
+        """Send to all local WebSocket connections for a conversation (except one)."""
+        if conversation_id not in self.active_connections:
+            return
+        dead = []
+        for connection, uid in self.active_connections[conversation_id]:
+            if exclude_user_id is not None and uid == exclude_user_id:
+                continue
+            try:
+                await connection.send_text(message)
+            except Exception:
+                dead.append((connection, uid))
+        for d in dead:
+            self.active_connections[conversation_id].remove(d)
 
     async def broadcast_to_all(self, message: str, conversation_id: int):
-        if conversation_id in self.active_connections:
-            dead = []
-            for connection, uid in self.active_connections[conversation_id]:
-                try:
-                    await connection.send_text(message)
-                except Exception:
-                    dead.append((connection, uid))
-            for d in dead:
-                self.active_connections[conversation_id].remove(d)
+        await self._deliver(conversation_id, message)
 
     async def send_to_user(self, message: str, conversation_id: int, target_user_id: int):
-        if conversation_id in self.active_connections:
-            dead = []
-            for connection, uid in self.active_connections[conversation_id]:
-                if uid == target_user_id:
-                    try:
-                        await connection.send_text(message)
-                    except Exception:
-                        dead.append((connection, uid))
-            for d in dead:
-                self.active_connections[conversation_id].remove(d)
+        await self._deliver(conversation_id, message, exclude_user_id=None)
+        # send_to_user is intentionally local-only: a single-user target is almost
+        # always the connected contractor on this instance (e.g. AI drafts).
 
 manager = ConnectionManager()
+from app.services.broadcast_hub import register_local_deliverer
+register_local_deliverer(manager._deliver)
 
 def _get_websocket_token(websocket: WebSocket, query_token: Optional[str]) -> Optional[str]:
     if query_token and query_token.lower() != "null":
@@ -273,16 +277,16 @@ async def upload_chat_media(
     current_user: User = Depends(get_current_user),
 ):
     """Upload an image/video/file for a chat message. Returns a served URL."""
-    ext = Path(file.filename or "").suffix.lower()
-    if ext not in _ALLOWED_EXT:
-        raise HTTPException(status_code=400, detail="Unsupported file type")
+    from app.services.upload_service import save_upload
     data = await file.read()
-    if len(data) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    name = f"{uuid.uuid4().hex}{ext}"
-    (UPLOAD_DIR / name).write_bytes(data)
-    return {"url": f"/static/uploads/{name}", "name": file.filename}
+    try:
+        url = await save_upload(
+            data, file.filename or "file",
+            allowlist=_ALLOWED_EXT, max_bytes=10 * 1024 * 1024, folder="chat",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"url": url, "name": file.filename}
 
 
 @router.websocket("/ws/{conversation_id}")

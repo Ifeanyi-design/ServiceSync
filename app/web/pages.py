@@ -919,8 +919,8 @@ async def admin_refund_escrow(
     try:
         escrow = await refund_escrow(db, escrow, reason="admin_refund")
         await db.commit()
-    except ValueError:
-        pass
+    except ValueError as e:
+        return RedirectResponse(url=f"/admin?tab=escrows&error={str(e)}", status_code=302)
     return RedirectResponse(url="/admin?tab=escrows", status_code=302)
 
 
@@ -1460,7 +1460,6 @@ async def update_profile(
     return RedirectResponse(url="/settings?success=Profile+updated", status_code=303)
 
 
-_AVATAR_DIR = BASE_DIR / "static" / "uploads"
 _AVATAR_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
 
@@ -1471,17 +1470,16 @@ async def update_avatar(
     db: AsyncSession = Depends(get_db),
     avatar: UploadFile = File(...),
 ):
-    import uuid
-    ext = Path(avatar.filename or "").suffix.lower()
-    if ext not in _AVATAR_EXT:
-        return RedirectResponse(url="/settings?error=Unsupported+image+type", status_code=303)
+    from app.services.upload_service import save_upload
     data = await avatar.read()
-    if len(data) > 5 * 1024 * 1024:
-        return RedirectResponse(url="/settings?error=Image+too+large+(max+5MB)", status_code=303)
-    _AVATAR_DIR.mkdir(parents=True, exist_ok=True)
-    name = f"avatar_{current_user.id}_{uuid.uuid4().hex}{ext}"
-    (_AVATAR_DIR / name).write_bytes(data)
-    current_user.avatar_url = f"/static/uploads/{name}"
+    try:
+        url = await save_upload(
+            data, avatar.filename or "avatar",
+            allowlist=_AVATAR_EXT, max_bytes=5 * 1024 * 1024, folder="avatars",
+        )
+    except ValueError as e:
+        return RedirectResponse(url=f"/settings?error={str(e)}", status_code=303)
+    current_user.avatar_url = url
     db.add(current_user)
     await db.commit()
     return RedirectResponse(url="/settings?success=Photo+updated", status_code=303)
@@ -1600,15 +1598,33 @@ async def file_dispute(
     db: AsyncSession = Depends(get_db),
 ):
     job = await db.get(Job, job_id)
-    if not job or job.customer_id != current_user.id:
+    if not job or current_user.id not in (job.customer_id, job.assigned_contractor_id):
         raise HTTPException(status_code=403, detail="Forbidden")
     result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
     escrow = result.first()
     if not escrow:
         raise HTTPException(status_code=404, detail="Escrow not found")
     try:
-        from app.services.escrow_service import open_dispute
-        await open_dispute(db, escrow, current_user, reason or "Customer dispute")
+        from app.services.escrow_service import open_dispute, analyze_and_attach_dispute
+        dispute = await open_dispute(db, escrow, current_user, reason or "Dispute filed")
+        # Gather chat context for the AI arbitrator and persist its recommendation.
+        conversation = (await db.exec(
+            select(Conversation).where(Conversation.job_id == job_id)
+        )).first()
+        chat_history = []
+        if conversation:
+            msgs = (await db.exec(
+                select(DirectMessage).where(DirectMessage.conversation_id == conversation.id)
+                .order_by(DirectMessage.timestamp)
+            )).all()
+            chat_history = [
+                {"role": "customer" if m.sender_id == job.customer_id else "contractor", "content": m.content}
+                for m in msgs
+            ]
+        await analyze_and_attach_dispute(
+            db, dispute, chat_history, job.description or "",
+            str(escrow.total_amount),
+        )
         await db.commit()
     except ValueError as e:
         return RedirectResponse(url=f"/dashboard/customer?error={str(e)}", status_code=303)

@@ -37,7 +37,24 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     STRIPE_TEST_MODE: bool = True
-    
+
+    # Uploads — pick ONE optional backend. Leave all unset to store locally in
+    # app/static/uploads (served via /static). Cloudinary and S3 URLs survive
+    # server restarts, so they are recommended for hosted deployments.
+    CLOUDINARY_URL: Optional[str] = None
+    CLOUDINARY_CLOUD_NAME: Optional[str] = None
+    CLOUDINARY_API_KEY: Optional[str] = None
+    CLOUDINARY_API_SECRET: Optional[str] = None
+    AWS_S3_BUCKET: Optional[str] = None
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_REGION: Optional[str] = None
+    AWS_S3_CUSTOM_DOMAIN: Optional[str] = None
+
+    # Redis — optional. When set, WebSocket broadcasts fan out across instances
+    # via pub/sub. Leave unset to use in-process memory (single instance only).
+    REDIS_URL: Optional[str] = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
 
 settings = Settings()

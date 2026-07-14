@@ -1,6 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 from typing import Optional
+import json
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 
@@ -80,6 +81,10 @@ async def fund_escrow(
     escrow = result.first()
     if escrow is None:
         escrow = Escrow(job_id=job.id, customer_id=customer.id, contractor_id=contractor.id)
+    elif escrow.status == "held":
+        # Idempotent: already funded. Don't let a second submission overwrite the
+        # captured amount or re-issue a receipt.
+        return escrow
 
     if payment_gateway_id:
         # Real gateway (e.g. Stripe PaymentIntent): payment already captured
@@ -136,6 +141,10 @@ async def release_escrow(db: AsyncSession, escrow: Escrow) -> Escrow:
     """
     if escrow.status not in ("held", "disputed"):
         raise ValueError(f"Cannot release escrow in status '{escrow.status}'")
+    if escrow.status == "disputed":
+        # A disputed escrow must be resolved through the dispute flow, which
+        # applies the correct split/refund. Force-releasing would bypass that.
+        raise ValueError("Escrow is under dispute; resolve the dispute to release funds")
 
     escrow.status = "released"
     escrow.released_at = datetime.utcnow()
@@ -166,7 +175,7 @@ async def release_escrow(db: AsyncSession, escrow: Escrow) -> Escrow:
     return escrow
 
 
-async def refund_escrow(db: AsyncSession, escrow: Escrow, reason: str = "contractor_cancelled") -> Escrow:
+async def refund_escrow(db: AsyncSession, escrow: Escrow, reason: Optional[str] = "contractor_cancelled") -> Escrow:
     """Full refund to customer (e.g., contractor no-show)."""
     if escrow.status not in ("held", "disputed"):
         raise ValueError(f"Cannot refund escrow in status '{escrow.status}'")
@@ -185,7 +194,7 @@ async def refund_escrow(db: AsyncSession, escrow: Escrow, reason: str = "contrac
 
 async def penalty_split_escrow(db: AsyncSession, escrow: Escrow, late_cancellation: bool = True) -> Escrow:
     """Late customer cancellation — split funds with penalty."""
-    if escrow.status not in ("held",):
+    if escrow.status not in ("held", "disputed"):
         raise ValueError(f"Cannot penalty-split escrow in status '{escrow.status}'")
     
     # Late cancellation: customer gets partial refund, contractor gets compensation
@@ -234,6 +243,37 @@ async def open_dispute(db: AsyncSession, escrow: Escrow, raiser: User, reason: s
         reason=reason,
         status="pending_ai",
     )
+    db.add(dispute)
+    await db.flush()
+    return dispute
+
+
+async def analyze_and_attach_dispute(
+    db: AsyncSession,
+    dispute: Dispute,
+    chat_history: list,
+    job_description: str,
+    total_amount: str,
+) -> Dispute:
+    """Run AI arbitration and persist the result onto the Dispute record.
+
+    Defaults to ``reviewing`` so the dispute is visibly "in progress" while a
+    human (or the AI recommendation) finalizes it. The AI's recommended refund
+    percentage is stored so admins don't have to transcribe it manually.
+    """
+    from app.services.gemini_service import analyze_dispute
+
+    result = await analyze_dispute(
+        chat_history=chat_history,
+        dispute_reason=dispute.reason or "",
+        job_description=job_description,
+        total_amount=total_amount,
+    )
+    analysis = result.get("analysis", {})
+    dispute.ai_arbitration_summary = json.dumps(analysis)
+    if analysis.get("recommended_refund_pct") is not None:
+        dispute.ai_recommended_refund_pct = float(analysis["recommended_refund_pct"])
+    dispute.status = "reviewing"
     db.add(dispute)
     await db.flush()
     return dispute
@@ -291,6 +331,16 @@ async def resolve_dispute(
                 note=f"Dispute split payout (job #{escrow.job_id})",
             )
             await refund_payment(escrow.customer_id, refund_amount, escrow.currency)
+        
+        # Reflect the outcome on the job so dashboards stay consistent.
+        job = await db.get(Job, escrow.job_id)
+        if job and job.status not in ("completed", "cancelled"):
+            if refund_pct >= 100:
+                job.status = "cancelled"
+            elif refund_pct <= 0:
+                job.status = "completed"
+            # Partial refunds leave the job state to the admin / participants.
+            db.add(job)
         
         db.add(escrow)
     

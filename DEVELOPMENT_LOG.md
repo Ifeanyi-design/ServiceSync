@@ -1,5 +1,62 @@
 # ServiceSync — Development Log
 
+## 2026-07-14 — Payments hardening, disputes, uploads, scaling, tests
+
+### New
+- **Centralized upload helper** `app/services/upload_service.py`: env-gated storage
+  (Cloudinary → S3 → local `/static/uploads`). Chat (`/api/v1/chat/upload`) and
+  avatar (`/settings/avatar`) uploads now route through it. Config fields added
+  to `app/core/config.py` (`CLOUDINARY_*`, `AWS_S3_*`). Local fallback keeps the
+  demo working with zero config; cloud URLs survive server restarts.
+- **WebSocket scaling** `app/services/broadcast_hub.py`: Redis pub/sub fan-out
+  when `REDIS_URL` is set, in-memory fallback otherwise. `ConnectionManager`
+  (`app/api/v1/endpoints/chat.py`) routes `broadcast_to_conversation` through it;
+  hub started/shutdown via FastAPI lifespan in `app/main.py`.
+- **Real Stripe checkout** (live, gated): `POST /jobs/{job_id}/create-intent`
+  returns a PaymentIntent `client_secret`; `pay_job.html` mounts Stripe Elements
+  only when publishable+secret keys are present, falling back to the mock card
+  form. `web_fund_escrow` + `fund_escrow` accept `payment_intent_id` and skip the
+  mock capture when a real intent is supplied.
+- **`/health`** endpoint for hosting readiness probes (e.g. Render).
+- **pytest smoke suite** `tests/` (9 passing): app import, health, route
+  registration, upload helper (local fallback + reject bad type), Redis memory
+  fallback, and escrow state-machine rules. `pytest.ini` added; `requirements.txt`
+  updated (`pytest`, `pytest-asyncio`, `cloudinary`, `boto3`, `redis`).
+
+### Bug fixes / hardening
+- `fund_escrow` is now **idempotent** — a second funding submission no longer
+  overwrites the captured amount or re-issues a receipt (prevents double-charge).
+- **Disputed escrows can no longer be force-released at 100% to the contractor**;
+  `release_escrow` raises if status is `disputed` — funds must go through dispute
+  resolution (which applies the correct split/refund).
+- `penalty_split_escrow` now allowed from `disputed` state too.
+- **Dispute AI now auto-runs on file** (`file_dispute` web + `/api/v1/escrow/{id}/dispute`
+  API): gathers chat history and persists the recommendation to
+  `Dispute.ai_arbitration_summary` / `ai_recommended_refund_pct`, status → `reviewing`.
+  Both customer **and contractor** can now open disputes.
+- `resolve_dispute` now updates `Job.status` to match the outcome (full refund →
+  `cancelled`, contractor wins → `completed`) so dashboards stay consistent.
+- `admin_refund_escrow` now flashes the error instead of silently swallowing it.
+
+### Admin review (no structural gaps found)
+- Admin can verify users, approve/reject verification requests, toggle
+  availability, resolve disputes (with refund %), and force-release/refund escrows.
+  Note: per-escrow release is intended; only **disputed** escrows are now blocked
+  from force-release. No batch-payout screen exists (payouts happen per-escrow on
+  release) — acceptable for current scale.
+
+### Next session / open items
+- Add `pip install` of `cloudinary`/`boto3`/`redis`/`pytest` in deploy build step
+  (already in `requirements.txt`).
+- Optional: surface the persisted AI dispute recommendation inline on the admin
+  dispute-resolve form; add per-escrow release is fine but consider a batch payout.
+- Optional: reconcile `Escrow.status` from the Stripe webhook for live mode (the
+  webhook already sets `held`/`refunded` by `payment_gateway_id`).
+- Neon cold-start still makes `alembic` CLI exceed 120s; run with a larger timeout
+  or rely on app boot. No schema migration was needed for this session's changes.
+
+---
+
 ## Active Direction
 
 - Product: AI-powered contractor marketplace.

@@ -11,6 +11,7 @@ from app.models.all_models import Job, User, Escrow, Dispute
 from app.services.escrow_service import (
     create_escrow, release_escrow, refund_escrow,
     penalty_split_escrow, open_dispute, resolve_dispute, calculate_fees,
+    analyze_and_attach_dispute,
     fund_escrow as fund_escrow_service,
 )
 from app.services.subscription_service import commission_rate
@@ -185,27 +186,44 @@ async def dispute_escrow(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Customer opens a dispute on an escrowed job."""
-    if current_user.role != "customer":
-        raise HTTPException(status_code=403, detail="Only customers can open disputes")
-
+    """Customer or contractor opens a dispute on an escrowed job."""
     result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
     escrow = result.first()
     if not escrow:
         raise HTTPException(status_code=404, detail="Escrow not found")
-    if escrow.customer_id != current_user.id:
+    if current_user.id not in (escrow.customer_id, escrow.contractor_id):
         raise HTTPException(status_code=403, detail="Not your escrow")
 
     try:
         dispute = await open_dispute(db, escrow, current_user, reason)
+
+        # Run AI arbitration and persist its recommendation.
+        conversation = (await db.exec(
+            select(Conversation).where(Conversation.job_id == job_id)
+        )).first()
+        chat_history = []
+        if conversation:
+            msgs = (await db.exec(
+                select(DirectMessage).where(DirectMessage.conversation_id == conversation.id)
+                .order_by(DirectMessage.timestamp)
+            )).all()
+            chat_history = [
+                {"role": "customer" if m.sender_id == escrow.customer_id else "contractor", "content": m.content}
+                for m in msgs
+            ]
+        await analyze_and_attach_dispute(
+            db, dispute, chat_history,
+            (await db.get(Job, job_id)).description or "", str(escrow.total_amount),
+        )
         await db.commit()
         await db.refresh(dispute)
 
-        # Alert contractor about dispute
+        # Alert the counterparty about the dispute
         try:
-            contractor = await db.get(User, escrow.contractor_id)
-            if contractor:
-                await alert_dispute_opened(db, contractor, job_id, reason)
+            counterparty_id = escrow.contractor_id if current_user.id == escrow.customer_id else escrow.customer_id
+            counterparty = await db.get(User, counterparty_id)
+            if counterparty:
+                await alert_dispute_opened(db, counterparty, job_id, reason)
         except Exception:
             pass
     except ValueError as e:
