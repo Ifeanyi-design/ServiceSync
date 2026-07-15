@@ -8,7 +8,7 @@
 
   <!-- Page Header -->
   <div class="mb-8">
-    <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight mb-2">Browse Contractors</h1>
+    <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-2">Browse Contractors</h1>
     <p class="text-gray-500 text-sm">Compare verified professionals by trade, location, and reputation.</p>
   </div>
 
@@ -45,12 +45,12 @@
       <div class="p-6">
         <!-- Header: Avatar + Name + Badges -->
         <div class="flex items-start justify-between mb-4">
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 min-w-0">
             <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform duration-300">
               <span class="text-white font-bold text-lg">{{ c.full_name[0] }}</span>
             </div>
-            <div>
-              <h3 class="font-bold text-gray-900 group-hover:text-blue-700 transition-colors">{{ c.full_name }}</h3>
+            <div class="min-w-0">
+              <h3 class="font-bold text-gray-900 group-hover:text-blue-700 transition-colors truncate">{{ c.full_name }}</h3>
               <p class="text-xs text-gray-500 mt-0.5">{{ c.profession | capitalize if c.profession else 'Professional' }}</p>
             </div>
           </div>

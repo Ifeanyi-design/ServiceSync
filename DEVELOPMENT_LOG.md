@@ -57,6 +57,39 @@
 
 ---
 
+## 2026-07-14 (2) — Dispute AI inline, Stripe webhook reconcile, icons, mobile, docs
+
+### New / changed
+- **Admin dispute UI** (`app/templates/admin_dashboard.html`): the AI arbitration
+  recommendation now renders as structured fields (fault party, reasoning,
+  confidence) by parsing the stored JSON, and the resolve form **prefills the
+  refund %** from `ai_recommended_refund_pct` (falls back to 50).
+- **Stripe webhook reconciliation** (`app/api/v1/endpoints/webhooks.py`):
+  `payment_intent.succeeded` → `held` (idempotent, recovers lost client callbacks);
+  `payment_intent.payment_failed` noted; `charge.refunded`/`refund.updated` →
+  `refunded` (skips disputed/penalty_split so dispute splits stay authoritative).
+  Escrow is matched by `payment_gateway_id` (set when a real PaymentIntent funds it).
+- **Icons**: replaced decorative emoji with real inline-SVG icons across all page
+  templates (added a reusable `{% macro icon(...) %}`). The chat emoji *picker*
+  (user-sendable emojis) is intentionally kept.
+- **Mobile responsiveness**: conservative pass on customer/contractor dashboards,
+  chat header, search + contractor listing cards — `min-w-0`/`truncate` on flex
+  text, responsive heading sizes, so long names/amounts wrap instead of overflowing
+  at ~375px. `base.html` already had the viewport meta + SVG navbar icons.
+- **Docs**: `SETUP.md` added — every env var, where to get it, why, plus Stripe
+  go-live steps, external-services table, pytest + manual E2E test instructions,
+  and a Render deploy checklist.
+
+### Notes
+- Demo mode still needs **zero** external config (mock payments, local uploads,
+  Gemini fallback, in-process WebSocket).
+- Going live = set `STRIPE_SECRET_KEY` + `STRIPE_PUBLISHABLE_KEY` (pay screen
+  auto-switches to Stripe Elements); add `STRIPE_WEBHOOK_SECRET` for event sync.
+- For durable uploads on hosted deploys, set Cloudinary or S3 (Render free tier
+  wipes `app/static/uploads` on restart). Add `REDIS_URL` only when scaling >1 instance.
+
+---
+
 ## Active Direction
 
 - Product: AI-powered contractor marketplace.

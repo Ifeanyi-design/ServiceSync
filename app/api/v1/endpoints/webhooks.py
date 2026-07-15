@@ -89,9 +89,23 @@ async def _handle_stripe_event(db: AsyncSession, event_type: str, event: dict) -
             return
         res = await db.exec(select(Escrow).where(Escrow.payment_gateway_id == intent_id))
         escrow = res.first()
-        if escrow and escrow.status in ("unfunded", "pending"):
-            escrow.status = "held"
-            escrow.funded_at = datetime.utcnow()
+        if escrow and escrow.status in ("unfunded", "pending", "held"):
+            # Authoritative: Stripe confirms the capture, so ensure we land on "held"
+            # even if the client's funding callback was lost/raced the webhook.
+            if escrow.status != "held":
+                escrow.status = "held"
+                escrow.funded_at = datetime.utcnow()
+                db.add(escrow)
+                await db.commit()
+
+    elif event_type == "payment_intent.payment_failed":
+        intent_id = obj.get("id")
+        if not intent_id:
+            return
+        res = await db.exec(select(Escrow).where(Escrow.payment_gateway_id == intent_id))
+        escrow = res.first()
+        if escrow and escrow.status == "unfunded":
+            # Leave as unfunded so the customer can retry; just record the failure.
             db.add(escrow)
             await db.commit()
 
@@ -101,7 +115,7 @@ async def _handle_stripe_event(db: AsyncSession, event_type: str, event: dict) -
             return
         res = await db.exec(select(Escrow).where(Escrow.payment_gateway_id == intent_id))
         escrow = res.first()
-        if escrow and escrow.status != "refunded":
+        if escrow and escrow.status not in ("refunded", "disputed", "penalty_split"):
             escrow.status = "refunded"
             escrow.refunded_at = datetime.utcnow()
             db.add(escrow)
