@@ -2,8 +2,11 @@ from google import genai
 from google.genai import types
 import json
 import time
+import logging
 from typing import Dict, Any, Tuple, List, Optional
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Initialize the new Gemini SDK client
 _client = genai.Client(api_key=settings.GEMINI_API_KEY) if settings.GEMINI_API_KEY else None
@@ -55,11 +58,21 @@ async def extract_triage_info(conversation_history: list) -> Tuple[Dict[str, Any
     """
 
     start_time = time.time()
-    response = await _client.aio.models.generate_content(
-        model=_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
-    )
+    try:
+        response = await _client.aio.models.generate_content(
+            model=_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
+        )
+    except Exception as exc:
+        logger.warning("Gemini triage call failed, using fallback: %s", exc)
+        return _fallback_triage(), {
+            "raw_response": f"Gemini error: {exc}",
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "latency_ms": int((time.time() - start_time) * 1000),
+            "status": "fallback",
+        }
     latency_ms = int((time.time() - start_time) * 1000)
 
     raw_text = response.text or ""
@@ -104,10 +117,14 @@ async def generate_contractor_reply(customer_message: str, contractor_context: d
     adhering strictly to their rules and pricing.
     """
 
-    response = await _client.aio.models.generate_content(
-        model=_MODEL,
-        contents=prompt,
-    )
+    try:
+        response = await _client.aio.models.generate_content(
+            model=_MODEL,
+            contents=prompt,
+        )
+    except Exception as exc:
+        logger.warning("Gemini contractor-reply call failed, using fallback: %s", exc)
+        return "Thank you for your message. We'll get back to you shortly."
     return response.text or "Thank you for reaching out. We'll respond shortly."
 
 
@@ -171,11 +188,24 @@ async def analyze_dispute(
     """
 
     start_time = time.time()
-    response = await _client.aio.models.generate_content(
-        model=_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
-    )
+    try:
+        response = await _client.aio.models.generate_content(
+            model=_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
+        )
+    except Exception as exc:
+        logger.warning("Gemini dispute-analysis call failed, using fallback: %s", exc)
+        return {
+            "analysis": _fallback_dispute_analysis(),
+            "metadata": {
+                "raw_response": f"Gemini error: {exc}",
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "latency_ms": int((time.time() - start_time) * 1000),
+                "status": "fallback",
+            },
+        }
     latency_ms = int((time.time() - start_time) * 1000)
 
     raw_text = response.text or ""
@@ -253,11 +283,24 @@ async def estimate_job_price(
     """
 
     start_time = time.time()
-    response = await _client.aio.models.generate_content(
-        model=_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
-    )
+    try:
+        response = await _client.aio.models.generate_content(
+            model=_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
+        )
+    except Exception as exc:
+        logger.warning("Gemini price-estimate call failed, using fallback: %s", exc)
+        return {
+            "estimate": _fallback_price_estimate(),
+            "metadata": {
+                "raw_response": f"Gemini error: {exc}",
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "latency_ms": int((time.time() - start_time) * 1000),
+                "status": "fallback",
+            },
+        }
     latency_ms = int((time.time() - start_time) * 1000)
 
     raw_text = response.text or ""
