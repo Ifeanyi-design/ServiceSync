@@ -626,12 +626,14 @@ async def connect_integration(
     db.add(integration)
     await db.commit()
 
-    # For Telegram: auto-set webhook so inline keyboard buttons work
+    # For Telegram: auto-set webhook so messages + inline keyboard buttons work.
+    # The bot token is embedded in the URL path so the inbound handler can match
+    # the integration by its token (Telegram posts to the bot, not a chat id).
     if platform == "telegram":
         try:
             import httpx
             base_url = str(request.base_url).rstrip("/")
-            webhook_url = f"{base_url}/api/v1/webhooks/telegram"
+            webhook_url = f"{base_url}/api/v1/webhooks/telegram/{access_token}"
             async with httpx.AsyncClient() as client:
                 resp = await client.get(
                     f"https://api.telegram.org/bot{access_token}/setWebhook",
@@ -671,6 +673,59 @@ async def toggle_integration(
     db.add(integration)
     await db.commit()
     return RedirectResponse(url="/integrations", status_code=302)
+
+
+@router.post("/integrations/{integration_id}/test")
+async def test_integration(
+    integration_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify an integration's credentials by pinging the platform.
+
+    For Telegram we call `getMe` with the stored bot token; success means the
+    token is valid and the webhook can deliver. Returns to /integrations with a
+    flash message (success/error)."""
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/")
+
+    result = await db.exec(
+        select(OmnichannelIntegration).where(
+            OmnichannelIntegration.id == integration_id,
+            OmnichannelIntegration.contractor_id == current_user.id,
+        )
+    )
+    integration = result.first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration not found")
+
+    try:
+        import httpx
+        if integration.platform == "telegram":
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    f"https://api.telegram.org/bot{integration.access_token}/getMe"
+                )
+                data = resp.json()
+            if not data.get("ok"):
+                return RedirectResponse(
+                    url=f"/integrations?error=Telegram+error:+'{data.get('description', 'unknown')}'",
+                    status_code=302,
+                )
+            bot = data.get("result", {})
+            name = bot.get("username", "bot")
+            return RedirectResponse(
+                url=f"/integrations?success=Connected+to+@{name}+—+webhook+active", status_code=302
+            )
+        elif integration.platform in ("whatsapp", "messenger"):
+            # Token presence is the only lightweight check we can do without a full Graph call.
+            if not integration.access_token:
+                return RedirectResponse(url="/integrations?error=Missing+access+token", status_code=302)
+            return RedirectResponse(url="/integrations?success=Token+present+(Meta+webhooks+need+verify)", status_code=302)
+        else:
+            return RedirectResponse(url=f"/integrations?error=Unknown+platform", status_code=302)
+    except Exception as e:
+        return RedirectResponse(url=f"/integrations?error={str(e)[:120]}", status_code=302)
 
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

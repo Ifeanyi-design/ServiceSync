@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # via pub/sub. Leave unset to use in-process memory (single instance only).
     REDIS_URL: Optional[str] = None
 
+    # Telegram bot webhook secret (optional). Set via BotFather /setWebhook's
+    # secret-token header to authenticate inbound Telegram callbacks.
+    TELEGRAM_WEBHOOK_SECRET: Optional[str] = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
 
 settings = Settings()

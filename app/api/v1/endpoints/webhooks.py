@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, BackgroundTasks
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from typing import Any
+from typing import Any, Optional
 import httpx
 
 from app.api.dependencies import get_db
 from app.core.database import async_session_maker
 from app.models.all_models import OmnichannelIntegration, User, Conversation, DirectMessage, AIDraft, StripeEvent
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 from app.core.config import settings
 from app.models.audit_log import AIOperationsAuditLog
 from app.services.gemini_service import generate_contractor_reply
@@ -175,23 +179,50 @@ async def send_outbound_message(platform: str, recipient_id: str, text: str, acc
         except Exception as e:
             print(f"Failed to send outbound message: {str(e)}")
 
+@router.post("/{platform}/{bot_token:path}")
 @router.post("/{platform}")
 async def receive_webhook(
     platform: str,
     request: Request,
     background_tasks: BackgroundTasks,
+    bot_token: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
-    Handle incoming messages from external messaging platforms.
+    Handle incoming messages / callback queries from external platforms.
+    Public endpoint — Telegram/Meta sign it their own way (we validate the
+    Telegram secret token when configured).
+
+    For Telegram, the bot token is accepted either in the URL path
+    (`/webhooks/telegram/<BOT_TOKEN>`) or as the `bot_token` query param, so the
+    integration can be resolved by its token.
     """
-    payload = await request.json()
-    
+    # Optional Telegram secret-token check (set via BotFather / setWebhook header).
+    if platform == "telegram" and settings.TELEGRAM_WEBHOOK_SECRET:
+        if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != settings.TELEGRAM_WEBHOOK_SECRET:
+            raise HTTPException(status_code=403, detail="Invalid Telegram secret token")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        logger.warning("webhook/%s: invalid JSON body", platform)
+        return {"status": "ignored"}
+
+    logger.info("webhook/%s: received payload keys=%s", platform, list(payload.keys()))
+
+    # Resolve the Telegram bot token (path > query).
+    if platform == "telegram" and not bot_token:
+        bot_token = request.query_params.get("bot_token")
+
     sender_id = None
     recipient_id = None
     message_text = None
 
-    # Payload parsers
+    # ---- Telegram: callback query (approve / dismiss AI draft) ----
+    if platform == "telegram" and "callback_query" in payload:
+        return await _handle_telegram_callback(payload, db)
+
+    # ---- Payload parsers ----
     if platform == "whatsapp":
         try:
             entry = payload["entry"][0]["changes"][0]["value"]
@@ -199,174 +230,183 @@ async def receive_webhook(
             sender_id = message["from"]
             recipient_id = entry["metadata"]["display_phone_number"]
             message_text = message["text"]["body"]
-        except (KeyError, IndexError):
+        except (KeyError, IndexError, TypeError):
             return {"status": "ignored"}
-            
+
     elif platform == "telegram":
-        # Handle callback queries from inline keyboard (approve/dismiss draft)
-        if "callback_query" in payload:
-            callback = payload["callback_query"]
-            callback_id = callback.get("id", "")
-            data = callback.get("data", "")
-            chat_id = str(callback["message"]["chat"]["id"])
-            message_id = callback["message"]["message_id"]
-
-            # Find the integration by chat_id to get the bot token
-            async with async_session_maker() as db:
-                integ_result = await db.exec(
-                    select(OmnichannelIntegration).where(
-                        OmnichannelIntegration.platform == "telegram",
-                        OmnichannelIntegration.platform_account_id == chat_id,
-                        OmnichannelIntegration.is_active == True,
-                    )
-                )
-                integ = integ_result.first()
-
-            if not integ:
-                return {"status": "no_integration"}
-
-            bot_token = integ.access_token
-
-            # ALWAYS answer the callback query first to stop the spinner
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery",
-                    json={"callback_query_id": callback_id},
-                )
-
-                if data.startswith("approve_draft:"):
-                    parts = data.split(":")
-                    conversation_id = int(parts[1])
-                    draft_id = int(parts[2])
-
-                    async with async_session_maker() as db:
-                        from datetime import datetime
-                        draft_result = await db.exec(select(AIDraft).where(AIDraft.id == draft_id))
-                        draft = draft_result.first()
-                        if draft and draft.conversation_id == conversation_id and draft.status == "pending":
-                            clean_content = draft.content
-                            new_msg = DirectMessage(
-                                conversation_id=conversation_id,
-                                sender_id=draft.contractor_id,
-                                content=clean_content,
-                            )
-                            db.add(new_msg)
-                            draft.status = "approved"
-                            draft.resolved_at = datetime.utcnow()
-                            await db.commit()
-
-                            await client.post(
-                                f"https://api.telegram.org/bot{bot_token}/editMessageText",
-                                json={
-                                    "chat_id": chat_id,
-                                    "message_id": message_id,
-                                    "text": f"Approved and sent!\n\n{clean_content}",
-                                },
-                            )
-
-                elif data.startswith("dismiss_draft:"):
-                    parts = data.split(":")
-                    draft_id = int(parts[2])
-
-                    async with async_session_maker() as db:
-                        from datetime import datetime
-                        draft_result = await db.exec(select(AIDraft).where(AIDraft.id == draft_id))
-                        draft = draft_result.first()
-                        if draft and draft.status == "pending":
-                            draft.status = "dismissed"
-                            draft.resolved_at = datetime.utcnow()
-                            await db.commit()
-
-                            await client.post(
-                                f"https://api.telegram.org/bot{bot_token}/editMessageText",
-                                json={
-                                    "chat_id": chat_id,
-                                    "message_id": message_id,
-                                    "text": "Draft dismissed.",
-                                },
-                            )
-
-            return {"status": "ok"}
-
         try:
             message = payload["message"]
-            sender_id = str(message["chat"]["id"])
-            recipient_id = "telegram_bot" 
-            message_text = message["text"]
-        except KeyError:
+            sender_id = str(message["from"]["id"])
+            recipient_id = str(message["chat"]["id"])
+            message_text = message.get("text", "")
+        except (KeyError, TypeError):
             return {"status": "ignored"}
-            
+
     elif platform == "messenger":
         try:
             entry = payload["entry"][0]["messaging"][0]
             sender_id = entry["sender"]["id"]
             recipient_id = entry["recipient"]["id"]
             message_text = entry["message"]["text"]
-        except (KeyError, IndexError):
+        except (KeyError, IndexError, TypeError):
             return {"status": "ignored"}
-            
+
     else:
         raise HTTPException(status_code=400, detail="Unsupported platform")
 
     if not sender_id or not recipient_id or not message_text:
         return {"status": "ignored"}
 
-    # Step A: Query Integration & Contractor Profile
-    integration_query = select(OmnichannelIntegration).where(
-        OmnichannelIntegration.platform == platform,
-        OmnichannelIntegration.platform_account_id == recipient_id,
-        OmnichannelIntegration.is_active == True
-    )
-    result = await db.exec(integration_query)
-    integration = result.first()
-    
+    # Step A: find the integration.
+    #  - Telegram: match by bot token (access_token) since the message arrives at
+    #    the bot; the chat id is recorded as platform_account_id for callbacks.
+    #  - Others: match by the platform account id (the contractor's handle).
+    if platform == "telegram" and bot_token:
+        integration_query = select(OmnichannelIntegration).where(
+            OmnichannelIntegration.platform == "telegram",
+            OmnichannelIntegration.access_token == bot_token,
+            OmnichannelIntegration.is_active == True,
+        )
+    else:
+        integration_query = select(OmnichannelIntegration).where(
+            OmnichannelIntegration.platform == platform,
+            OmnichannelIntegration.platform_account_id == recipient_id,
+            OmnichannelIntegration.is_active == True,
+        )
+    integration = (await db.exec(integration_query)).first()
+    # Last-resort for Telegram: the webhook URL may not carry the token (e.g. set
+    # manually), so try matching by the chat id stored as platform_account_id.
+    if not integration and platform == "telegram":
+        integration = (await db.exec(
+            select(OmnichannelIntegration).where(
+                OmnichannelIntegration.platform == "telegram",
+                OmnichannelIntegration.platform_account_id == recipient_id,
+                OmnichannelIntegration.is_active == True,
+            )
+        )).first()
     if not integration:
+        logger.warning("webhook/%s: no active integration (token=%s, recipient=%s)", platform, bool(bot_token), recipient_id)
         return {"status": "unrecognized_integration"}
 
     contractor = await db.get(User, integration.contractor_id)
     if not contractor:
         return {"status": "contractor_not_found"}
 
-    # Step B: Fetch contractor constraints
+    # Step B: contractor context
     contractor_context = {
         "profession": contractor.profession,
         "base_pricing": contractor.base_pricing,
         "service_radius_miles": contractor.service_radius_miles,
         "working_hours_start": contractor.working_hours_start,
         "working_hours_end": contractor.working_hours_end,
-        "ai_tone_preference": contractor.ai_tone_preference
+        "ai_tone_preference": contractor.ai_tone_preference,
     }
 
-    # Step C: Call Gemini
-    bot_reply = await generate_contractor_reply(message_text, contractor_context)
+    # Step C: AI reply (never let a model failure break the webhook)
+    try:
+        bot_reply = await generate_contractor_reply(message_text, contractor_context)
+    except Exception as e:
+        logger.exception("webhook/%s: AI reply failed: %s", platform, e)
+        bot_reply = "Thanks for your message — the contractor will get back to you shortly."
 
-    # Step D: Log AIOperationsAuditLog
-    structured_decision = {
-        "platform": platform,
-        "sender": sender_id,
-        "recipient": recipient_id,
-        "contractor_context_used": contractor_context
-    }
-    
+    # Step D: audit log
     audit_log = AIOperationsAuditLog(
         action_type="omnichannel_auto_reply",
         user_id=contractor.id,
         gemini_model_version=settings.GEMINI_MODEL,
         input_context={"incoming_message": message_text, "context": contractor_context},
         raw_ai_response=bot_reply,
-        structured_decision=structured_decision,
-        status="success"
+        structured_decision={"platform": platform, "sender": sender_id, "recipient": recipient_id},
+        status="success",
     )
     db.add(audit_log)
     await db.commit()
 
-    # Step E: Fire outbound message task
+    # Step E: reply back to the user
     background_tasks.add_task(
         send_outbound_message,
         platform=platform,
-        recipient_id=sender_id, # Send back to the user
+        recipient_id=sender_id,
         text=bot_reply,
-        access_token=integration.access_token
+        access_token=integration.access_token,
     )
-
     return {"status": "success"}
+
+
+async def _handle_telegram_callback(payload: dict, db: AsyncSession) -> Any:
+    """Approve / dismiss an AI-generated draft from the Telegram inline keyboard."""
+    callback = payload["callback_query"]
+    callback_id = callback.get("id", "")
+    data = callback.get("data", "")
+    try:
+        chat_id = str(callback["message"]["chat"]["id"])
+        message_id = callback["message"]["message_id"]
+    except (KeyError, TypeError):
+        return {"status": "ignored"}
+
+    logger.info("telegram callback: data=%s chat=%s", data, chat_id)
+
+    # Locate the integration that owns this chat (platform_account_id == chat id)
+    integ = (await db.exec(
+        select(OmnichannelIntegration).where(
+            OmnichannelIntegration.platform == "telegram",
+            OmnichannelIntegration.platform_account_id == chat_id,
+            OmnichannelIntegration.is_active == True,
+        )
+    )).first()
+    if not integ:
+        logger.warning("telegram callback: no integration for chat=%s", chat_id)
+        return {"status": "no_integration"}
+    bot_token = integ.access_token
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        # Always answer the callback first to stop the spinner.
+        await client.post(
+            f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery",
+            json={"callback_query_id": callback_id},
+        )
+
+        if data.startswith("approve_draft:") or data.startswith("dismiss_draft:"):
+            try:
+                parts = data.split(":")
+                action = parts[0]          # approve_draft / dismiss_draft
+                conversation_id = int(parts[1])
+                draft_id = int(parts[2])
+            except (IndexError, ValueError):
+                logger.warning("telegram callback: malformed data=%s", data)
+                return {"status": "bad_data"}
+
+            draft = (await db.exec(select(AIDraft).where(AIDraft.id == draft_id))).first()
+            if not draft or draft.conversation_id != conversation_id or draft.status != "pending":
+                logger.info("telegram callback: draft %s not actionable (status=%s)", draft_id, getattr(draft, "status", None))
+                await client.post(
+                    f"https://api.telegram.org/bot{bot_token}/editMessageText",
+                    json={"chat_id": chat_id, "message_id": message_id, "text": "This draft is no longer pending."},
+                )
+                return {"status": "stale"}
+
+            if action == "approve_draft":
+                draft.status = "approved"
+                draft.resolved_at = datetime.utcnow()
+                db.add(DirectMessage(
+                    conversation_id=conversation_id,
+                    sender_id=draft.contractor_id,
+                    content=draft.content,
+                ))
+                await db.commit()
+                await client.post(
+                    f"https://api.telegram.org/bot{bot_token}/editMessageText",
+                    json={"chat_id": chat_id, "message_id": message_id, "text": f"Approved and sent!\n\n{draft.content}"},
+                )
+                logger.info("telegram callback: approved draft %s", draft_id)
+            else:
+                draft.status = "dismissed"
+                draft.resolved_at = datetime.utcnow()
+                await db.commit()
+                await client.post(
+                    f"https://api.telegram.org/bot{bot_token}/editMessageText",
+                    json={"chat_id": chat_id, "message_id": message_id, "text": "Draft dismissed."},
+                )
+                logger.info("telegram callback: dismissed draft %s", draft_id)
+
+    return {"status": "ok"}
