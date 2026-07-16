@@ -51,6 +51,36 @@ def format_location(obj) -> str:
         return ", ".join(parts)
     return getattr(obj, 'zip_code', None) or getattr(obj, 'postal_code', None) or "—"
 
+@router.get("/about", response_class=HTMLResponse)
+async def about_page(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
+    return templates.TemplateResponse(request=request, name="legal_page.html", context={
+        "request": request,
+        "current_user": current_user,
+        "page_title": "About ServiceSync",
+        "page_slug": "about",
+    })
+
+
+@router.get("/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
+    return templates.TemplateResponse(request=request, name="legal_page.html", context={
+        "request": request,
+        "current_user": current_user,
+        "page_title": "Privacy Policy",
+        "page_slug": "privacy",
+    })
+
+
+@router.get("/terms", response_class=HTMLResponse)
+async def terms_page(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
+    return templates.TemplateResponse(request=request, name="legal_page.html", context={
+        "request": request,
+        "current_user": current_user,
+        "page_title": "Terms of Service",
+        "page_slug": "terms",
+    })
+
+
 @router.get("/", response_class=HTMLResponse)
 async def homepage(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
     # Redirect if logged in
@@ -1215,44 +1245,17 @@ async def contractor_dashboard(request: Request, current_user: User = Depends(ge
 
 @router.get("/messages", response_class=HTMLResponse)
 async def messages_list(request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    if current_user.role == "customer":
-        query = select(Conversation).options(selectinload(Conversation.customer), selectinload(Conversation.contractor), selectinload(Conversation.messages)).where(Conversation.customer_id == current_user.id)
-    elif current_user.role == "contractor":
-        query = select(Conversation).options(selectinload(Conversation.customer), selectinload(Conversation.contractor), selectinload(Conversation.messages)).where(Conversation.contractor_id == current_user.id)
-    else:
+    if current_user.role not in ("customer", "contractor"):
         return RedirectResponse(url="/")
 
-    result = await db.exec(query.order_by(Conversation.created_at.desc()))
-    conversations_raw = result.all()
-
-    # Enrich with partner info and latest message
-    conversations = []
-    for conv in conversations_raw:
-        partner_id = conv.contractor_id if current_user.id == conv.customer_id else conv.customer_id
-        partner_result = await db.exec(select(User).where(User.id == partner_id))
-        partner = partner_result.first()
-
-        # Get job status
-        job_result = await db.exec(select(Job).where(Job.id == conv.job_id))
-        job = job_result.first()
-
-        # Get latest message
-        latest_msg = conv.messages[-1] if conv.messages else None
-
-        conversations.append({
-            "id": conv.id,
-            "job_id": conv.job_id,
-            "partner": partner,
-            "job_status": job.status if job else None,
-            "latest_message": latest_msg.content if latest_msg else None,
-            "latest_message_time": latest_msg.timestamp.strftime('%b %d, %H:%M') if latest_msg else conv.created_at.strftime('%b %d'),
-            "created_at": conv.created_at,
-        })
+    from app.services.notification_service import build_conversation_list
+    conversations = await build_conversation_list(db, current_user)
 
     return templates.TemplateResponse(request=request, name="messages.html", context={
         "request": request,
         "current_user": current_user,
         "conversations": conversations,
+        "active_conversation_id": None,
     })
 
 
@@ -1317,6 +1320,9 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
         
     if current_user.id not in [conversation.customer_id, conversation.contractor_id]:
         raise HTTPException(status_code=403, detail="Not authorized to view this chat")
+
+    from app.services.notification_service import build_conversation_list, mark_conversation_read
+    await mark_conversation_read(db, conversation, current_user.id)
         
     partner_id = conversation.contractor_id if current_user.id == conversation.customer_id else conversation.customer_id
     partner_result = await db.exec(select(User).where(User.id == partner_id))
@@ -1331,6 +1337,12 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
         e_result = await db.exec(select(Escrow).where(Escrow.job_id == job.id))
         escrow = e_result.first()
 
+    conversations = await build_conversation_list(db, current_user)
+    # Active thread was just marked read — zero its unread in the sidebar
+    for c in conversations:
+        if c["id"] == conversation_id:
+            c["unread_count"] = 0
+
     return templates.TemplateResponse(request=request, name="chat.html", context={
         "request": request,
         "current_user": current_user,
@@ -1339,6 +1351,8 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
         "past_messages": past_messages,
         "job": job,
         "escrow": escrow,
+        "conversations": conversations,
+        "active_conversation_id": conversation_id,
     })
 
 

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} — ServiceSync{% endblock %}
+{% block meta_description %}{{ page_title }} for ServiceSync, the AI-native home services marketplace.{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+  <div class="mb-8">
+    <p class="text-xs font-bold uppercase tracking-widest text-blue-600 mb-2">ServiceSync</p>
+    <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">{{ page_title }}</h1>
+    <p class="text-sm text-gray-400 mt-2">Last updated: July 16, 2026</p>
+  </div>
+
+  <article class="prose prose-slate max-w-none bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sm:p-10 space-y-6 text-sm text-gray-600 leading-relaxed">
+
+    {% if page_slug == 'about' %}
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Who we are</h2>
+      <p>ServiceSync is an AI-native marketplace that connects homeowners with verified local professionals. Describe a problem in plain language — our Gemini-powered triage understands the trade, severity, and location, then matches you with the right pro.</p>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">What makes us different</h2>
+      <ul class="list-disc pl-5 space-y-1.5">
+        <li><strong class="text-gray-800">Natural-language intake</strong> — no long forms.</li>
+        <li><strong class="text-gray-800">Escrow protection</strong> — funds are held until work is confirmed.</li>
+        <li><strong class="text-gray-800">In-app messaging</strong> — coordinate jobs with attachments and job actions in one place.</li>
+        <li><strong class="text-gray-800">Built for pros</strong> — AI drafts and autonomy levels help contractors respond faster.</li>
+      </ul>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Get started</h2>
+      <p class="mb-4">Homeowners can start free. Professionals can register and complete verification to receive matches.</p>
+      <div class="flex flex-wrap gap-3">
+        <a href="/search" class="inline-flex px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold shadow-md">Find a Pro</a>
+        <a href="/auth/register_contractor" class="inline-flex px-5 py-2.5 rounded-xl border border-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-50">Register as a Pro</a>
+      </div>
+    </section>
+
+    {% elif page_slug == 'privacy' %}
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Overview</h2>
+      <p>This Privacy Policy explains how ServiceSync collects, uses, and protects information when you use our website and services. By using ServiceSync you agree to this policy.</p>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Information we collect</h2>
+      <ul class="list-disc pl-5 space-y-1.5">
+        <li><strong class="text-gray-800">Account data</strong> — name, email, phone, role (customer or contractor), and password (stored hashed).</li>
+        <li><strong class="text-gray-800">Profile &amp; job data</strong> — location, trade details, job descriptions, chat messages, and attachments you upload.</li>
+        <li><strong class="text-gray-800">Payment data</strong> — processed by our payment provider (e.g. Stripe). We do not store full card numbers on our servers.</li>
+        <li><strong class="text-gray-800">Usage data</strong> — basic logs needed to operate, secure, and improve the product.</li>
+      </ul>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">How we use information</h2>
+      <ul class="list-disc pl-5 space-y-1.5">
+        <li>Match customers with professionals and power AI triage.</li>
+        <li>Enable messaging, escrow, receipts, and job status updates.</li>
+        <li>Send service notifications you enable in settings.</li>
+        <li>Prevent fraud, abuse, and technical issues.</li>
+      </ul>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Sharing</h2>
+      <p>We share data with the other party in a job (e.g. your name and messages), payment processors, and infrastructure providers needed to run the service. We do not sell personal information.</p>
+    </section>
+    <section id="cookies">
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Cookies</h2>
+      <p>We use essential cookies (such as session authentication) so you can stay signed in and use core features. We do not use third-party advertising cookies in the MVP. You can control cookies in your browser settings; blocking essential cookies may prevent login.</p>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Your choices</h2>
+      <p>You can update profile and notification preferences in Settings, and request account deactivation by contacting support through the platform. For privacy questions, use the contact options on your account dashboard when available.</p>
+    </section>
+
+    {% elif page_slug == 'terms' %}
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Agreement</h2>
+      <p>These Terms of Service govern your use of ServiceSync. By creating an account or using the platform, you agree to these terms.</p>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">The service</h2>
+      <p>ServiceSync helps customers find and book home-service professionals and helps professionals receive job leads. We are a technology platform — we are not the contractor performing physical work, and we do not guarantee outcomes of any job.</p>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Accounts</h2>
+      <ul class="list-disc pl-5 space-y-1.5">
+        <li>You must provide accurate information and keep credentials secure.</li>
+        <li>Contractors are responsible for licenses, insurance, and compliance in their jurisdiction.</li>
+        <li>We may suspend accounts that abuse the platform, harass others, or attempt payment fraud.</li>
+      </ul>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Payments &amp; escrow</h2>
+      <p>When enabled, payments may be held in escrow until the customer confirms completion. Fees, refunds, and dispute outcomes follow the flow shown in the product at the time of the transaction. Chargebacks and illegal use are prohibited.</p>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Messaging &amp; AI</h2>
+      <p>Chat and AI features are provided as tools. You remain responsible for content you send. AI outputs can be incomplete or incorrect — verify critical details (quotes, safety, legal advice) yourself.</p>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Limitation of liability</h2>
+      <p>To the fullest extent permitted by law, ServiceSync is not liable for indirect or consequential damages arising from jobs arranged through the platform. Our total liability related to the service is limited to fees you paid us in the three months before the claim.</p>
+    </section>
+    <section>
+      <h2 class="text-lg font-bold text-gray-900 mb-2">Changes</h2>
+      <p>We may update these terms; material changes will be reflected by the “Last updated” date on this page. Continued use after changes means you accept the revised terms.</p>
+    </section>
+    {% endif %}
+
+  </article>
+
+  <p class="mt-8 text-center text-xs text-gray-400">
+    <a href="/" class="text-blue-600 hover:underline font-medium">Back to home</a>
+    ·
+    <a href="/privacy" class="hover:text-blue-600">Privacy</a>
+    ·
+    <a href="/terms" class="hover:text-blue-600">Terms</a>
+    ·
+    <a href="/about" class="hover:text-blue-600">About</a>
+  </p>
+</div>
+{% endblock %}

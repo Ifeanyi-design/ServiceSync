@@ -1,5 +1,85 @@
 # ServiceSync — Development Log
 
+## 2026-07-16 (2) — Phase 2: Notifications, footer, split inbox
+
+### Progress log
+1. **Real notifications (no fake red dot)**
+   - `app/services/notification_service.py` — builds items from unread messages + job actions (pay, start, confirm, disputes).
+   - Conversation `last_read_at_customer` / `last_read_at_contractor` + migration `m7n8o9p0q1r2`.
+   - Opening chat marks the thread read via `mark_conversation_read`.
+   - API: `GET /api/v1/users/me/notifications`.
+   - `base.html` bell: dropdown panel, badge only when `unread_count > 0`, 60s refresh, honest empty state.
+
+2. **Footer cleanup + legal pages**
+   - Routes: `/about`, `/privacy`, `/terms` → `legal_page.html`.
+   - Footer links wired (About, Privacy, Terms, cookies anchor, Join as Pro). Removed dead Blog/Careers `#` links.
+
+3. **Desktop split inbox**
+   - Shared partial `_conversation_list.html` (search, unread badges, avatars, job chips).
+   - `/messages`: full-height list + empty “Select a conversation” pane on `lg+`.
+   - `/chat/{id}`: desktop left inbox sidebar + active chat (mobile stays full chat).
+   - Unread counts from last-read cursors; “You:” prefix on own last message.
+
+### Files touched
+- `app/models/all_models.py`
+- `alembic/versions/m7n8o9p0q1r2_add_conversation_last_read.py`
+- `app/services/notification_service.py`
+- `app/api/v1/endpoints/users.py`
+- `app/web/pages.py`
+- `app/templates/base.html`
+- `app/templates/messages.html`
+- `app/templates/chat.html`
+- `app/templates/_conversation_list.html`
+- `app/templates/legal_page.html`
+- `DEVELOPMENT_LOG.md`
+
+### Deploy note
+Run migration: `alembic upgrade head` (adds conversation last_read columns). Until then, chat open may error if columns missing — run migrate before relying on unread.
+
+### Still open (later)
+- Persist original attachment filenames in DB.
+- True online presence + real read receipts over WS.
+- Optional: dark mode, message search in-thread.
+
+---
+
+## 2026-07-16 — Phase 1: Chat room shell + media viewer polish
+
+### Progress log
+1. **Audit complete** — chat still used global marketing footer + page scroll; media for PDF/docs was a bare “File” link that opened poorly (empty / useless tab, UUID filenames like `66d8….pdf`).
+2. **Base layout hooks** (`app/templates/base.html`)
+   - `{% block body_class %}`, `{% block main_class %}`, `{% block footer %}` so pages can opt out of footer and lock viewport.
+3. **Chat room shell** (`app/templates/chat.html`)
+   - `{% block footer %}{% endblock %}` — **no footer on chat**.
+   - `body.chat-mode`: `100dvh`, `overflow: hidden`.
+   - Flex column: header + job bar + **only `#message-thread` scrolls** + fixed composer.
+   - Breadcrumb replaced by in-header back button (more vertical space).
+4. **Media viewing fix**
+   - Tap image → full-screen lightbox.
+   - Tap video → lightbox player with controls + autoplay (inline shows play badge, not awkward inline controls).
+   - PDF → lightbox **iframe** preview (native browser PDF viewer) + Download / Open.
+   - DOC/DOCX/etc. → clear “can’t preview — download” panel (no empty broken page).
+   - File **cards** with type badge (PDF/DOC/TXT) and human labels; UUID storage names map to e.g. “PDF Document” instead of raw hash/`pdf.pdf`.
+5. **Upload API** (`app/api/v1/endpoints/chat.py`) — response now includes `name`, `ext`, `content_type`, `size` for better client labels.
+6. **Bubbles + emoji**
+   - Tighter bubbles, always-visible timestamps inside bubble.
+   - Multi-line composer (`textarea`, Enter send / Shift+Enter newline, auto-grow).
+   - Emoji tray: denser grid, more glyphs, hover scale, close button, Escape closes.
+
+### Files touched
+- `app/templates/base.html`
+- `app/templates/chat.html`
+- `app/api/v1/endpoints/chat.py`
+- `DEVELOPMENT_LOG.md` (this entry)
+
+### Still open (later phases)
+- Desktop split inbox (messages list + chat).
+- Real notifications (hide fake red dot).
+- Persist original attachment filename in DB (currently derived from URL / live WS `attachment_name`).
+- True partner presence + real read receipts.
+
+---
+
 ## 2026-07-14 — Payments hardening, disputes, uploads, scaling, tests
 
 ### New

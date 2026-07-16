@@ -3,188 +3,104 @@
 {% block title %}Messages — ServiceSync{% endblock %}
 {% block meta_description %}View your conversations with contractors and customers on ServiceSync.{% endblock %}
 
+{% block body_class %}messages-mode{% endblock %}
+{% block main_class %}messages-main{% endblock %}
+{% block footer %}{% endblock %}
+
 {% block extra_head %}
 <style>
-  .conv-card {
-    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-    border-left: 3px solid transparent;
+  body.messages-mode {
+    height: 100dvh;
+    overflow: hidden;
   }
-  .conv-card:hover {
-    transform: translateX(2px);
-    border-left-color: #2563eb;
-    box-shadow: 0 4px 20px rgba(37,99,235,0.08);
+  body.messages-mode main.messages-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: none;
   }
-  .conv-card.has-unread { border-left-color: #2563eb; }
+  body.messages-mode nav.navbar-glass { flex-shrink: 0; }
 
+  .messages-shell {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .messages-sidebar {
+    width: 100%;
+    flex-shrink: 0;
+    border-right: 1px solid #f1f5f9;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  @media (min-width: 1024px) {
+    .messages-sidebar {
+      width: 360px;
+      border-right: 1px solid #e5e7eb;
+    }
+    .messages-shell {
+      border-left: 1px solid #e5e7eb;
+      border-right: 1px solid #e5e7eb;
+      background: #fff;
+    }
+  }
+
+  .messages-empty-pane {
+    display: none;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%);
+  }
+  @media (min-width: 1024px) {
+    .messages-empty-pane { display: flex; }
+  }
+
+  .conv-card.is-active {
+    background: #eff6ff;
+    border-left: 3px solid #2563eb;
+  }
+  .conv-card.has-unread { border-left: 3px solid #2563eb; }
   .unread-badge {
     background: linear-gradient(135deg, #2563eb, #4f46e5);
     box-shadow: 0 2px 8px rgba(37,99,235,0.3);
   }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .conv-card { animation: slideIn 0.2s ease-out both; }
-  {% for i in range(1, 20) %}
-  .conv-card:nth-child({{ i }}) { animation-delay: {{ (i-1) * 0.04 }}s; }
-  {% endfor %}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+<div class="messages-shell">
+  <aside class="messages-sidebar" aria-label="Conversations">
+    {% include "_conversation_list.html" %}
+  </aside>
 
-  <!-- Page Header -->
-  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-    <div>
-      <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-        Messages
-        {% if conversations %}
-        <span class="text-sm font-semibold text-gray-400 mt-0.5">({{ conversations | length }})</span>
-        {% endif %}
-      </h1>
-      <p class="text-gray-500 text-sm mt-0.5">Your conversations with {% if current_user.role == 'customer' %}contractors{% else %}customers{% endif %}.</p>
-    </div>
-    {% if current_user.role == 'customer' %}
-    <a href="/contractors"
-      class="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl transition shadow-lg shadow-blue-200 active:scale-95">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-      New Conversation
-    </a>
-    {% endif %}
-  </div>
-
-  {% if conversations %}
-  <!-- Search bar -->
-  <div class="relative mb-5">
-    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-    </div>
-    <input
-      id="conv-search"
-      type="text"
-      placeholder="Search conversations by name or job…"
-      oninput="filterConversations(this.value)"
-      class="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition shadow-sm placeholder-gray-400"
-    />
-  </div>
-
-  <!-- Conversations list -->
-  <div class="space-y-2" id="conv-list">
-    {% for conv in conversations %}
-    {% set unread = conv.unread_count | default(0) %}
-    <a href="/chat/{{ conv.id }}"
-      class="conv-card {{ 'has-unread' if unread > 0 else '' }} flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm group"
-      data-name="{{ conv.partner.full_name | lower }}"
-      data-job="{{ conv.job_id }}">
-
-      <!-- Avatar column -->
-      <div class="relative flex-shrink-0">
-        <div class="w-13 h-13 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-base ring-2 ring-white shadow-sm">
-          {{ conv.partner.full_name[0] | upper }}
-        </div>
-        <!-- Online dot -->
-        {% if conv.partner.availability_status == 'available' %}
-        <span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white shadow-sm"></span>
-        {% endif %}
-      </div>
-
-      <!-- Content -->
-      <div class="flex-1 min-w-0">
-        <div class="flex items-start justify-between gap-2 mb-0.5">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <h3 class="font-bold text-gray-900 text-sm truncate group-hover:text-blue-700 transition
-              {{ 'text-blue-900' if unread > 0 else '' }}">
-              {{ conv.partner.full_name }}
-            </h3>
-            {% if conv.partner.verification_level and conv.partner.verification_level != 'none' %}
-            <span class="flex-shrink-0 inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white">
-              <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
-            </span>
-            {% endif %}
-          </div>
-          <div class="flex items-center gap-1.5 flex-shrink-0">
-            <span class="text-[11px] text-gray-400">{{ conv.latest_message_time }}</span>
-            {% if unread > 0 %}
-            <span class="unread-badge w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white">
-              {{ unread if unread <= 9 else '9+' }}
-            </span>
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Job + status row -->
-        <div class="flex items-center gap-1.5 mb-1">
-          <span class="text-xs text-gray-400">Job #{{ conv.job_id }}</span>
-          {% if conv.job_status %}
-          <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full
-            {% if conv.job_status == 'booked' %}bg-green-50 text-green-700
-            {% elif conv.job_status == 'completed' %}bg-blue-50 text-blue-700
-            {% elif conv.job_status == 'in_progress' %}bg-indigo-50 text-indigo-700
-            {% elif conv.job_status == 'completed_pending' %}bg-amber-50 text-amber-700
-            {% else %}bg-gray-100 text-gray-500{% endif %}">
-            {{ conv.job_status | replace('_', ' ') | title }}
-          </span>
-          {% endif %}
-        </div>
-
-        <!-- Last message preview -->
-        <p class="text-sm text-gray-500 truncate leading-tight {{ 'font-semibold text-gray-700' if unread > 0 else '' }}">
-          {{ conv.latest_message or 'No messages yet' }}
-        </p>
-      </div>
-
-      <!-- Arrow -->
-      <svg class="w-4 h-4 text-gray-300 group-hover:text-blue-400 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    </a>
-    {% endfor %}
-  </div>
-
-  <!-- No results (search) -->
-  <div id="no-results" class="hidden text-center py-10 text-gray-400 text-sm">
-    No conversations matching your search.
-  </div>
-
-  {% else %}
-  <!-- Empty state -->
-  <div class="flex flex-col items-center justify-center py-20 text-center bg-white rounded-2xl border border-dashed border-gray-200 shadow-sm">
-    <!-- Animated illustration -->
-    <div class="relative mb-6">
-      <div class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-        <svg class="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <section class="messages-empty-pane" aria-label="Select a conversation">
+    <div class="text-center px-8 max-w-sm">
+      <div class="w-16 h-16 mx-auto mb-5 rounded-3xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
+        <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
         </svg>
       </div>
-      <!-- Floating dots -->
-      <div class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-400 animate-bounce" style="animation-delay:0ms"></div>
-      <div class="absolute top-2 -left-2 w-3 h-3 rounded-full bg-indigo-400 animate-bounce" style="animation-delay:200ms"></div>
-      <div class="absolute -bottom-1 right-2 w-2.5 h-2.5 rounded-full bg-cyan-400 animate-bounce" style="animation-delay:400ms"></div>
-    </div>
-    <h3 class="text-xl font-extrabold text-gray-700 mb-2">No conversations yet</h3>
-    <p class="text-gray-400 text-sm max-w-xs mb-6 leading-relaxed">
+      <h3 class="text-lg font-extrabold text-gray-800 mb-2">Select a conversation</h3>
+      <p class="text-sm text-gray-400 leading-relaxed mb-6">
+        Choose a chat on the left to message your {% if current_user.role == 'customer' %}contractor{% else %}customer{% endif %}, share photos, and manage job payments.
+      </p>
       {% if current_user.role == 'customer' %}
-      Book a contractor or browse professionals to start a conversation.
-      {% else %}
-      Conversations with customers will appear here once you're assigned a job.
+      <a href="/search" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold shadow-md shadow-blue-200">
+        Find a Pro
+      </a>
       {% endif %}
-    </p>
-    {% if current_user.role == 'customer' %}
-    <div class="flex flex-col sm:flex-row gap-3">
-      <a href="/search"
-        class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-xl hover:from-blue-500 hover:to-indigo-500 transition shadow-lg shadow-blue-200 active:scale-95">
-        Ask the AI to find a Pro
-      </a>
-      <a href="/contractors"
-        class="px-6 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 transition">
-        Browse Contractors
-      </a>
     </div>
-    {% endif %}
-  </div>
-  {% endif %}
-
+  </section>
 </div>
 {% endblock %}
 
@@ -194,7 +110,6 @@
     const q = query.toLowerCase().trim();
     const cards = document.querySelectorAll('#conv-list .conv-card');
     let visible = 0;
-
     cards.forEach(card => {
       const name = card.dataset.name || '';
       const job  = String(card.dataset.job || '');
@@ -202,7 +117,6 @@
       card.style.display = match ? '' : 'none';
       if (match) visible++;
     });
-
     const noResults = document.getElementById('no-results');
     if (noResults) noResults.classList.toggle('hidden', visible > 0 || !q);
   }

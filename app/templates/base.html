@@ -150,18 +150,55 @@
     }
     main { animation: pageFadeIn .3s ease-out; }
 
-    /* Notification bell pulse */
+    /* Notification bell badge — only shown when unread_count > 0 */
     .notif-dot {
       position: absolute;
       top: -2px;
       right: -2px;
-      width: 10px;
-      height: 10px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
       background: #ef4444;
-      border-radius: 50%;
+      border-radius: 999px;
       border: 2px solid white;
+      color: white;
+      font-size: 9px;
+      font-weight: 800;
+      line-height: 12px;
+      text-align: center;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .notif-dot.has-unread {
+      display: flex;
       animation: pulseGlow 2s infinite;
     }
+    #notif-panel {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      width: min(360px, calc(100vw - 1.5rem));
+      max-height: min(420px, 70vh);
+      background: rgba(255,255,255,0.98);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(15,23,42,0.08);
+      border-radius: 16px;
+      box-shadow: 0 20px 50px rgba(15,23,42,0.14), 0 4px 12px rgba(15,23,42,0.06);
+      z-index: 60;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    #notif-panel .notif-item {
+      display: block;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #f1f5f9;
+      transition: background 0.15s ease;
+      text-decoration: none;
+    }
+    #notif-panel .notif-item:hover { background: #f8fafc; }
+    #notif-panel .notif-item:last-child { border-bottom: none; }
 
     /* Scrollbar styling */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -207,7 +244,7 @@
   {% block extra_head %}{% endblock %}
 </head>
 
-<body class="min-h-screen bg-gray-50 text-gray-900 font-sans antialiased flex flex-col">
+<body class="min-h-screen bg-gray-50 text-gray-900 font-sans antialiased flex flex-col {% block body_class %}{% endblock %}">
 
   <!-- =====================  TOAST CONTAINER  ===================== -->
   <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
@@ -256,13 +293,24 @@
         <!-- Right: Auth Controls -->
         <div class="flex items-center gap-2">
           {% if current_user %}
-            <!-- Notification Bell -->
-            <button onclick="showToast('You have no new notifications.', 'info')" class="relative p-2.5 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200" aria-label="Notifications" id="notif-btn">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-              </svg>
-              <span class="notif-dot" aria-hidden="true"></span>
-            </button>
+            <!-- Notification Bell (real data via /api/v1/users/me/notifications) -->
+            <div class="relative" id="notif-wrapper">
+              <button type="button" onclick="toggleNotifPanel(event)" class="relative p-2.5 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200" aria-label="Notifications" aria-expanded="false" aria-controls="notif-panel" id="notif-btn">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+                <span class="notif-dot" id="notif-dot" aria-hidden="true"></span>
+              </button>
+              <div id="notif-panel" class="hidden" role="menu" aria-label="Notifications">
+                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                  <p class="text-sm font-bold text-gray-900">Notifications</p>
+                  <a href="/messages" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Messages</a>
+                </div>
+                <div id="notif-list" class="overflow-y-auto flex-1 max-h-[320px]">
+                  <div class="px-4 py-8 text-center text-sm text-gray-400" id="notif-loading">Loading…</div>
+                </div>
+              </div>
+            </div>
 
             <!-- Authenticated User Menu -->
             <div class="relative" id="user-menu-wrapper">
@@ -419,11 +467,12 @@
   {% endif %}
 
   <!-- =====================  MAIN CONTENT  ===================== -->
-  <main class="flex-grow">
+  <main class="flex-grow {% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </main>
 
   <!-- =====================  FOOTER  ===================== -->
+  {% block footer %}
   <footer class="bg-white border-t border-gray-100 mt-auto">
     <!-- Gradient divider -->
     <div class="h-px bg-gradient-to-r from-transparent via-blue-300 to-transparent opacity-60"></div>
@@ -465,17 +514,17 @@
         <div>
           <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Company</h4>
           <ul class="space-y-2.5">
-            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">About</a></li>
-            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Blog</a></li>
-            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Careers</a></li>
+            <li><a href="/about" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">About</a></li>
+            <li><a href="/auth/register_contractor" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Join as a Pro</a></li>
+            <li><a href="/search" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Get matched</a></li>
           </ul>
         </div>
         <div>
           <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Legal</h4>
           <ul class="space-y-2.5">
-            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Privacy Policy</a></li>
-            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Terms of Service</a></li>
-            <li><a href="#" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Cookie Policy</a></li>
+            <li><a href="/privacy" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Privacy Policy</a></li>
+            <li><a href="/terms" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Terms of Service</a></li>
+            <li><a href="/privacy#cookies" class="text-sm text-gray-600 hover:text-blue-600 transition font-medium">Cookie Policy</a></li>
           </ul>
         </div>
       </div>
@@ -489,6 +538,7 @@
       </div>
     </div>
   </footer>
+  {% endblock %}
 
   <!-- =====================  GLOBAL JS  ===================== -->
   <script>
@@ -574,7 +624,103 @@
       if (params.get('cancelled')) showToast('Job cancelled. Any held payment has been refunded.', 'info');
       if (params.get('error')) showToast(params.get('error').replace(/_/g, ' '), 'error');
       if (params.get('success')) showToast(params.get('success').replace(/_/g, ' '), 'success');
+
+      // Load real notifications if user is signed in
+      if (document.getElementById('notif-btn')) {
+        loadNotifications();
+        // Refresh badge periodically while tab is open
+        setInterval(loadNotifications, 60000);
+      }
     });
+
+    // ====== Notifications (real, not fake red dot) ======
+    function toggleNotifPanel(e) {
+      if (e) e.stopPropagation();
+      const panel = document.getElementById('notif-panel');
+      const btn = document.getElementById('notif-btn');
+      if (!panel) return;
+      const willOpen = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !willOpen);
+      if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (willOpen) loadNotifications();
+    }
+
+    document.addEventListener('click', function(e) {
+      const wrapper = document.getElementById('notif-wrapper');
+      const panel = document.getElementById('notif-panel');
+      if (wrapper && panel && !wrapper.contains(e.target)) {
+        panel.classList.add('hidden');
+        const btn = document.getElementById('notif-btn');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    function escNotif(t) {
+      return String(t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function kindIcon(kind) {
+      if (kind === 'message') return '<span class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></span>';
+      if (kind === 'payment') return '<span class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg></span>';
+      if (kind === 'dispute') return '<span class="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></span>';
+      return '<span class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>';
+    }
+
+    async function loadNotifications() {
+      const list = document.getElementById('notif-list');
+      const dot = document.getElementById('notif-dot');
+      if (!list) return;
+      try {
+        const resp = await fetch('/api/v1/users/me/notifications', { credentials: 'same-origin' });
+        if (!resp.ok) throw new Error('failed');
+        const data = await resp.json();
+        const items = data.items || [];
+        const count = data.unread_count || 0;
+
+        if (dot) {
+          if (count > 0) {
+            dot.classList.add('has-unread');
+            dot.textContent = count > 9 ? '9+' : String(count);
+          } else {
+            dot.classList.remove('has-unread');
+            dot.textContent = '';
+          }
+        }
+
+        if (!items.length) {
+          list.innerHTML = `
+            <div class="px-4 py-10 text-center">
+              <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+              </div>
+              <p class="text-sm font-semibold text-gray-600">You're all caught up</p>
+              <p class="text-xs text-gray-400 mt-1">No new messages or job actions.</p>
+            </div>`;
+          return;
+        }
+
+        list.innerHTML = items.map(it => `
+          <a href="${escNotif(it.href || '/messages')}" class="notif-item" role="menuitem">
+            <div class="flex items-start gap-3">
+              ${kindIcon(it.kind)}
+              <div class="min-w-0 flex-1">
+                <div class="flex items-start justify-between gap-2">
+                  <p class="text-sm font-bold text-gray-900 leading-snug">${escNotif(it.title)}</p>
+                  ${it.unread ? '<span class="mt-1 w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>' : ''}
+                </div>
+                <p class="text-xs text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">${escNotif(it.body)}</p>
+                ${it.time ? `<p class="text-[10px] text-gray-400 mt-1 font-medium">${escNotif(it.time)}</p>` : ''}
+              </div>
+            </div>
+          </a>`).join('');
+      } catch (err) {
+        // Fail closed: hide badge, show honest empty/error
+        if (dot) { dot.classList.remove('has-unread'); dot.textContent = ''; }
+        if (list && !list.dataset.loaded) {
+          list.innerHTML = `<div class="px-4 py-8 text-center text-sm text-gray-400">Couldn't load notifications.</div>`;
+        }
+      }
+    }
   </script>
 
   {% block extra_scripts %}{% endblock %}

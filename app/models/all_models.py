@@ -34,7 +34,10 @@ class Conversation(SQLModel, table=True):
     customer_id: int = Field(foreign_key="user.id")
     contractor_id: int = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    
+    # Per-participant read cursors for unread badges + notifications
+    last_read_at_customer: Optional[datetime] = Field(default=None)
+    last_read_at_contractor: Optional[datetime] = Field(default=None)
+
     messages: List[DirectMessage] = Relationship(back_populates="conversation")
     customer: "User" = Relationship(sa_relationship_kwargs={"foreign_keys": "[Conversation.customer_id]"})
     contractor: "User" = Relationship(sa_relationship_kwargs={"foreign_keys": "[Conversation.contractor_id]"})

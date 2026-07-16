@@ -51,39 +51,88 @@
 {% block title %}Chat with {{ partner.full_name }} — ServiceSync{% endblock %}
 {% block meta_description %}Real-time peer-to-peer chat for your booked service job on ServiceSync.{% endblock %}
 
+{# Phase 1: chat-room shell — no footer, locked viewport #}
+{% block body_class %}chat-mode{% endblock %}
+{% block main_class %}chat-main{% endblock %}
+{% block footer %}{% endblock %}
+
 {% block extra_head %}
 <style>
-  /* Full viewport chat layout */
-  .chat-page-wrapper {
-    height: calc(100dvh - 64px);
+  /* ===== Full-viewport chat room (no page scroll, no footer) ===== */
+  body.chat-mode {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  body.chat-mode main.chat-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 0 1rem;
+    animation: none;
+  }
+  body.chat-mode nav.navbar-glass {
+    flex-shrink: 0;
   }
 
-  /* Glassmorphic chat container */
-  .chat-container {
+  .chat-page-wrapper {
     flex: 1;
     min-height: 0;
     display: flex;
-    flex-direction: column;
-    background: rgba(255,255,255,0.92);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border-radius: 24px;
-    border: 1px solid rgba(255,255,255,0.6);
-    box-shadow: 0 8px 40px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
-    overflow: hidden;
-    margin-bottom: 1rem;
+    flex-direction: row;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0;
   }
 
-  /* Chat header */
+  /* Desktop inbox sidebar (hidden on mobile — full chat takes focus) */
+  .chat-inbox-sidebar {
+    display: none;
+    width: 340px;
+    flex-shrink: 0;
+    border-right: 1px solid #e5e7eb;
+    background: #fff;
+    min-height: 0;
+    overflow: hidden;
+  }
+  @media (min-width: 1024px) {
+    .chat-inbox-sidebar { display: flex; flex-direction: column; }
+    .chat-page-wrapper {
+      border-left: 1px solid #e5e7eb;
+      border-right: 1px solid #e5e7eb;
+      background: #fff;
+    }
+  }
+
+  .chat-container {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    overflow: hidden;
+  }
+
+  .conv-card.is-active {
+    background: #eff6ff;
+    border-left: 3px solid #2563eb;
+  }
+  .conv-card.has-unread { border-left: 3px solid #2563eb; }
+  .unread-badge {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+  }
+
   .chat-header {
     background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 50%, #312e81 100%);
     position: relative;
     overflow: hidden;
+    flex-shrink: 0;
   }
   .chat-header::before {
     content: '';
@@ -97,35 +146,53 @@
     pointer-events: none;
   }
 
-  /* Message thread */
+  /* ONLY the message thread scrolls */
   #message-thread {
-    flex: 1;
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    padding: 1.25rem 1.5rem;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 1rem 1rem 1.25rem;
     scroll-behavior: smooth;
-    background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%);
-    background-image:
-      radial-gradient(circle at 2px 2px, rgba(99,102,241,0.04) 1px, transparent 0);
-    background-size: 24px 24px;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(99,102,241,0.045) 1px, transparent 0),
+      linear-gradient(180deg, #f8faff 0%, #ffffff 55%);
+    background-size: 22px 22px, auto;
   }
-  #message-thread::-webkit-scrollbar { width: 4px; }
-  #message-thread::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 99px; }
+  #message-thread::-webkit-scrollbar { width: 5px; }
+  #message-thread::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
 
-  /* Message bubbles */
+  /* ===== Bubbles ===== */
   .bubble-mine {
-    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+    background: linear-gradient(145deg, #2563eb 0%, #4f46e5 100%);
     color: white;
-    border-radius: 20px 20px 4px 20px;
-    box-shadow: 0 2px 12px rgba(37,99,235,0.3);
+    border-radius: 18px 18px 5px 18px;
+    box-shadow: 0 2px 10px rgba(37,99,235,0.28);
   }
   .bubble-theirs {
-    background: white;
-    color: #1f2937;
-    border-radius: 20px 20px 20px 4px;
-    border: 1px solid rgba(0,0,0,0.06);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    background: #ffffff;
+    color: #111827;
+    border-radius: 18px 18px 18px 5px;
+    border: 1px solid rgba(15,23,42,0.07);
+    box-shadow: 0 1px 4px rgba(15,23,42,0.05);
   }
+  .bubble-mine, .bubble-theirs {
+    padding: 0.65rem 0.9rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    word-break: break-word;
+  }
+  .bubble-mine p, .bubble-theirs p { margin: 0; }
+  .bubble-mine .msg-time, .bubble-theirs .msg-time {
+    display: block;
+    margin-top: 0.3rem;
+    font-size: 10px;
+    opacity: 0.75;
+    text-align: right;
+  }
+  .bubble-theirs .msg-time { color: #9ca3af; opacity: 1; }
   .bubble-draft {
     background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
     border: 1.5px solid #f59e0b;
@@ -133,31 +200,137 @@
     box-shadow: 0 2px 12px rgba(245,158,11,0.15);
   }
 
-  /* Message entrance animation */
   @keyframes msgIn {
     from { opacity: 0; transform: translateY(8px) scale(0.97); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
   .msg-enter { animation: msgIn 0.2s ease-out both; }
 
-  /* Input area */
-  .chat-input-bar {
-    background: white;
-    border-top: 1px solid rgba(0,0,0,0.06);
-    padding: 0.75rem 1rem;
+  /* Media thumbs inside bubbles */
+  .media-thumb {
+    display: block;
+    border-radius: 12px;
+    max-width: min(260px, 72vw);
+    max-height: 240px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    background: rgba(0,0,0,0.04);
+  }
+  .media-thumb:hover {
+    transform: scale(1.01);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  }
+  .video-thumb-wrap {
+    position: relative;
+    display: inline-block;
+    max-width: min(260px, 72vw);
+    cursor: pointer;
+  }
+  .video-thumb-wrap video {
+    display: block;
+    border-radius: 12px;
+    max-width: 100%;
+    max-height: 220px;
+    background: #0f172a;
+  }
+  .video-play-badge {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .video-play-badge span {
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    background: rgba(15,23,42,0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
   }
 
-  /* Quick action chips */
+  /* File attachment card (PDF / docs) */
+  .file-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 200px;
+    max-width: min(280px, 75vw);
+    padding: 0.65rem 0.75rem;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.12s ease;
+    text-align: left;
+  }
+  .bubble-mine .file-card {
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .bubble-mine .file-card:hover { background: rgba(255,255,255,0.22); }
+  .bubble-theirs .file-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+  .bubble-theirs .file-card:hover { background: #f1f5f9; }
+  .file-card-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+  }
+  .file-card-icon.pdf { background: #fee2e2; color: #b91c1c; }
+  .file-card-icon.doc { background: #dbeafe; color: #1d4ed8; }
+  .file-card-icon.txt { background: #e2e8f0; color: #475569; }
+  .file-card-icon.generic { background: #ede9fe; color: #6d28d9; }
+  .bubble-mine .file-card-icon.pdf { background: rgba(254,226,226,0.95); }
+  .bubble-mine .file-card-icon.doc { background: rgba(219,234,254,0.95); }
+  .bubble-mine .file-card-icon.txt { background: rgba(226,232,240,0.95); }
+  .bubble-mine .file-card-icon.generic { background: rgba(237,233,254,0.95); }
+  .file-card-meta { min-width: 0; flex: 1; }
+  .file-card-name {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .file-card-sub {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+
+  /* Input bar */
+  .chat-input-bar {
+    flex-shrink: 0;
+    background: white;
+    border-top: 1px solid rgba(15,23,42,0.06);
+    padding: 0.65rem 0.85rem 0.85rem;
+  }
+
   .quick-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
-    padding: 0.375rem 0.875rem;
+    padding: 0.35rem 0.8rem;
     border-radius: 999px;
     background: rgba(37,99,235,0.06);
-    border: 1px solid rgba(37,99,235,0.15);
+    border: 1px solid rgba(37,99,235,0.14);
     color: #2563eb;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -165,11 +338,10 @@
   }
   .quick-chip:hover {
     background: rgba(37,99,235,0.12);
-    border-color: rgba(37,99,235,0.3);
+    border-color: rgba(37,99,235,0.28);
     transform: translateY(-1px);
   }
 
-  /* Send button */
   .send-btn {
     background: linear-gradient(135deg, #2563eb, #4f46e5);
     box-shadow: 0 2px 12px rgba(37,99,235,0.35);
@@ -178,16 +350,31 @@
   .send-btn:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(37,99,235,0.45); }
   .send-btn:active { transform: scale(0.95); }
 
-  /* Emoji picker */
+  /* Emoji tray */
   .emoji-picker {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    background: rgba(255,255,255,0.95);
-    border: 1px solid rgba(0,0,0,0.08);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    background: rgba(255,255,255,0.98);
+    border: 1px solid rgba(15,23,42,0.08);
+    box-shadow: 0 12px 40px rgba(15,23,42,0.14), 0 2px 8px rgba(15,23,42,0.06);
   }
+  .emoji-picker .emoji-btn {
+    width: 2.15rem;
+    height: 2.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    line-height: 1;
+    transition: background 0.12s ease, transform 0.12s ease;
+  }
+  .emoji-picker .emoji-btn:hover {
+    background: #f1f5f9;
+    transform: scale(1.12);
+  }
+  .emoji-picker .emoji-btn:active { transform: scale(0.95); }
 
-  /* Escrow pill */
   .escrow-pill {
     background: rgba(255,255,255,0.15);
     backdrop-filter: blur(8px);
@@ -195,41 +382,156 @@
     border-radius: 12px;
     padding: 0.375rem 0.75rem;
   }
+
+  /* ===== Media lightbox / viewer ===== */
+  #media-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(2, 6, 23, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 1rem;
+  }
+  #media-viewer.open { display: flex; }
+  #media-viewer .mv-inner {
+    position: relative;
+    width: min(960px, 100%);
+    max-height: min(90dvh, 900px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  #media-viewer .mv-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: white;
+  }
+  #media-viewer .mv-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    opacity: 0.95;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 60vw;
+  }
+  #media-viewer .mv-actions { display: flex; align-items: center; gap: 0.5rem; }
+  #media-viewer .mv-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: background 0.15s ease;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  #media-viewer .mv-btn:hover { background: rgba(255,255,255,0.2); }
+  #media-viewer .mv-stage {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    overflow: hidden;
+    background: rgba(0,0,0,0.35);
+  }
+  #media-viewer .mv-stage img {
+    max-width: 100%;
+    max-height: min(78dvh, 820px);
+    object-fit: contain;
+    border-radius: 8px;
+  }
+  #media-viewer .mv-stage video {
+    max-width: 100%;
+    max-height: min(78dvh, 820px);
+    border-radius: 8px;
+    background: #000;
+  }
+  #media-viewer .mv-stage iframe {
+    width: 100%;
+    height: min(78dvh, 820px);
+    border: 0;
+    border-radius: 8px;
+    background: #111;
+  }
+  #media-viewer .mv-file-panel {
+    width: min(420px, 100%);
+    margin: 2rem auto;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    color: white;
+  }
+  #media-viewer .mv-file-panel .big-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 1rem;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  #message-input {
+    max-height: 120px;
+    resize: none;
+    line-height: 1.4;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="chat-page-wrapper pt-3">
+<div class="chat-page-wrapper">
 
-  <!-- Breadcrumb -->
-  <nav class="flex items-center gap-1.5 text-xs text-gray-400 mb-2 flex-shrink-0" aria-label="Breadcrumb">
-    <a href="/messages" class="hover:text-blue-600 transition flex items-center gap-1">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-      Messages
-    </a>
-    <svg class="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-gray-600 font-semibold">{{ partner.full_name }}</span>
-  </nav>
+  <!-- Desktop: conversation list (split inbox) -->
+  {% if conversations is defined and conversations is not none %}
+  <aside class="chat-inbox-sidebar" aria-label="Conversations">
+    {% include "_conversation_list.html" %}
+  </aside>
+  {% endif %}
 
   <!-- Main chat container -->
   <div class="chat-container">
 
     <!-- ====== CHAT HEADER ====== -->
-    <div class="chat-header px-4 sm:px-5 py-4 flex-shrink-0">
-      <div class="relative flex items-center justify-between">
+    <div class="chat-header px-3 sm:px-5 py-3 sm:py-3.5 flex-shrink-0">
+      <div class="relative flex items-center justify-between gap-2">
 
-        <!-- Left: Partner info -->
-        <div class="flex items-center gap-3 min-w-0">
-          <!-- Avatar with ring glow -->
+        <!-- Left: back + partner -->
+        <div class="flex items-center gap-2.5 min-w-0">
+          <a href="/messages" class="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition" title="Back to messages" aria-label="Back to messages">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </a>
           {% if partner.role == 'contractor' %}
           <a href="/contractors/{{ partner.id }}" class="relative flex-shrink-0 group" title="View profile">
           {% else %}
           <div class="relative flex-shrink-0">
           {% endif %}
-            <div class="w-11 h-11 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white font-black text-base shadow-lg ring-2 ring-white/30 overflow-hidden group-hover:ring-white">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white font-black text-sm shadow-lg ring-2 ring-white/30 overflow-hidden group-hover:ring-white">
               {% if partner.avatar_url %}<img src="{{ partner.avatar_url }}" alt="{{ partner.full_name }}" class="w-full h-full object-cover" />{% else %}{{ partner.full_name[0] | upper }}{% endif %}
             </div>
-            <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-indigo-900 bg-green-400 animate-pulse" id="status-dot"></span>
+            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-indigo-900 bg-green-400" id="status-dot"></span>
           {% if partner.role == 'contractor' %}</a>{% else %}</div>{% endif %}
           <div class="min-w-0">
             <p class="font-bold text-white text-sm leading-tight truncate">{{ partner.full_name }}</p>
@@ -240,14 +542,12 @@
         </div>
 
         <!-- Right: Escrow + Job info -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-shrink-0">
           {% if job %}
-          <!-- Job pill -->
           <div class="escrow-pill hidden sm:flex items-center gap-2 text-white text-xs font-semibold">
             <svg class="w-3.5 h-3.5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             <span>Job #{{ job.id }}</span>
           </div>
-          <!-- Escrow status -->
           {% if escrow %}
           {% set e = escrow.status %}
           <div class="escrow-pill flex items-center gap-1.5 text-xs font-bold
@@ -256,7 +556,7 @@
             {% elif e == 'disputed' %}text-red-300
             {% elif e == 'refunded' %}text-amber-300
             {% else %}text-blue-200{% endif %}">
-            {% if e == 'held' %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg> Escrow Held
+            {% if e == 'held' %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg> <span class="hidden xs:inline">Escrow</span> Held
             {% elif e == 'released' %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Released
             {% elif e == 'disputed' %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Disputed
             {% elif e == 'refunded' %}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg> Refunded
@@ -271,7 +571,7 @@
 
     <!-- ====== JOB QUICK ACTIONS BAR ====== -->
     {% if job %}
-    <div class="flex-shrink-0 px-4 sm:px-5 py-2.5 border-b border-gray-100/80" style="background: linear-gradient(to right, rgba(248,250,255,0.9), rgba(245,248,255,0.9));">
+    <div class="flex-shrink-0 px-3 sm:px-5 py-2 border-b border-gray-100/80" style="background: linear-gradient(to right, rgba(248,250,255,0.95), rgba(245,248,255,0.95));">
       {% set e_status = escrow.status if escrow else 'none' %}
       <div class="flex flex-wrap items-center gap-2">
         <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Job #{{ job.id }}</span>
@@ -327,17 +627,15 @@
     </div>
     {% endif %}
 
-    <!-- ====== MESSAGE THREAD ====== -->
-    <div id="message-thread" class="flex-1 min-h-0">
+    <!-- ====== MESSAGE THREAD (only scrollable region) ====== -->
+    <div id="message-thread" class="flex-1 min-h-0" role="log" aria-live="polite" aria-relevant="additions">
 
-      <!-- Date divider -->
-      <div class="flex items-center gap-3 my-4">
+      <div class="flex items-center gap-3 my-3">
         <div class="flex-1 border-t border-gray-100"></div>
         <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex-shrink-0 px-2">Conversation started</span>
         <div class="flex-1 border-t border-gray-100"></div>
       </div>
 
-      <!-- Historic messages from DB -->
       {% for message in past_messages %}
       {% if not message.content.startswith('[AI DRAFT') %}
       <div class="flex {% if message.sender_id == current_user.id %}flex-row-reverse{% endif %} items-end gap-2 group py-1 msg-enter"
@@ -349,85 +647,110 @@
          </div>
         {% endif %}
 
-          <div class="flex flex-col {{ 'items-end' if message.sender_id == current_user.id else 'items-start' }} max-w-[72%] sm:max-w-[62%]">
-           <div class="px-4 py-2.5 text-sm leading-relaxed {{ 'bubble-mine' if message.sender_id == current_user.id else 'bubble-theirs' }}">
+          <div class="flex flex-col {{ 'items-end' if message.sender_id == current_user.id else 'items-start' }} max-w-[82%] sm:max-w-[68%]">
+           <div class="{{ 'bubble-mine' if message.sender_id == current_user.id else 'bubble-theirs' }}">
              {% if message.attachment_url %}
                {% if message.attachment_type == 'image' %}
-               <img src="{{ message.attachment_url }}" alt="attachment" class="rounded-xl max-w-[220px] max-h-[220px] object-cover my-1" />
+               <img
+                 src="{{ message.attachment_url }}"
+                 alt="Shared image"
+                 class="media-thumb mb-1.5"
+                 loading="lazy"
+                 data-media-type="image"
+                 data-media-url="{{ message.attachment_url }}"
+                 data-media-name="Image"
+                 onclick="openMediaViewer(this.dataset.mediaType, this.dataset.mediaUrl, this.dataset.mediaName)"
+               />
                {% elif message.attachment_type == 'video' %}
-               <video src="{{ message.attachment_url }}" controls class="rounded-xl max-w-[220px] my-1"></video>
+               <div class="video-thumb-wrap mb-1.5"
+                    data-media-type="video"
+                    data-media-url="{{ message.attachment_url }}"
+                    data-media-name="Video"
+                    onclick="openMediaViewer(this.dataset.mediaType, this.dataset.mediaUrl, this.dataset.mediaName)">
+                 <video src="{{ message.attachment_url }}#t=0.1" preload="metadata" muted playsinline></video>
+                 <div class="video-play-badge"><span>
+                   <svg class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.84A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.27l9.344-5.891a1.5 1.5 0 000-2.538L6.3 2.841z"/></svg>
+                 </span></div>
+               </div>
                {% else %}
-               <a href="{{ message.attachment_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-blue-100 underline mb-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l3-3m-3 3l-3-3M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> File</a>
+               <button type="button"
+                 class="file-card mb-1.5 w-full"
+                 data-media-type="file"
+                 data-media-url="{{ message.attachment_url }}"
+                 data-media-name=""
+                 onclick="openMediaViewer('file', this.dataset.mediaUrl, fileDisplayName(this.dataset.mediaUrl))">
+                 <span class="file-card-icon" data-ext-slot></span>
+                 <span class="file-card-meta">
+                   <span class="file-card-name" data-name-slot>Document</span>
+                   <span class="file-card-sub">Tap to open · Download available</span>
+                 </span>
+                 <svg class="w-4 h-4 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+               </button>
                {% endif %}
              {% endif %}
              {% if message.content %}<p class="whitespace-pre-wrap">{{ message.content }}</p>{% endif %}
+             <span class="msg-time">{{ message.timestamp.strftime('%H:%M') }}</span>
            </div>
-          <span class="text-[10px] text-gray-400 mt-0.5 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 select-none">
-            {{ message.timestamp.strftime('%H:%M') }}
-          </span>
         </div>
       </div>
       {% endif %}
       {% endfor %}
 
-      <!-- Live messages appended here -->
       <div id="live-messages"></div>
-
-      <!-- Scroll anchor -->
-      <div id="scroll-anchor" class="h-2"></div>
+      <div id="scroll-anchor" class="h-1"></div>
     </div>
 
     <!-- ====== INPUT AREA ====== -->
-    <div class="chat-input-bar flex-shrink-0">
-      <!-- Quick reply chips -->
-       <div class="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-0.5 scrollbar-hide">
+    <div class="chat-input-bar">
+       <div class="flex items-center gap-1.5 mb-2 overflow-x-auto pb-0.5 scrollbar-hide">
          <button type="button" class="quick-chip flex-shrink-0" onclick="insertQuick('I am on my way!')">On my way</button>
          <button type="button" class="quick-chip flex-shrink-0" onclick="insertQuick('Job looks good, thank you!')">Looks good</button>
          <button type="button" class="quick-chip flex-shrink-0" onclick="insertQuick('Can we reschedule?')">Reschedule</button>
          <button type="button" class="quick-chip flex-shrink-0" onclick="insertQuick('Can you send me a quote?')">Request quote</button>
        </div>
 
-      <!-- Attachment preview -->
       <div id="attachment-preview" class="hidden flex items-center gap-2 mb-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl"></div>
 
-      <!-- Message form -->
-      <form id="message-form" onsubmit="sendMessage(event)" class="flex items-end gap-2">
-        <!-- Attach -->
+      <form id="message-form" onsubmit="sendMessage(event)" class="flex items-end gap-1.5 sm:gap-2">
         <button type="button" onclick="document.getElementById('file-input').click()"
           class="w-9 h-9 flex-shrink-0 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-blue-600 flex items-center justify-center transition-all active:scale-90"
-          title="Attach file">
+          title="Attach file" aria-label="Attach file">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
         </button>
         <input type="file" id="file-input" class="hidden" accept="image/*,video/*,.pdf,.doc,.docx,.txt" onchange="handleFileSelect(event)" />
 
-        <!-- Emoji -->
         <div class="relative flex-shrink-0">
-          <button type="button" onclick="toggleEmojiPicker()"
+          <button type="button" id="emoji-toggle-btn" onclick="toggleEmojiPicker(event)"
             class="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-blue-600 flex items-center justify-center transition-all active:scale-90"
-            title="Emoji">
+            title="Emoji" aria-label="Open emoji picker" aria-expanded="false" aria-controls="emoji-picker">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           </button>
-           <div id="emoji-picker" class="hidden absolute bottom-12 left-0 emoji-picker rounded-2xl p-3 z-50 w-64 shadow-xl">
-             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Emojis</p>
-             <div class="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto">
-              {% for em in ['👍','👋','😊','🙏','✅','🔧','⚡','💰','🏠','🛠️','📅','🤝','⏰','⚠️','📸','🎉','💯','🔑','🚿','🪚','🪛','🔌','💧','🌡️'] %}
-              <button type="button" onclick="insertEmoji('{{ em }}')" class="p-1.5 hover:bg-gray-100 rounded-lg text-base transition">{{ em }}</button>
+           <div id="emoji-picker" class="hidden absolute bottom-12 left-0 emoji-picker rounded-2xl p-3 z-50 w-[min(18rem,calc(100vw-2rem))] shadow-xl" role="dialog" aria-label="Emoji picker">
+             <div class="flex items-center justify-between mb-2 px-0.5">
+               <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Emoji</p>
+               <button type="button" onclick="toggleEmojiPicker()" class="text-gray-400 hover:text-gray-600 p-0.5" aria-label="Close emoji picker">
+                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+               </button>
+             </div>
+             <div class="grid grid-cols-8 gap-0.5 max-h-44 overflow-y-auto pr-0.5">
+              {% for em in ['👍','👋','😊','🙏','✅','🔧','⚡','💰','🏠','🛠️','📅','🤝','⏰','⚠️','📸','🎉','💯','🔑','🚿','🪚','🪛','🔌','💧','🌡️','😄','😅','🔥','💪','📍','⭐','🚀','📎'] %}
+              <button type="button" class="emoji-btn" onclick="insertEmoji('{{ em }}')" aria-label="Insert emoji">{{ em }}</button>
               {% endfor %}
             </div>
           </div>
         </div>
 
-        <!-- Input field -->
-        <input
+        <textarea
           id="message-input"
-          type="text"
+          rows="1"
           placeholder="Type a message…"
           autocomplete="off"
           class="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition placeholder-gray-400 shadow-inner"
           aria-label="Message input"
-        />
+          onkeydown="handleComposerKey(event)"
+          oninput="autoGrowComposer(this)"
+        ></textarea>
 
-        <!-- Send -->
         <button type="submit" id="send-button"
           class="send-btn w-10 h-10 flex-shrink-0 rounded-full text-white flex items-center justify-center active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="Send message">
@@ -437,7 +760,6 @@
         </button>
       </form>
 
-      <!-- Typing indicator -->
       <div id="typing-indicator" class="hidden flex items-center gap-2 mt-2 pl-1">
         <div class="flex gap-0.5 items-center">
           <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0ms"></span>
@@ -447,6 +769,29 @@
         <span class="text-xs text-gray-400">{{ partner.full_name.split()[0] }} is typing…</span>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ====== MEDIA VIEWER (lightbox) ====== -->
+<div id="media-viewer" role="dialog" aria-modal="true" aria-label="Media viewer" onclick="if(event.target===this) closeMediaViewer()">
+  <div class="mv-inner" onclick="event.stopPropagation()">
+    <div class="mv-toolbar">
+      <p class="mv-title" id="mv-title">Media</p>
+      <div class="mv-actions">
+        <a id="mv-download" class="mv-btn" href="#" download target="_blank" rel="noopener">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Download
+        </a>
+        <a id="mv-open-tab" class="mv-btn" href="#" target="_blank" rel="noopener">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          Open
+        </a>
+        <button type="button" class="mv-btn" onclick="closeMediaViewer()" aria-label="Close viewer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="mv-stage" id="mv-stage"></div>
   </div>
 </div>
 {% endblock %}
@@ -464,12 +809,181 @@
   const wsUrl = `${wsProtocol}://${location.host}/api/v1/chat/ws/${conversationId}`;
 
   let socket = null;
-  const statusEl       = document.getElementById('connection-status');
-  const statusDot      = document.getElementById('status-dot');
-  const liveMessages   = document.getElementById('live-messages');
-  const scrollAnchor   = document.getElementById('scroll-anchor');
-  const typingIndicator= document.getElementById('typing-indicator');
-  const messageInput   = document.getElementById('message-input');
+  const statusEl        = document.getElementById('connection-status');
+  const statusDot       = document.getElementById('status-dot');
+  const liveMessages    = document.getElementById('live-messages');
+  const scrollAnchor    = document.getElementById('scroll-anchor');
+  const typingIndicator = document.getElementById('typing-indicator');
+  const messageInput    = document.getElementById('message-input');
+  const messageThread   = document.getElementById('message-thread');
+
+  // ====== File helpers ======
+  function extFromUrl(url) {
+    try {
+      const path = (url || '').split('?')[0].split('#')[0];
+      const base = path.split('/').pop() || '';
+      const m = base.match(/\.([a-z0-9]+)$/i);
+      return (m ? m[1] : '').toLowerCase();
+    } catch (e) { return ''; }
+  }
+
+  function isUuidishName(name) {
+    return /^[0-9a-f]{16,}\.[a-z0-9]+$/i.test(name || '');
+  }
+
+  function fileDisplayName(url, preferred) {
+    if (preferred && preferred.trim() && !isUuidishName(preferred.trim())) {
+      return preferred.trim();
+    }
+    const path = (url || '').split('?')[0].split('#')[0];
+    const base = decodeURIComponent(path.split('/').pop() || 'file');
+    if (preferred && preferred.trim() && !isUuidishName(base)) return preferred.trim();
+    if (!isUuidishName(base) && base && base !== 'file') return base;
+    const ext = extFromUrl(url);
+    const labels = {
+      pdf: 'PDF Document',
+      doc: 'Word Document',
+      docx: 'Word Document',
+      txt: 'Text File',
+      xls: 'Spreadsheet',
+      xlsx: 'Spreadsheet',
+      csv: 'CSV File',
+      zip: 'Archive',
+      png: 'Image',
+      jpg: 'Image',
+      jpeg: 'Image',
+      gif: 'Image',
+      webp: 'Image',
+      mp4: 'Video',
+      mov: 'Video',
+      webm: 'Video',
+    };
+    return labels[ext] || (ext ? (ext.toUpperCase() + ' File') : 'Document');
+  }
+
+  function fileKind(ext) {
+    if (ext === 'pdf') return 'pdf';
+    if (ext === 'doc' || ext === 'docx') return 'doc';
+    if (ext === 'txt') return 'txt';
+    return 'generic';
+  }
+
+  function fileBadgeLabel(ext) {
+    if (ext === 'pdf') return 'PDF';
+    if (ext === 'doc' || ext === 'docx') return 'DOC';
+    if (ext === 'txt') return 'TXT';
+    return (ext || 'FILE').slice(0, 4).toUpperCase();
+  }
+
+  function canInlinePreview(type, ext) {
+    if (type === 'image' || type === 'video') return true;
+    if (type === 'file' && ext === 'pdf') return true;
+    if (type === 'file' && ext === 'txt') return true;
+    return false;
+  }
+
+  // Hydrate historic file cards (name + icon from URL)
+  function hydrateFileCards(root) {
+    (root || document).querySelectorAll('.file-card').forEach(card => {
+      const url = card.dataset.mediaUrl || '';
+      const name = fileDisplayName(url, card.dataset.mediaName || '');
+      const ext = extFromUrl(url);
+      card.dataset.mediaName = name;
+      const icon = card.querySelector('[data-ext-slot]');
+      const nameEl = card.querySelector('[data-name-slot]');
+      if (icon) {
+        icon.className = 'file-card-icon ' + fileKind(ext);
+        icon.textContent = fileBadgeLabel(ext);
+      }
+      if (nameEl) nameEl.textContent = name;
+    });
+  }
+  hydrateFileCards(document);
+
+  // ====== Media viewer ======
+  function openMediaViewer(type, url, name) {
+    const viewer = document.getElementById('media-viewer');
+    const stage  = document.getElementById('mv-stage');
+    const title  = document.getElementById('mv-title');
+    const dl     = document.getElementById('mv-download');
+    const openTab= document.getElementById('mv-open-tab');
+    if (!viewer || !url) return;
+
+    const ext = extFromUrl(url);
+    const displayName = fileDisplayName(url, name);
+    title.textContent = displayName;
+    dl.href = url;
+    dl.setAttribute('download', displayName.includes('.') ? displayName : (displayName + (ext ? '.' + ext : '')));
+    openTab.href = url;
+
+    stage.innerHTML = '';
+    const t = (type || '').toLowerCase();
+
+    if (t === 'image' || ['png','jpg','jpeg','gif','webp'].includes(ext)) {
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = displayName;
+      stage.appendChild(img);
+    } else if (t === 'video' || ['mp4','mov','webm'].includes(ext)) {
+      const vid = document.createElement('video');
+      vid.src = url;
+      vid.controls = true;
+      vid.autoplay = true;
+      vid.playsInline = true;
+      stage.appendChild(vid);
+    } else if (ext === 'pdf') {
+      // Real PDF preview via iframe (native browser PDF viewer)
+      const iframe = document.createElement('iframe');
+      iframe.src = url + '#toolbar=1&navpanes=0';
+      iframe.title = displayName;
+      iframe.setAttribute('type', 'application/pdf');
+      stage.appendChild(iframe);
+    } else if (ext === 'txt') {
+      const iframe = document.createElement('iframe');
+      iframe.src = url;
+      iframe.title = displayName;
+      stage.appendChild(iframe);
+    } else {
+      // Office docs etc. — clear panel, no empty broken page
+      const panel = document.createElement('div');
+      panel.className = 'mv-file-panel';
+      panel.innerHTML = `
+        <div class="big-icon ${fileKind(ext) === 'doc' ? 'file-card-icon doc' : 'file-card-icon generic'}" style="margin-left:auto;margin-right:auto;">
+          ${fileBadgeLabel(ext)}
+        </div>
+        <p style="font-size:1.05rem;font-weight:700;margin-bottom:0.35rem;">${escHtml(displayName)}</p>
+        <p style="font-size:0.85rem;opacity:0.75;margin-bottom:1.25rem;line-height:1.5;">
+          This file type can’t be previewed in the browser.<br/>Download it to open with the right app.
+        </p>
+        <a href="${escHtml(url)}" download class="mv-btn" style="display:inline-flex;background:linear-gradient(135deg,#2563eb,#4f46e5);border:none;">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Download file
+        </a>`;
+      stage.appendChild(panel);
+    }
+
+    viewer.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMediaViewer() {
+    const viewer = document.getElementById('media-viewer');
+    const stage  = document.getElementById('mv-stage');
+    if (!viewer) return;
+    // Stop any playing video
+    stage.querySelectorAll('video').forEach(v => { try { v.pause(); } catch(e){} });
+    stage.innerHTML = '';
+    viewer.classList.remove('open');
+    // body already locked by chat-mode; don't unlock page scroll
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeMediaViewer();
+      const picker = document.getElementById('emoji-picker');
+      if (picker && !picker.classList.contains('hidden')) toggleEmojiPicker();
+    }
+  });
 
   // ====== WebSocket ======
   function connectWebSocket() {
@@ -497,7 +1011,13 @@
          const p = JSON.parse(event.data);
          if (p && typeof p === 'object') {
            text = p.content || '';
-           if (p.attachment_url) attachment = { url: p.attachment_url, type: p.attachment_type };
+           if (p.attachment_url) {
+             attachment = {
+               url: p.attachment_url,
+               type: p.attachment_type,
+               name: p.attachment_name || '',
+             };
+           }
          }
        } catch (e) {}
        appendBubble('partner', text, 'delivered', attachment);
@@ -506,42 +1026,63 @@
 
   connectWebSocket();
 
-  // Typing indicator on compose
-  let composeTyping = null;
-  messageInput.addEventListener('input', () => {
-    clearTimeout(composeTyping);
-    // Note: real typing events would go over WS — this is a local UX hint
-    composeTyping = setTimeout(() => {}, 3000);
-  });
-
-  // ====== Quick Replies ======
+  // ====== Composer helpers ======
   function insertQuick(text) {
     messageInput.value = text;
+    autoGrowComposer(messageInput);
     messageInput.focus();
+  }
+
+  function autoGrowComposer(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  function handleComposerKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('message-form').requestSubmit();
+    }
   }
 
   // ====== Emoji Picker ======
-  function toggleEmojiPicker() {
-    document.getElementById('emoji-picker').classList.toggle('hidden');
+  function toggleEmojiPicker(e) {
+    if (e) e.stopPropagation();
+    const picker = document.getElementById('emoji-picker');
+    const btn = document.getElementById('emoji-toggle-btn');
+    if (!picker) return;
+    picker.classList.toggle('hidden');
+    const isHidden = picker.classList.contains('hidden');
+    if (btn) btn.setAttribute('aria-expanded', isHidden ? 'false' : 'true');
   }
   function insertEmoji(emoji) {
-    messageInput.value += emoji;
+    const start = messageInput.selectionStart ?? messageInput.value.length;
+    const end = messageInput.selectionEnd ?? start;
+    const v = messageInput.value;
+    messageInput.value = v.slice(0, start) + emoji + v.slice(end);
+    const pos = start + emoji.length;
     messageInput.focus();
-    document.getElementById('emoji-picker').classList.add('hidden');
+    try { messageInput.setSelectionRange(pos, pos); } catch (e) {}
+    autoGrowComposer(messageInput);
   }
   document.addEventListener('click', (e) => {
     const picker = document.getElementById('emoji-picker');
-    if (!picker.contains(e.target) && !e.target.closest('[onclick="toggleEmojiPicker()"]')) {
-      picker.classList.add('hidden');
-    }
+    const btn = document.getElementById('emoji-toggle-btn');
+    if (!picker || picker.classList.contains('hidden')) return;
+    if (picker.contains(e.target) || (btn && btn.contains(e.target))) return;
+    picker.classList.add('hidden');
+    btn && btn.setAttribute('aria-expanded', 'false');
   });
 
   // ====== File Attach ======
   let pendingAttachment = null; // { url, type, name }
 
   function attachmentTypeFor(file) {
-    if (file.type.startsWith('image/')) return 'image';
-    if (file.type.startsWith('video/')) return 'video';
+    if (file.type && file.type.startsWith('image/')) return 'image';
+    if (file.type && file.type.startsWith('video/')) return 'video';
+    const ext = (file.name || '').split('.').pop().toLowerCase();
+    if (['png','jpg','jpeg','gif','webp'].includes(ext)) return 'image';
+    if (['mp4','mov','webm'].includes(ext)) return 'video';
     return 'file';
   }
 
@@ -549,11 +1090,17 @@
     const bar = document.getElementById('attachment-preview');
     if (!pendingAttachment) { bar.classList.add('hidden'); bar.innerHTML = ''; return; }
     bar.classList.remove('hidden');
-    const thumb = pendingAttachment.type === 'image'
-      ? `<img src="${pendingAttachment.url}" class="w-9 h-9 rounded-lg object-cover" alt="" />`
-      : `<div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>`;
+    let thumb = '';
+    if (pendingAttachment.type === 'image') {
+      thumb = `<img src="${pendingAttachment.url}" class="w-10 h-10 rounded-lg object-cover" alt="" />`;
+    } else if (pendingAttachment.type === 'video') {
+      thumb = `<div class="w-10 h-10 rounded-lg bg-slate-800 text-white flex items-center justify-center"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.84A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.27l9.344-5.891a1.5 1.5 0 000-2.538L6.3 2.841z"/></svg></div>`;
+    } else {
+      const ext = extFromUrl(pendingAttachment.url) || (pendingAttachment.name || '').split('.').pop();
+      thumb = `<div class="w-10 h-10 rounded-lg file-card-icon ${fileKind(ext)} flex items-center justify-center text-[10px] font-black">${fileBadgeLabel(ext)}</div>`;
+    }
     bar.innerHTML = `${thumb}
-      <span class="text-xs text-gray-500 truncate flex-1">${escHtml(pendingAttachment.name)}</span>
+      <span class="text-xs text-gray-600 font-medium truncate flex-1">${escHtml(fileDisplayName(pendingAttachment.url, pendingAttachment.name))}</span>
       <button type="button" onclick="clearAttachment()" class="text-gray-400 hover:text-red-500 p-1" title="Remove">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>`;
@@ -577,7 +1124,11 @@
       const resp = await fetch('/api/v1/chat/upload', { method: 'POST', body: fd });
       if (!resp.ok) throw new Error('upload failed');
       const data = await resp.json();
-      pendingAttachment = { url: data.url, type: attachmentTypeFor(file), name: data.name || file.name };
+      pendingAttachment = {
+        url: data.url,
+        type: attachmentTypeFor(file),
+        name: data.name || file.name,
+      };
       renderPendingPreview();
       messageInput.focus();
     } catch (e) {
@@ -588,27 +1139,52 @@
 
   // ====== Read Receipts ======
   function getReceiptIcon(status) {
-    if (status === 'sent')      return '<span class="opacity-60 ml-0.5 text-[10px]">✓</span>';
-    if (status === 'delivered') return '<span class="opacity-80 ml-0.5 text-[10px]">✓✓</span>';
-    if (status === 'read')      return '<span class="text-cyan-300 ml-0.5 text-[10px]">✓✓</span>';
+    if (status === 'sent')      return '<span class="opacity-70 ml-0.5">✓</span>';
+    if (status === 'delivered') return '<span class="opacity-85 ml-0.5">✓✓</span>';
+    if (status === 'read')      return '<span class="text-cyan-200 ml-0.5">✓✓</span>';
     return '';
   }
 
-  // ====== HTML Escape ======
   function escHtml(t) {
-    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   // ====== Attachment markup ======
-  function attachmentHtml(att) {
+  function attachmentHtml(att, isMine) {
     if (!att || !att.url) return '';
-    if (att.type === 'image') {
-      return `<img src="${att.url}" alt="attachment" class="rounded-xl max-w-[220px] max-h-[220px] object-cover my-1" />`;
+    const name = fileDisplayName(att.url, att.name || '');
+    const type = (att.type || 'file').toLowerCase();
+    const ext = extFromUrl(att.url);
+
+    if (type === 'image') {
+      return `<img src="${escHtml(att.url)}" alt="${escHtml(name)}" class="media-thumb mb-1.5"
+        loading="lazy"
+        data-media-type="image" data-media-url="${escHtml(att.url)}" data-media-name="${escHtml(name)}"
+        onclick="openMediaViewer('image', this.dataset.mediaUrl, this.dataset.mediaName)" />`;
     }
-    if (att.type === 'video') {
-      return `<video src="${att.url}" controls class="rounded-xl max-w-[220px] my-1"></video>`;
+    if (type === 'video') {
+      return `<div class="video-thumb-wrap mb-1.5"
+        data-media-type="video" data-media-url="${escHtml(att.url)}" data-media-name="${escHtml(name)}"
+        onclick="openMediaViewer('video', this.dataset.mediaUrl, this.dataset.mediaName)">
+        <video src="${escHtml(att.url)}#t=0.1" preload="metadata" muted playsinline></video>
+        <div class="video-play-badge"><span>
+          <svg class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.84A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.27l9.344-5.891a1.5 1.5 0 000-2.538L6.3 2.841z"/></svg>
+        </span></div>
+      </div>`;
     }
-    return `<a href="${att.url}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 underline mb-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l3-3m-3 3l-3-3M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> File</a>`;
+
+    const kind = fileKind(ext);
+    const badge = fileBadgeLabel(ext);
+    return `<button type="button" class="file-card mb-1.5 w-full"
+      data-media-type="file" data-media-url="${escHtml(att.url)}" data-media-name="${escHtml(name)}"
+      onclick="openMediaViewer('file', this.dataset.mediaUrl, this.dataset.mediaName)">
+      <span class="file-card-icon ${kind}">${badge}</span>
+      <span class="file-card-meta">
+        <span class="file-card-name">${escHtml(name)}</span>
+        <span class="file-card-sub">${canInlinePreview('file', ext) ? 'Tap to preview' : 'Tap to download'}</span>
+      </span>
+      <svg class="w-4 h-4 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </button>`;
   }
 
   // ====== Append Bubble ======
@@ -621,16 +1197,18 @@
     wrapper.className = `flex ${isMine ? 'flex-row-reverse' : ''} items-end gap-2 group py-1 msg-enter`;
 
     if (!isMine) {
-      wrapper.innerHTML += `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-[11px] font-bold mb-0.5 ring-2 ring-purple-100">${partnerInitial}</div>`;
+      const av = partnerAvatar
+        ? `<img src="${escHtml(partnerAvatar)}" alt="" class="w-full h-full object-cover" />`
+        : partnerInitial;
+      wrapper.innerHTML += `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-[11px] font-bold mb-0.5 ring-2 ring-purple-100 overflow-hidden">${av}</div>`;
     }
 
-    // Check for AI draft
-    const draftMatch = text.match(/^\[AI DRAFT:(\d+)\]\s*(.*)/s);
+    const draftMatch = text && text.match(/^\[AI DRAFT:(\d+)\]\s*(.*)/s);
     if (draftMatch) {
       const draftId = parseInt(draftMatch[1]);
       const draftContent = draftMatch[2];
       const inner = document.createElement('div');
-      inner.className = 'flex flex-col items-start max-w-[75%] sm:max-w-[65%]';
+      inner.className = 'flex flex-col items-start max-w-[82%] sm:max-w-[68%]';
       inner.innerHTML = `
         <div class="bubble-draft px-4 py-3 text-sm leading-relaxed">
           <div class="flex items-center gap-1.5 mb-2">
@@ -647,21 +1225,25 @@
           </button>
           <button onclick="dismissDraft(this)" class="text-xs font-semibold text-gray-400 hover:text-gray-600 px-2.5 py-1.5 rounded-xl hover:bg-gray-100 transition">Dismiss</button>
         </div>
-        <span class="text-[10px] text-gray-400 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">${now}</span>`;
+        <span class="text-[10px] text-gray-400 mt-1 px-1">${now}</span>`;
       wrapper.appendChild(inner);
     } else {
       const inner = document.createElement('div');
-      inner.className = `flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[72%] sm:max-w-[62%]`;
-      const attHtml = attachmentHtml(attachment);
+      inner.className = `flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[82%] sm:max-w-[68%]`;
+      const attHtml = attachmentHtml(attachment, isMine);
       const textHtml = text ? `<p class="whitespace-pre-wrap">${escHtml(text)}</p>` : '';
       inner.innerHTML = `
-        <div class="px-4 py-2.5 text-sm leading-relaxed ${isMine ? 'bubble-mine' : 'bubble-theirs'}">${attHtml}${textHtml}</div>
-        <span class="text-[10px] text-gray-400 mt-0.5 px-1 opacity-0 group-hover:opacity-100 transition-opacity select-none">${now}${receipt}</span>`;
+        <div class="${isMine ? 'bubble-mine' : 'bubble-theirs'}">${attHtml}${textHtml}<span class="msg-time">${now}${receipt}</span></div>`;
       wrapper.appendChild(inner);
     }
 
     liveMessages.appendChild(wrapper);
-    scrollAnchor.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom(true);
+  }
+
+  function scrollToBottom(smooth) {
+    if (!scrollAnchor) return;
+    scrollAnchor.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant', block: 'end' });
   }
 
   // ====== Send Message ======
@@ -672,24 +1254,36 @@
 
     const att = pendingAttachment;
     if (att) {
-      socket.send(JSON.stringify({ content: text, attachment_url: att.url, attachment_type: att.type }));
+      socket.send(JSON.stringify({
+        content: text,
+        attachment_url: att.url,
+        attachment_type: att.type,
+        attachment_name: att.name || '',
+      }));
     } else {
       socket.send(text);
     }
     appendBubble('mine', text, 'sent', att);
     clearAttachment();
     messageInput.value = '';
+    autoGrowComposer(messageInput);
     messageInput.focus();
 
-    // Simulate delivery receipt
     setTimeout(() => {
-      const spans = liveMessages.querySelectorAll('.msg-enter:last-child span.opacity-0');
-      if (spans.length) spans[spans.length-1].textContent = spans[spans.length-1].textContent.replace('✓','✓✓');
+      const times = liveMessages.querySelectorAll('.msg-enter:last-child .msg-time');
+      if (times.length) {
+        const el = times[times.length - 1];
+        el.innerHTML = el.innerHTML.replace('✓', '✓✓');
+      }
     }, 600);
   }
 
   // Scroll to bottom on load
-  scrollAnchor.scrollIntoView({ behavior: 'instant' });
+  scrollToBottom(false);
+  // After images load, re-pin bottom
+  messageThread.querySelectorAll('img').forEach(img => {
+    if (!img.complete) img.addEventListener('load', () => scrollToBottom(false), { once: true });
+  });
 
   // ====== AI Draft Actions ======
   function approveDraft(draftId) {
@@ -705,6 +1299,22 @@
   function dismissDraft(btn) {
     const wrapper = btn.closest('.msg-enter');
     if (wrapper) wrapper.remove();
+  }
+
+  // Sidebar search (desktop split inbox)
+  function filterConversations(query) {
+    const q = (query || '').toLowerCase().trim();
+    const cards = document.querySelectorAll('#conv-list .conv-card');
+    let visible = 0;
+    cards.forEach(card => {
+      const name = card.dataset.name || '';
+      const job  = String(card.dataset.job || '');
+      const match = !q || name.includes(q) || job.includes(q);
+      card.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    const noResults = document.getElementById('no-results');
+    if (noResults) noResults.classList.toggle('hidden', visible > 0 || !q);
   }
 </script>
 {% endblock %}

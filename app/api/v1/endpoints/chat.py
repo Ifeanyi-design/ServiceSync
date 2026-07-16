@@ -277,16 +277,25 @@ async def upload_chat_media(
     current_user: User = Depends(get_current_user),
 ):
     """Upload an image/video/file for a chat message. Returns a served URL."""
+    from pathlib import Path as _Path
     from app.services.upload_service import save_upload
     data = await file.read()
+    original_name = (file.filename or "file").strip() or "file"
     try:
         url = await save_upload(
-            data, file.filename or "file",
+            data, original_name,
             allowlist=_ALLOWED_EXT, max_bytes=10 * 1024 * 1024, folder="chat",
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return {"url": url, "name": file.filename}
+    ext = _Path(original_name).suffix.lower().lstrip(".") or "file"
+    return {
+        "url": url,
+        "name": original_name,
+        "ext": ext,
+        "content_type": file.content_type or "",
+        "size": len(data),
+    }
 
 
 @router.websocket("/ws/{conversation_id}")

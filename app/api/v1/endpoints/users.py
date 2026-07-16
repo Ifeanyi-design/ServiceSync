@@ -15,6 +15,16 @@ async def read_user_me(current_user: User = Depends(get_current_user)) -> Any:
     """
     return current_user
 
+
+@router.get("/me/notifications")
+async def list_my_notifications(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Real in-app notifications derived from unread messages + job actions."""
+    from app.services.notification_service import build_notifications
+    return await build_notifications(db, current_user)
+
 @router.get("/me/profile", response_model=UserResponse)
 async def get_user_profile(current_user: User = Depends(get_current_user)) -> Any:
     return current_user
