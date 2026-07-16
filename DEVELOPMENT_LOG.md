@@ -17,22 +17,19 @@
 | **1** | Chat room shell + media + bubbles/emoji | **Done** | Full-height chat, no footer, lightbox media, better composer. |
 | **2** | Notifications + footer + desktop split inbox | **Done** | Real bell, legal pages, messages/chat split UI. |
 | **3** | Chat depth (attachments DB, presence, receipts) | **Done** | Filename in DB, true presence, real receipts, typing WS, jump/date/nav badge. |
-| **4** | Trust & marketing polish | **Next** | Landing icons, real stats, less “template SaaS”. |
-| **5** | Product UX extras | Pending | In-thread search, safety tools, job context card, dark mode. |
+| **4** | Trust & marketing polish | **Done** | Trade icons, honest trust bar, FAQ accordion, quieter gradients, no dead social #. |
+| **5** | Product UX extras | **Next** | In-thread search, safety tools, job context card, dark mode. |
 
 ### First thing in a new session
 
-1. Skim this handoff + Phase 1/2 entries below.
+1. Skim this handoff + latest session entry.
 2. Run migration if not applied yet:
    ```bash
    alembic upgrade head
    ```
-   Migration: `m7n8o9p0q1r2` — `conversation.last_read_at_customer`,
-   `conversation.last_read_at_contractor`.
-   (Neon cold-start can make CLI slow; use a long timeout or run on host that
-   already has a warm DB connection.)
-3. Smoke-check: `/messages`, `/chat/{id}`, bell dropdown, presence/typing, `/about` `/privacy` `/terms`.
-4. Pick **Phase 4** (recommended) unless user prioritizes something else.
+   Includes `m7n8o9p0q1r2` (last_read) and `n8o9p0q1r2s3` (attachment_name).
+3. Smoke-check: `/`, `/chat/{id}` (header + composer in viewport), bell open/**close**, FAQ accordion.
+4. Pick **Phase 5** (recommended) unless user prioritizes something else.
 
 ### Key files (UI/chat)
 
@@ -109,22 +106,26 @@ See session entry **2026-07-16 (3)** below for files and details.
 
 ---
 
-### Phase 4 — Trust & marketing polish — NEXT
+### Phase 4 — DONE (trust & marketing polish)
 
 **Goal:** Landing and brand feel finished and honest.
 
-| # | Task | Why | Hint |
-|---|------|-----|------|
-| 4.1 | Fix trade icons on homepage (`paint`, `pest` fall through to raw text) | Looks unfinished | Extend `{% macro icon %}` or use proper SVG names in `index.html` trade grid. |
-| 4.2 | Soften or source real social-proof stats | Generic “&lt; 10s / 5+ trades” feels mock | Real metrics or quieter copy. |
-| 4.3 | Tone down gradient density slightly | Less “template SaaS” | CSS pass on hero/CTA cards. |
-| 4.4 | FAQ accordion | FAQs all open as walls of text | Collapse/expand in `index.html`. |
-| 4.5 | Social footer links | Twitter/LinkedIn still `href="#"` | Real URLs or remove icons. |
-| 4.6 | Optional: real contractor photos / coverage map on landing | Trust | Static demos or seeded data. |
+| # | Task | Status |
+|---|------|--------|
+| 4.1 | Fix trade icons (`paint`, `pest`) | **Done** |
+| 4.2 | Soften social-proof / stats | **Done** (honest product claims) |
+| 4.3 | Tone down gradient density | **Done** |
+| 4.4 | FAQ accordion | **Done** |
+| 4.5 | Social footer links | **Done** (removed dead `#`; About / Join as Pro) |
+| 4.6 | Trust avatars on stories (illustrative, labeled) | **Done** (light touch) |
+
+Also this session: **chat viewport layout fix** + **notification panel close fix**.
+
+See session entry **2026-07-16 (4)** below.
 
 ---
 
-### Phase 5 — Product UX extras — not started
+### Phase 5 — Product UX extras — NEXT
 
 **Goal:** Power-user and safety features for marketplace chat/jobs.
 
@@ -152,10 +153,49 @@ See session entry **2026-07-16 (3)** below for files and details.
 
 ### How to continue (prompt templates for next session)
 
-- *“Continue ServiceSync UI from DEVELOPMENT_LOG Phase 4 — landing polish.”*
-- *“Do Phase 5 product UX extras from DEVELOPMENT_LOG.”*
+- *“Continue ServiceSync UI from DEVELOPMENT_LOG Phase 5.”*
+- *“Add in-thread message search (5.1) and job context card (5.2).”*
 
 When finishing a phase: mark the table row **Done**, append a dated session entry at the top of the log (same style as Phase 1/2), and update this handoff table.
+
+---
+
+## 2026-07-16 (4) — Phase 4 + chat layout + notif panel
+
+### Progress log
+
+1. **Chat layout (viewport bugs)**
+   - Symptom: chat header sometimes under sticky navbar; composer/input off-screen.
+   - Fix: `body.chat-mode` / `messages-mode` use true flex column (`100dvh`, `min-height: 0`),
+     nav is `position: relative` (not sticky overlap), main/`chat-page-wrapper`/`chat-container`
+     use `flex: 1 1 0%` + `overflow: hidden`, thread column `.chat-thread-col`, input bar
+     `flex: 0 0 auto` + safe-area padding.
+   - Same pattern applied to `messages.html`.
+
+2. **Notification panel not closing**
+   - Root cause: `#notif-panel { display: flex }` beat Tailwind `.hidden` (ID specificity).
+   - Fix: `#notif-panel:not(.hidden) { display: flex }` + `#notif-panel.hidden { display: none !important }`.
+   - `closeNotifPanel()`, Escape key, outside-click, toggle open/close.
+
+3. **Phase 4 landing polish**
+   - 4.1: SVG paths for `paint` + `pest` icons; trade grid uses icon macro for all.
+   - 4.2: Replaced mock “&lt; 10s / 5+ trades” stats with honest product claims.
+   - 4.3: Hero/CTA solid slate + softer single blobs; less multi-stop gradients on CTAs/steps.
+   - 4.4: FAQ accordion (single-open, chevron).
+   - 4.5: Removed footer Twitter/LinkedIn `href="#"`; About + Join as Pro links.
+   - 4.6: Story cards with gradient avatar initials; labeled “illustrative story”.
+
+### Files touched
+- `app/templates/chat.html`
+- `app/templates/messages.html`
+- `app/templates/base.html`
+- `app/templates/index.html`
+- `DEVELOPMENT_LOG.md`
+
+### Smoke-check
+- Open `/chat/{id}`: header fully below nav; composer always visible; only thread scrolls.
+- Bell: open → click outside / Escape / click bell again → closes.
+- `/`: paint/pest icons, FAQ expands, no `#` social icons.
 
 ---
 
@@ -377,7 +417,7 @@ Items listed as “still open” after Phase 1 (split inbox, notifications) were
 - Global-first: remove US-only ZIP assumptions.
 - BizLive: keep in master plan, defer from MVP.
 - MVP focus: AI Concierge, profiles, booking, escrow, messaging, verification basics.
-- **UI track (2026-07-16):** Phases **1–3 complete** (chat shell, media, notifications, footer, split inbox, chat depth). **Next = Phase 4** (landing / trust polish).
+- **UI track (2026-07-16):** Phases **1–4 complete**. **Next = Phase 5** (product UX extras). Chat viewport + notif close fixed in session (4).
 
 ---
 

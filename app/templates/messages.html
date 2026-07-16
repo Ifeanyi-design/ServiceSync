@@ -9,27 +9,42 @@
 
 {% block extra_head %}
 <style>
-  body.messages-mode {
-    height: 100dvh;
+  html:has(body.messages-mode) {
+    height: 100%;
     overflow: hidden;
   }
+  body.messages-mode {
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0 !important;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  body.messages-mode nav.navbar-glass {
+    position: relative;
+    top: auto;
+    flex: 0 0 auto;
+    z-index: 50;
+  }
   body.messages-mode main.messages-main {
-    flex: 1 1 auto;
+    flex: 1 1 0%;
     min-height: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     animation: none;
   }
-  body.messages-mode nav.navbar-glass { flex-shrink: 0; }
 
   .messages-shell {
-    flex: 1;
+    flex: 1 1 0%;
     min-height: 0;
+    height: 100%;
     display: flex;
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
+    overflow: hidden;
   }
 
   .messages-sidebar {

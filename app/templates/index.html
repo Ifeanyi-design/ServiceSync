@@ -45,7 +45,9 @@
   'fire':'M12 2c1 3 3 4 3 7a3 3 0 01-6 0c0-1 .5-2 1-3 0 2 1 3 2 3a2 2 0 002-2c0-1-.5-2-1-3 1 1 2 2 2 4a4 4 0 11-8 0c0-3 3-5 3-8z',
   'tree':'M12 2a4 4 0 014 4 4 4 0 01-1 8H9a4 4 0 01-1-8 4 4 0 014-4zm0 4v8m0 0l-2 4m2-4l2 4',
   'building':'M3 21h18M5 21V5a2 2 0 012-2h6a2 2 0 012 2v16M19 21V11a2 2 0 00-2-2h-2',
-  'money':'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6'
+  'money':'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',
+  'paint':'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01',
+  'pest':'M12 2C9 2 7 4.5 7 7c0 1.5.5 2.5 1 3.5L6 14l2 1 1.5-2.5c.8.9 1.7 1.5 2.5 1.5s1.7-.6 2.5-1.5L16 15l2-1-2-3.5c.5-1 1-2 1-3.5 0-2.5-2-5-5-5zm-2 16h4v2a2 2 0 01-4 0v-2z'
 }.get(name, '') %}<svg class="{{ cls }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ p }}"/></svg>{% endmacro %}
 
 {% block title %}ServiceSync — AI-Native Home Services Marketplace{% endblock %}
@@ -54,13 +56,12 @@
 {% block content %}
 
 <!-- ===================== HERO ===================== -->
-<section class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 min-h-[92vh] flex items-center">
+<section class="relative overflow-hidden bg-slate-900 min-h-[88vh] flex items-center">
 
-  <!-- Decorative blobs -->
+  <!-- Soft wash (toned-down vs multi-blob template look) -->
   <div class="absolute top-0 left-0 w-full h-full pointer-events-none select-none">
-    <div class="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] rounded-full bg-blue-600/20 blur-3xl"></div>
-    <div class="absolute bottom-[-80px] left-[-60px] w-[400px] h-[400px] rounded-full bg-indigo-600/15 blur-3xl"></div>
-    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-cyan-500/5 blur-3xl"></div>
+    <div class="absolute top-[-80px] right-[-80px] w-[420px] h-[420px] rounded-full bg-blue-600/12 blur-3xl"></div>
+    <div class="absolute bottom-[-60px] left-[-40px] w-[320px] h-[320px] rounded-full bg-indigo-700/10 blur-3xl"></div>
   </div>
 
   <!-- Dot grid overlay -->
@@ -81,7 +82,7 @@
 
         <h1 class="text-5xl sm:text-6xl font-extrabold text-white tracking-tight leading-tight mb-6 animate-fade-in">
           Describe the problem.<br/>
-          <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-indigo-400">
+          <span class="text-blue-400">
             AI finds the pro.
           </span>
         </h1>
@@ -93,7 +94,7 @@
         <!-- CTAs -->
         <div class="flex flex-col sm:flex-row gap-4 mb-12 animate-fade-in">
           <a href="/search"
-            class="inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-base rounded-2xl shadow-xl shadow-blue-900/40 hover:shadow-blue-800/60 transition-all duration-200 active:scale-95 group">
+            class="inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-base rounded-2xl shadow-lg shadow-blue-900/30 transition-all duration-200 active:scale-95 group">
             <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             Get AI-Matched Now
           </a>
@@ -181,8 +182,8 @@
         </div>
 
         <!-- Floating badge -->
-        <div class="absolute -top-4 -right-4 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg shadow-orange-500/30 rotate-2">
-          {{ icon('bolt','w-4 h-4 inline mr-1') }} Matched in 3.2s
+        <div class="absolute -top-4 -right-4 bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-md rotate-2">
+          {{ icon('bolt','w-4 h-4 inline mr-1') }} AI matched
         </div>
       </div>
 
@@ -190,25 +191,25 @@
   </div>
 </section>
 
-<!-- ===================== STATS BAR ===================== -->
+<!-- ===================== TRUST BAR (honest product claims) ===================== -->
 <section class="bg-white border-b border-gray-100">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
       <div>
-        <p class="text-3xl font-extrabold text-gray-900">< 10s</p>
-        <p class="text-sm text-gray-500 mt-1">Average match time</p>
+        <p class="text-xl sm:text-2xl font-extrabold text-gray-900">Plain-English intake</p>
+        <p class="text-sm text-gray-500 mt-1">Describe the problem — no long forms</p>
       </div>
       <div>
-        <p class="text-3xl font-extrabold text-gray-900">5+</p>
-        <p class="text-sm text-gray-500 mt-1">Trade specializations</p>
+        <p class="text-xl sm:text-2xl font-extrabold text-gray-900">10+ trades</p>
+        <p class="text-sm text-gray-500 mt-1">Plumbing, electrical, HVAC &amp; more</p>
       </div>
       <div>
-        <p class="text-3xl font-extrabold text-gray-900">100%</p>
-        <p class="text-sm text-gray-500 mt-1">AI-triaged intake</p>
+        <p class="text-xl sm:text-2xl font-extrabold text-gray-900">Escrow-backed jobs</p>
+        <p class="text-sm text-gray-500 mt-1">Pay held until you confirm the work</p>
       </div>
       <div>
-        <p class="text-3xl font-extrabold text-gray-900">Zero</p>
-        <p class="text-sm text-gray-500 mt-1">Forms to fill out</p>
+        <p class="text-xl sm:text-2xl font-extrabold text-gray-900">AI-assisted matching</p>
+        <p class="text-sm text-gray-500 mt-1">Gemini triages severity &amp; trade</p>
       </div>
     </div>
   </div>
@@ -229,7 +230,7 @@
 
       <!-- Step 1 -->
       <div class="relative bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group">
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform duration-300">
+        <div class="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-6 shadow-md shadow-blue-200/60 group-hover:scale-105 transition-transform duration-300">
           <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
         </div>
         <span class="inline-block text-xs font-black text-blue-600 uppercase tracking-widest mb-2">Step 1</span>
@@ -239,7 +240,7 @@
 
       <!-- Step 2 -->
       <div class="relative bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group">
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-200 group-hover:scale-110 transition-transform duration-300">
+        <div class="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center mx-auto mb-6 shadow-md shadow-indigo-200/60 group-hover:scale-105 transition-transform duration-300">
           <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
         </div>
         <span class="inline-block text-xs font-black text-indigo-600 uppercase tracking-widest mb-2">Step 2</span>
@@ -249,7 +250,7 @@
 
       <!-- Step 3 -->
       <div class="relative bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group">
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-cyan-200 group-hover:scale-110 transition-transform duration-300">
+        <div class="w-14 h-14 rounded-2xl bg-cyan-600 flex items-center justify-center mx-auto mb-6 shadow-md shadow-cyan-200/60 group-hover:scale-105 transition-transform duration-300">
           <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
         </div>
         <span class="inline-block text-xs font-black text-cyan-600 uppercase tracking-widest mb-2">Step 3</span>
@@ -282,8 +283,8 @@
         ('building', 'General', 'Handyman, renovations, repairs')
       ] %}
       {% for emoji, name, desc in trades %}
-      <a href="/search" class="group flex flex-col items-center text-center p-6 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-indigo-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-        {% if emoji in ['paint','pest'] %}<span class="text-2xl font-black text-gray-400 mb-3 group-hover:scale-110 transition-transform duration-300">{{ emoji }}</span>{% else %}<span class="mb-3 group-hover:scale-110 transition-transform duration-300">{{ icon(emoji, 'w-10 h-10') }}</span>{% endif %}
+      <a href="/search" class="group flex flex-col items-center text-center p-6 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-indigo-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+        <span class="mb-3 text-indigo-600 group-hover:scale-110 transition-transform duration-300">{{ icon(emoji, 'w-10 h-10') }}</span>
         <p class="font-bold text-gray-900 text-sm mb-1">{{ name }}</p>
         <p class="text-xs text-gray-400 leading-relaxed">{{ desc }}</p>
       </a>
@@ -336,85 +337,88 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {% set stories = [
+        ('A', 'from-blue-500 to-indigo-600', 'Adunni K.', 'Homeowner', '"I described my leaky faucet in plain English and was chatting with a local plumber the same day. No forms, no phone tag."'),
+        ('M', 'from-emerald-500 to-teal-600', 'Mike O.', 'Plumber', '"AI triage means I show up already knowing the issue. Less time quoting, more time fixing — and customers arrive pre-briefed."'),
+        ('F', 'from-violet-500 to-purple-600', 'Fatima B.', 'Electrician', '"Escrow is the trust layer. Customers pay with confidence because funds release only after they confirm the work."'),
+      ] %}
+      {% for initial, grad, name, role, quote in stories %}
       <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-        <div class="flex items-center gap-1 mb-3">
-          <span class="text-yellow-400 text-lg">{% for _ in range(5) %}<svg class="w-4 h-4 inline text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>{% endfor %}</span>
-        </div>
-        <p class="text-gray-700 text-sm leading-relaxed mb-4">"I described my leaky faucet and got a matched plumber in 8 seconds. He showed up the same day. This is the future."</p>
-        <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">A</div>
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-11 h-11 rounded-full bg-gradient-to-br {{ grad }} flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white">{{ initial }}</div>
           <div>
-            <p class="font-semibold text-gray-900 text-sm">Adunni K.</p>
-            <p class="text-gray-400 text-xs">Homeowner, Lagos</p>
+            <p class="font-semibold text-gray-900 text-sm">{{ name }}</p>
+            <p class="text-gray-400 text-xs">{{ role }} · illustrative story</p>
           </div>
         </div>
+        <p class="text-gray-700 text-sm leading-relaxed">{{ quote }}</p>
       </div>
-      <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-        <div class="flex items-center gap-1 mb-3">
-          <span class="text-yellow-400 text-lg">{% for _ in range(5) %}<svg class="w-4 h-4 inline text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>{% endfor %}</span>
-        </div>
-        <p class="text-gray-700 text-sm leading-relaxed mb-4">"The AI triage means I show up already knowing what's wrong. No more wasting time on phone quotes. My close rate doubled."</p>
-        <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-xs">M</div>
-          <div>
-            <p class="font-semibold text-gray-900 text-sm">Mike O.</p>
-            <p class="text-gray-400 text-xs">Plumber, 3 years on platform</p>
-          </div>
-        </div>
-      </div>
-      <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-        <div class="flex items-center gap-1 mb-3">
-          <span class="text-yellow-400 text-lg">{% for _ in range(5) %}<svg class="w-4 h-4 inline text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>{% endfor %}</span>
-        </div>
-        <p class="text-gray-700 text-sm leading-relaxed mb-4">"Escrow protection gives me confidence. Customers trust me more because their money is safe until the job is done."</p>
-        <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-xs">F</div>
-          <div>
-            <p class="font-semibold text-gray-900 text-sm">Fatima B.</p>
-            <p class="text-gray-400 text-xs">Electrician, Abuja</p>
-          </div>
-        </div>
-      </div>
+      {% endfor %}
     </div>
+    <p class="text-center text-xs text-gray-400 mt-8">Stories reflect the product experience we design for — not paid endorsements.</p>
   </div>
 </section>
 
-<!-- ===================== FAQ SECTION ===================== -->
+<!-- ===================== FAQ SECTION (accordion) ===================== -->
 <section class="bg-gray-50 py-24">
   <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="text-center mb-12">
       <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight mb-3">Frequently asked questions</h2>
+      <p class="text-gray-500 text-sm">Tap a question to expand.</p>
     </div>
 
-    <div class="space-y-4">
-      <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <h3 class="font-bold text-gray-900 mb-2">Is ServiceSync free for homeowners?</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">Yes. There's no cost to describe your problem, get matched, or chat with professionals. You only pay the professional's quoted price plus a small platform fee.</p>
+    <div class="space-y-3" id="faq-accordion">
+      {% set faqs = [
+        ('Is ServiceSync free for homeowners?', "Yes. There's no cost to describe your problem, get matched, or chat with professionals. You only pay the professional's quoted price plus a small platform fee."),
+        ('How does the AI matching work?', 'Our Gemini AI reads your natural-language description, extracts the trade type, severity, and location, then matches you with verified professionals based on their specialization, proximity, availability, and trust score.'),
+        ('What is escrow protection?', "When you book a job, your payment is held in escrow (a secure third-party account). The professional only gets paid once you approve the completed work. If there's a dispute, we help mediate."),
+        ('Can I use WhatsApp or Telegram instead of the app?', 'Professionals can connect WhatsApp, Telegram, or Messenger. When a customer messages them, the AI can handle initial triage and draft replies for the pro to approve.'),
+        ('How do professionals get paid?', "Once the customer approves the job, funds are released from escrow to the professional's account. Payouts typically process within 1–2 business days."),
+      ] %}
+      {% for q, a in faqs %}
+      <div class="faq-item bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <button type="button"
+          class="faq-trigger w-full flex items-center justify-between gap-4 text-left px-5 py-4 font-bold text-gray-900 hover:bg-gray-50/80 transition"
+          aria-expanded="false"
+          onclick="toggleFaq(this)">
+          <span>{{ q }}</span>
+          <svg class="faq-chevron w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div class="faq-panel hidden px-5 pb-4">
+          <p class="text-gray-500 text-sm leading-relaxed border-t border-gray-50 pt-3">{{ a }}</p>
+        </div>
       </div>
-      <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <h3 class="font-bold text-gray-900 mb-2">How does the AI matching work?</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">Our Gemini AI reads your natural-language description, extracts the trade type, severity, and location, then matches you with verified professionals based on their specialization, proximity, availability, and trust score.</p>
-      </div>
-      <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <h3 class="font-bold text-gray-900 mb-2">What is escrow protection?</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">When you book a job, your payment is held in escrow (a secure third-party account). The professional only gets paid once you approve the completed work. If there's a dispute, our AI helps mediate.</p>
-      </div>
-      <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <h3 class="font-bold text-gray-900 mb-2">Can I use WhatsApp or Telegram instead of the app?</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">Yes. Professionals can connect their WhatsApp, Telegram, or Messenger accounts. When a customer messages them, the AI handles the initial triage and can even draft replies for the professional to approve.</p>
-      </div>
-      <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <h3 class="font-bold text-gray-900 mb-2">How do professionals get paid?</h3>
-        <p class="text-gray-500 text-sm leading-relaxed">Once the customer approves the job, funds are released from escrow directly to the professional's account. Payouts typically process within 1-2 business days.</p>
-      </div>
+      {% endfor %}
     </div>
   </div>
 </section>
 
+<script>
+  function toggleFaq(btn) {
+    const item = btn.closest('.faq-item');
+    const panel = item.querySelector('.faq-panel');
+    const chevron = btn.querySelector('.faq-chevron');
+    const open = btn.getAttribute('aria-expanded') === 'true';
+    // Close others (single-open accordion)
+    document.querySelectorAll('#faq-accordion .faq-item').forEach(other => {
+      if (other === item) return;
+      const ob = other.querySelector('.faq-trigger');
+      const op = other.querySelector('.faq-panel');
+      const oc = other.querySelector('.faq-chevron');
+      if (ob) ob.setAttribute('aria-expanded', 'false');
+      if (op) op.classList.add('hidden');
+      if (oc) oc.style.transform = '';
+    });
+    btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    panel.classList.toggle('hidden', open);
+    if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+  }
+</script>
+
 <!-- ===================== CTA SECTION ===================== -->
-<section id="pricing" class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 py-24 relative overflow-hidden">
+<section id="pricing" class="bg-slate-900 py-24 relative overflow-hidden">
   <div class="absolute inset-0 opacity-[0.03]" style="background-image: radial-gradient(circle, #fff 1px, transparent 1px); background-size: 28px 28px;"></div>
-  <div class="absolute top-0 right-0 w-[400px] h-[400px] rounded-full bg-blue-600/15 blur-3xl pointer-events-none"></div>
+  <div class="absolute top-0 right-0 w-[320px] h-[320px] rounded-full bg-blue-600/10 blur-3xl pointer-events-none"></div>
 
   <div class="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
     <span class="inline-block px-4 py-1.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300 text-xs font-bold uppercase tracking-widest mb-6">Get Started Free</span>
@@ -425,7 +429,7 @@
 
     <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
       <a href="/search"
-        class="inline-flex items-center justify-center gap-2.5 px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-lg rounded-2xl shadow-2xl shadow-blue-900/50 hover:shadow-blue-800/70 transition-all duration-200 active:scale-95 group">
+        class="inline-flex items-center justify-center gap-2.5 px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg rounded-2xl shadow-lg shadow-blue-900/40 transition-all duration-200 active:scale-95 group">
         <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         Find a Pro Now
       </a>
