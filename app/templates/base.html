@@ -165,22 +165,23 @@
     /* Notification bell badge — only shown when unread_count > 0 */
     .notif-dot {
       position: absolute;
-      top: -2px;
-      right: -2px;
-      min-width: 16px;
-      height: 16px;
-      padding: 0 4px;
+      top: 2px;
+      right: 2px;
+      min-width: 14px;
+      height: 14px;
+      padding: 0 3px;
       background: #ef4444;
       border-radius: 999px;
       border: 2px solid white;
       color: white;
-      font-size: 9px;
+      font-size: 8px;
       font-weight: 800;
-      line-height: 12px;
+      line-height: 10px;
       text-align: center;
       display: none;
       align-items: center;
       justify-content: center;
+      pointer-events: none;
     }
     .notif-dot.has-unread {
       display: flex;
@@ -208,6 +209,7 @@
       right: 0;
       top: calc(100% + 8px);
       width: min(360px, calc(100vw - 1.5rem));
+      max-width: calc(100vw - 1rem);
       max-height: min(420px, 70vh);
       background: rgba(255,255,255,0.98);
       backdrop-filter: blur(20px);
@@ -217,6 +219,49 @@
       z-index: 60;
       overflow: hidden;
       flex-direction: column;
+    }
+    /* Keep notif panel on-screen when the bell sits near the right edge on phones */
+    @media (max-width: 640px) {
+      #notif-wrapper { position: static; }
+      #notif-panel {
+        position: fixed;
+        left: 0.5rem;
+        right: 0.5rem;
+        top: 3.5rem;
+        width: auto;
+        max-width: none;
+      }
+    }
+
+    /* Compact mobile nav chrome — avoid right-side overflow */
+    .nav-right-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.15rem;
+      flex-shrink: 0;
+      min-width: 0;
+    }
+    .nav-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.4rem;
+      border-radius: 0.65rem;
+      flex-shrink: 0;
+    }
+    @media (min-width: 640px) {
+      .nav-right-actions { gap: 0.35rem; }
+      .nav-icon-btn { padding: 0.55rem; border-radius: 0.75rem; }
+    }
+    #user-menu-btn {
+      padding: 0.2rem;
+      gap: 0;
+    }
+    @media (min-width: 640px) {
+      #user-menu-btn {
+        padding: 0.35rem 0.65rem 0.35rem 0.35rem;
+        gap: 0.4rem;
+      }
     }
     /* ID specificity beats Tailwind .hidden — must restate display when open */
     #notif-panel:not(.hidden) {
@@ -366,16 +411,16 @@
   <!-- =====================  NAVBAR  ===================== -->
   <nav class="navbar-glass sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center h-16">
+      <div class="flex justify-between items-center h-14 sm:h-16 gap-2 min-w-0">
 
         <!-- Logo -->
-        <a href="/" class="flex items-center space-x-2.5 group" aria-label="ServiceSync Home">
-          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg group-hover:shadow-blue-300 transition-all duration-300 group-hover:scale-105">
-            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <a href="/" class="flex items-center space-x-2 group min-w-0 flex-shrink" aria-label="ServiceSync Home">
+          <div class="w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg group-hover:shadow-blue-300 transition-all duration-300 group-hover:scale-105">
+            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
           </div>
-          <span class="text-lg font-extrabold tracking-tight text-gray-900">Service<span class="gradient-text">Sync</span></span>
+          <span class="text-base sm:text-lg font-extrabold tracking-tight text-gray-900 dark:text-slate-100 truncate">Service<span class="gradient-text">Sync</span></span>
         </a>
 
         <!-- Center Nav Links -->
@@ -404,49 +449,49 @@
           {% endif %}
         </div>
 
-        <!-- Right: Auth Controls -->
-        <div class="flex items-center gap-2">
+        <!-- Right: Auth Controls (compact on mobile to prevent overflow) -->
+        <div class="nav-right-actions">
           <!-- Dark mode toggle (Phase 5) -->
-          <button type="button" id="theme-toggle-btn" onclick="toggleTheme()" class="p-2.5 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-400 dark:hover:text-blue-300 dark:hover:bg-slate-800 transition-all duration-200" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <button type="button" id="theme-toggle-btn" onclick="toggleTheme()" class="nav-icon-btn text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-400 dark:hover:text-blue-300 dark:hover:bg-slate-800 transition-all duration-200" aria-label="Toggle dark mode" title="Toggle dark mode">
             <svg id="theme-icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
             <svg id="theme-icon-sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
           </button>
           {% if current_user %}
             <!-- Notification Bell (real data via /api/v1/users/me/notifications) -->
             <div class="relative" id="notif-wrapper">
-              <button type="button" onclick="toggleNotifPanel(event)" class="relative p-2.5 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-400 dark:hover:text-blue-300 dark:hover:bg-slate-800 transition-all duration-200" aria-label="Notifications" aria-expanded="false" aria-controls="notif-panel" id="notif-btn">
+              <button type="button" onclick="toggleNotifPanel(event)" class="nav-icon-btn relative text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-400 dark:hover:text-blue-300 dark:hover:bg-slate-800 transition-all duration-200" aria-label="Notifications" aria-expanded="false" aria-controls="notif-panel" id="notif-btn">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
                 <span class="notif-dot" id="notif-dot" aria-hidden="true"></span>
               </button>
               <div id="notif-panel" class="hidden" role="menu" aria-label="Notifications">
-                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                  <p class="text-sm font-bold text-gray-900">Notifications</p>
-                  <a href="/messages" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Messages</a>
+                <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between gap-2">
+                  <p class="text-sm font-bold text-gray-900 dark:text-slate-100">Notifications</p>
+                  <a href="/messages" class="text-xs font-semibold text-blue-600 hover:text-blue-700 flex-shrink-0">Messages</a>
                 </div>
-                <div id="notif-list" class="overflow-y-auto flex-1 max-h-[320px]">
+                <div id="notif-list" class="overflow-y-auto flex-1 max-h-[min(320px,55vh)]">
                   <div class="px-4 py-8 text-center text-sm text-gray-400" id="notif-loading">Loading…</div>
                 </div>
               </div>
             </div>
 
-            <!-- Authenticated User Menu -->
+            <!-- Authenticated User Menu — avatar-only on mobile -->
             <div class="relative" id="user-menu-wrapper">
               <button
                 id="user-menu-btn"
                 onclick="toggleDropdown()"
-                class="flex items-center space-x-2 px-3 py-1.5 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 group"
+                class="flex items-center rounded-full sm:rounded-xl border border-gray-200 dark:border-slate-600 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-all duration-200 group"
                 aria-haspopup="true"
                 aria-expanded="false"
               >
-                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                <div class="w-7 h-7 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0">
                   {{ current_user.full_name[0] | upper }}
                 </div>
-                <span class="hidden sm:block text-sm font-semibold text-gray-700 group-hover:text-blue-700 max-w-[120px] truncate">
+                <span class="hidden sm:block text-sm font-semibold text-gray-700 dark:text-slate-200 group-hover:text-blue-700 max-w-[100px] truncate">
                   {{ current_user.full_name }}
                 </span>
-                <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-transform duration-200" id="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="hidden sm:block w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-transform duration-200 flex-shrink-0" id="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
                 </svg>
               </button>
@@ -527,7 +572,7 @@
           {% endif %}
 
           <!-- Mobile hamburger -->
-          <button id="mobile-menu-btn" onclick="toggleMobileMenu()" class="md:hidden p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition" aria-label="Toggle menu">
+          <button id="mobile-menu-btn" onclick="toggleMobileMenu()" class="nav-icon-btn md:hidden text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition" aria-label="Toggle menu">
             <svg class="w-5 h-5" id="hamburger-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
