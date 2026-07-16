@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
+{% from "_ui.html" import empty_state %}
 {% block title %}Payment Methods — ServiceSync{% endblock %}
 {% block meta_description %}Manage your saved payment methods on ServiceSync. Add cards, bank accounts, and mobile money.{% endblock %}
 
@@ -28,10 +29,7 @@
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
 
-  <!-- Flash messages -->
-  {% if request.query_params.get('success') %}
-  <script>document.addEventListener('DOMContentLoaded',()=>showToast('{{ request.query_params.get("success") }}','success'));</script>
-  {% endif %}
+  {# success/error toasts handled globally in base.html #}
 
   <!-- Page Header -->
   <div class="flex items-center justify-between mb-6">
@@ -146,8 +144,8 @@
         </div>
 
         <div class="flex gap-3 mt-5">
-          <button type="submit"
-            class="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm transition shadow-md shadow-blue-200 active:scale-95">
+          <button type="submit" data-loading-label="Saving…"
+            class="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm transition shadow-md shadow-blue-200 active:scale-95 disabled:opacity-60">
             Save Payment Method
           </button>
           <button type="button" onclick="toggleAddForm()"
@@ -234,20 +232,14 @@
   </div>
 
   {% else %}
-  <!-- Empty state -->
-  <div class="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200">
-    <div class="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
-      <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-      </svg>
-    </div>
-    <h3 class="text-lg font-bold text-gray-700 mb-1">No payment methods saved</h3>
-    <p class="text-gray-400 text-sm max-w-xs mb-5">Add a card, bank account, or mobile money account to pay for services quickly.</p>
-    <button onclick="toggleAddForm()"
-      class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-xl hover:from-blue-500 hover:to-indigo-500 transition shadow-md shadow-blue-200">
-      Add Your First Method
-    </button>
-  </div>
+  {{ empty_state(
+    'No payment methods saved',
+    'Add a card, bank account, or mobile money account to pay for services quickly.',
+    'wallet', 'blue',
+    cta_label='Add Your First Method',
+    cta_onclick='toggleAddForm()',
+    framed=true
+  ) }}
   {% endif %}
 
 </div>

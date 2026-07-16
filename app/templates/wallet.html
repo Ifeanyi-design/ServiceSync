@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
+{% from "_ui.html" import empty_state %}
 {% block title %}Earnings Wallet — ServiceSync{% endblock %}
 {% block meta_description %}Track pending (clearing) and available earnings, withdraw to your bank or mobile money account.{% endblock %}
 
@@ -77,9 +78,7 @@
   {% if request.query_params.get('withdrawn') %}
   <script>document.addEventListener('DOMContentLoaded', () => showToast('Withdrawal initiated. Funds are on their way to your account.', 'success'));</script>
   {% endif %}
-  {% if request.query_params.get('error') %}
-  <script>document.addEventListener('DOMContentLoaded', () => showToast('{{ request.query_params.get("error") }}', 'error'));</script>
-  {% endif %}
+  {# error query param → global toast in base.html #}
 
   <!-- Balance Cards Row -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
@@ -128,7 +127,7 @@
                 <input type="text" name="phone" placeholder="Phone number"
                   class="w-full mb-2 px-3 py-2 rounded-xl text-gray-900 text-sm bg-white border border-transparent focus:outline-none transition" />
               </div>
-              <button type="submit" class="w-full py-2.5 rounded-xl bg-white text-emerald-700 font-bold text-sm hover:bg-emerald-50 active:scale-[.98] transition"
+              <button type="submit" data-loading-label="Withdrawing…" class="w-full py-2.5 rounded-xl bg-white text-emerald-700 font-bold text-sm hover:bg-emerald-50 active:scale-[.98] transition disabled:opacity-50"
                 {% if (wallet.available_balance | float) <= 0 %}disabled{% endif %}>
                 Withdraw Now
               </button>
@@ -254,16 +253,7 @@
       </table>
     </div>
     {% else %}
-    <!-- Empty state -->
-    <div class="flex flex-col items-center justify-center py-16 text-center px-4">
-      <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center mb-4">
-        <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-        </svg>
-      </div>
-      <h3 class="text-lg font-bold text-gray-700 mb-1">No transactions yet</h3>
-      <p class="text-gray-400 text-sm max-w-xs">Complete a job and get confirmed to start earning. Your payouts will appear here.</p>
-    </div>
+    {{ empty_state('No transactions yet', 'Complete a job and get confirmed to start earning. Your payouts will appear here.', 'wallet', 'emerald', compact=true) }}
     {% endif %}
   </div>
 

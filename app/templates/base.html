@@ -154,6 +154,10 @@
     .toast-error   { background: linear-gradient(135deg, #fef2f2, #fee2e2); color: #991b1b; }
     .toast-info    { background: linear-gradient(135deg, #eff6ff, #dbeafe); color: #1e40af; }
     .toast-warning { background: linear-gradient(135deg, #fffbeb, #fef3c7); color: #92400e; }
+    html.dark .toast-success { background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(6,95,70,.35)); color: #a7f3d0; border-color: rgba(16,185,129,.3); }
+    html.dark .toast-error   { background: linear-gradient(135deg, rgba(239,68,68,.2), rgba(153,27,27,.35)); color: #fecaca; border-color: rgba(239,68,68,.3); }
+    html.dark .toast-info    { background: linear-gradient(135deg, rgba(59,130,246,.2), rgba(30,64,175,.35)); color: #bfdbfe; border-color: rgba(59,130,246,.3); }
+    html.dark .toast-warning { background: linear-gradient(135deg, rgba(245,158,11,.2), rgba(146,64,14,.35)); color: #fde68a; border-color: rgba(245,158,11,.3); }
 
     /* Page transition */
     @keyframes pageFadeIn {
@@ -497,6 +501,49 @@
     html.dark #chat-widget,
     html.dark #chat-messages { border-color: rgba(148, 163, 184, 0.12); }
     html.dark footer .text-gray-900 { color: #f1f5f9 !important; }
+
+    /* ====== Phase 6c — residual night + QoL surfaces ====== */
+    html.dark .border-dashed { border-color: rgba(148, 163, 184, 0.22) !important; }
+    html.dark .border-blue-100 { border-color: rgba(59, 130, 246, 0.28) !important; }
+    html.dark .from-blue-50\/40 { --tw-gradient-from: rgba(37, 99, 235, 0.08) !important; }
+    html.dark .to-white { --tw-gradient-to: #1e293b !important; }
+    html.dark .messages-empty-pane {
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+    }
+    html.dark .glass-card {
+      background: rgba(30, 41, 59, 0.88) !important;
+      border-color: rgba(148, 163, 184, 0.14) !important;
+    }
+    html.dark table thead.sticky,
+    html.dark thead.sticky th,
+    html.dark .sticky.top-0.bg-white,
+    html.dark .sticky.top-0.bg-gray-50 {
+      background-color: #1e293b !important;
+    }
+    html.dark .shadow-blue-200,
+    html.dark .shadow-blue-500\/20 { --tw-shadow-color: rgba(37, 99, 235, 0.2); }
+    html.dark button:disabled,
+    html.dark [disabled] { opacity: 0.55; }
+
+    /* Submit loading spinner (set via setButtonLoading) */
+    .ss-btn-loading {
+      position: relative;
+      pointer-events: none;
+      opacity: 0.85;
+    }
+    .ss-btn-loading::after {
+      content: '';
+      width: 0.9rem;
+      height: 0.9rem;
+      margin-left: 0.5rem;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 9999px;
+      display: inline-block;
+      vertical-align: -0.1em;
+      animation: ss-spin 0.7s linear infinite;
+    }
+    @keyframes ss-spin { to { transform: rotate(360deg); } }
   </style>
 
   {% block extra_head %}{% endblock %}
@@ -867,6 +914,29 @@
       }
     });
 
+    // ====== Form submit loading (data-loading-label on submit buttons) ======
+    function setButtonLoading(btn, loading) {
+      if (!btn) return;
+      if (loading) {
+        if (!btn.dataset.originalLabel) btn.dataset.originalLabel = btn.innerHTML;
+        const label = btn.dataset.loadingLabel || 'Working…';
+        btn.disabled = true;
+        btn.classList.add('ss-btn-loading');
+        btn.textContent = label;
+      } else {
+        btn.disabled = false;
+        btn.classList.remove('ss-btn-loading');
+        if (btn.dataset.originalLabel) btn.innerHTML = btn.dataset.originalLabel;
+      }
+    }
+    document.addEventListener('submit', function (e) {
+      const form = e.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      if (form.dataset.noLoading === '1') return;
+      const btn = form.querySelector('button[type="submit"][data-loading-label], button[type="submit"].ss-auto-load');
+      if (btn && !btn.disabled) setButtonLoading(btn, true);
+    }, true);
+
     // ====== Toast System ======
     function showToast(message, type = 'info', duration = 4000) {
       const container = document.getElementById('toast-container');
@@ -893,14 +963,33 @@
       setTimeout(() => el.remove(), 260);
     }
 
-    // Auto-dismiss flash messages as toasts
+    // Auto-dismiss flash messages as toasts (global — keep page-level scripts for custom copy only)
     document.addEventListener('DOMContentLoaded', () => {
-      // Convert URL params to toasts
       const params = new URLSearchParams(window.location.search);
+      const decodeMsg = (v) => {
+        try { return decodeURIComponent(String(v).replace(/\+/g, ' ')); }
+        catch (_) { return String(v).replace(/_/g, ' ').replace(/\+/g, ' '); }
+      };
       if (params.get('paid')) showToast('Payment secured! Funds are held in escrow until you confirm the job is done.', 'success');
-      if (params.get('cancelled')) showToast('Job cancelled. Any held payment has been refunded.', 'info');
-      if (params.get('error')) showToast(params.get('error').replace(/_/g, ' '), 'error');
-      if (params.get('success')) showToast(params.get('success').replace(/_/g, ' '), 'success');
+      if (params.get('cancelled') && !params.get('upgraded')) {
+        // billing uses cancelled for plan cancel with its own toast; skip bare cancelled only when no custom page script
+        if (!document.querySelector('[data-custom-toast-cancelled]')) {
+          showToast('Job cancelled. Any held payment has been refunded.', 'info');
+        }
+      }
+      if (params.get('error')) showToast(decodeMsg(params.get('error')), 'error');
+      if (params.get('success')) showToast(decodeMsg(params.get('success')), 'success');
+      if (params.get('info')) showToast(decodeMsg(params.get('info')), 'info');
+      const saved = params.get('saved');
+      if (saved) {
+        const savedMap = {
+          ai: 'AI settings saved!',
+          constraints: 'Constraints saved!',
+          autonomy: 'Autonomy level saved!',
+          integration: 'Channel connected!',
+        };
+        showToast(savedMap[saved] || 'Settings saved!', 'success');
+      }
 
       // Load real notifications if user is signed in
       if (document.getElementById('notif-btn')) {

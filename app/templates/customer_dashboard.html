@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "escrow_timeline.html" import escrow_timeline %}
+{% from "_ui.html" import empty_state %}
 
 {% block title %}My Dashboard — ServiceSync{% endblock %}
 {% block meta_description %}Track your active jobs, manage payments, and review your service history all in one place.{% endblock %}
@@ -58,18 +59,9 @@
 
 <div class="max-w-6xl mx-auto py-8 px-4 sm:px-6">
 
-  {# ── Flash Message ── #}
+  {# ── Flash → global toast (consistent with rest of app) ── #}
   {% if flash %}
-  <div class="mb-6 flex items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-medium border anim-fade-up
-    {% if flash.kind == 'success' %}bg-emerald-50 border-emerald-100 text-emerald-700
-    {% else %}bg-red-50 border-red-100 text-red-700{% endif %}">
-    {% if flash.kind == 'success' %}
-    <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-    {% else %}
-    <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-    {% endif %}
-    {{ flash.message }}
-  </div>
+  <script>document.addEventListener('DOMContentLoaded',()=>showToast({{ flash.message | tojson }}, {{ flash.kind | tojson }}));</script>
   {% endif %}
 
   {# ── Page Header ── #}
@@ -346,34 +338,15 @@
     </div>
 
     {% else %}
-    {# ── Empty State ── #}
-    <div class="flex flex-col items-center justify-center py-20 text-center rounded-3xl border-2 border-dashed border-blue-100 bg-gradient-to-b from-blue-50/40 to-white hover:border-blue-300 transition-all duration-300">
-      <div class="mb-6">
-        <svg width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="20" y="45" width="80" height="50" rx="4" fill="#dbeafe"/>
-          <polygon points="60,10 10,48 110,48" fill="#3b82f6" opacity="0.85"/>
-          <rect x="48" y="65" width="24" height="30" rx="3" fill="#2563eb"/>
-          <rect x="28" y="58" width="16" height="14" rx="2" fill="white" opacity="0.8"/>
-          <rect x="76" y="58" width="16" height="14" rx="2" fill="white" opacity="0.8"/>
-          <circle cx="100" cy="20" r="4" fill="#f59e0b" opacity="0.7">
-            <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite"/>
-            <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite"/>
-          </circle>
-          <circle cx="18" cy="32" r="3" fill="#06b6d4" opacity="0.6">
-            <animate attributeName="r" values="3;5;3" dur="2.5s" repeatCount="indefinite"/>
-          </circle>
-          <circle cx="108" cy="40" r="2.5" fill="#10b981" opacity="0.6">
-            <animate attributeName="r" values="2.5;4;2.5" dur="1.8s" repeatCount="indefinite"/>
-          </circle>
-        </svg>
-      </div>
-      <h3 class="text-lg font-extrabold text-gray-800 mb-2">No Active Jobs Yet</h3>
-      <p class="text-sm text-gray-500 max-w-xs mb-6 leading-relaxed">Post your first job and our AI will find the perfect verified pro for you — usually within minutes.</p>
-      <a href="/search"
-        class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold transition-all duration-300 shadow-md shadow-blue-500/20 hover:shadow-blue-500/40 hover:-translate-y-0.5">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-        Find Your First Pro
-      </a>
+    <div class="rounded-3xl border-2 border-dashed border-blue-100 bg-gradient-to-b from-blue-50/40 to-white hover:border-blue-300 transition-all duration-300">
+      {{ empty_state(
+        'No Active Jobs Yet',
+        'Post your first job and our AI will find the perfect verified pro for you — usually within minutes.',
+        'search', 'blue',
+        cta_href='/search',
+        cta_label='Find Your First Pro',
+        cta_primary=true
+      ) }}
     </div>
     {% endif %}
 

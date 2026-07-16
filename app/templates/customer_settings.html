@@ -56,14 +56,9 @@
 
   <!-- Flash messages -->
   {% if flash %}
-  <script>document.addEventListener('DOMContentLoaded',()=>showToast('{{ flash.message }}','{{ flash.kind }}'));</script>
+  <script>document.addEventListener('DOMContentLoaded',()=>showToast({{ flash.message | tojson }}, {{ flash.kind | tojson }}));</script>
   {% endif %}
-  {% if request.query_params.get('success') %}
-  <script>document.addEventListener('DOMContentLoaded',()=>showToast('{{ request.query_params.get("success") }}','success'));</script>
-  {% endif %}
-  {% if request.query_params.get('error') %}
-  <script>document.addEventListener('DOMContentLoaded',()=>showToast('{{ request.query_params.get("error") }}','error'));</script>
-  {% endif %}
+  {# success/error query params → global toasts in base.html #}
 
   <!-- Header -->
   <div class="mb-8">

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_ui.html" import empty_state %}
 
 {% block title %}Messages — ServiceSync{% endblock %}
 {% block meta_description %}View your conversations with contractors and customers on ServiceSync.{% endblock %}
@@ -99,20 +100,22 @@
   </aside>
 
   <section class="messages-empty-pane" aria-label="Select a conversation">
-    <div class="text-center px-8 max-w-sm">
-      <div class="w-16 h-16 mx-auto mb-5 rounded-3xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-        <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-        </svg>
-      </div>
-      <h3 class="text-lg font-extrabold text-gray-800 mb-2">Select a conversation</h3>
-      <p class="text-sm text-gray-400 leading-relaxed mb-6">
-        Choose a chat on the left to message your {% if current_user.role == 'customer' %}contractor{% else %}customer{% endif %}, share photos, and manage job payments.
-      </p>
+    <div class="max-w-sm w-full px-4">
       {% if current_user.role == 'customer' %}
-      <a href="/search" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold shadow-md shadow-blue-200">
-        Find a Pro
-      </a>
+      {{ empty_state(
+        'Select a conversation',
+        'Choose a chat on the left to message your contractor, share photos, and manage job payments.',
+        'chat', 'blue',
+        cta_href='/search',
+        cta_label='Find a Pro',
+        cta_primary=true
+      ) }}
+      {% else %}
+      {{ empty_state(
+        'Select a conversation',
+        'Choose a chat on the left to message your customer, share photos, and manage job payments.',
+        'chat', 'blue'
+      ) }}
       {% endif %}
     </div>
   </section>

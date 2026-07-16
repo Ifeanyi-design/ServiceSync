@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
+{% from "_ui.html" import empty_state %}
 {% block title %}Find a Local Pro — ServiceSync AI Marketplace{% endblock %}
 {% block meta_description %}Describe your problem to our Gemini AI triage bot and get matched instantly with the best verified local professionals.{% endblock %}
 
@@ -108,16 +109,13 @@
     <div class="lg:col-span-8">
 
       <!-- Empty State (visible before match) -->
-      <div id="empty-state" class="flex flex-col items-center justify-center h-full min-h-[400px] text-center px-6 py-16 bg-white rounded-3xl border border-dashed border-gray-200 shadow-inner">
-        <div class="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
-          <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-          </svg>
-        </div>
-        <h2 class="text-xl font-bold text-gray-800 mb-2">No matches yet</h2>
-        <p class="text-gray-400 max-w-xs text-sm leading-relaxed mb-4">Describe the problem, your city/area, and urgency in the AI chat. Matches appear here ranked by verification, reputation, and distance.</p>
-        <div class="flex flex-wrap justify-center gap-2 text-[10px] font-semibold text-gray-400">
-          <span>Try: “clogged sink in Ikeja, Lagos”</span>
+      <div id="empty-state" class="h-full min-h-[400px] bg-white rounded-3xl border border-dashed border-gray-200 shadow-inner flex items-center justify-center">
+        <div class="w-full">
+          {{ empty_state(
+            'No matches yet',
+            'Describe the problem, your city/area, and urgency in the AI chat. Matches appear ranked by verification, reputation, and distance. Try: “clogged sink in Ikeja, Lagos”.',
+            'users', 'blue'
+          ) }}
         </div>
       </div>
 

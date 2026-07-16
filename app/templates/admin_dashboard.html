@@ -1,81 +1,139 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
+{% from "_ui.html" import empty_state %}
 {% block title %}Admin — ServiceSync{% endblock %}
 {% block meta_description %}Manage users, jobs, escrows, disputes, and monitor AI operations.{% endblock %}
 
+{% block extra_head %}
+<style>
+  .admin-kpi { transition: transform .15s ease, box-shadow .15s ease; }
+  .admin-kpi:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.06); }
+  .admin-filter-chip {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    transition: all .15s ease;
+    cursor: pointer;
+    color: #6b7280;
+  }
+  .admin-filter-chip:hover { color: #374151; }
+  .admin-filter-chip.active {
+    background: #fff;
+    color: #111827;
+    box-shadow: 0 1px 2px rgba(0,0,0,.06);
+  }
+  html.dark .admin-filter-chip { color: #94a3b8; }
+  html.dark .admin-filter-chip.active {
+    background: #1e293b;
+    color: #f1f5f9;
+  }
+  .admin-table-wrap { max-height: min(70vh, 720px); overflow: auto; }
+  .admin-search:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,.15); border-color: #93c5fd; }
+</style>
+{% endblock %}
+
 {% block content %}
+{% set active_tab = request.query_params.get('tab', 'overview') %}
+{% set users_by_id = users_by_id if users_by_id is defined else {} %}
+
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
   <!-- Page Header -->
-  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
     <div>
       <div class="inline-flex items-center gap-2 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-full px-3 py-1 mb-2 uppercase tracking-widest">
         <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>Admin Access
       </div>
       <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Admin Dashboard</h1>
-      <p class="text-gray-500 text-sm mt-1">Manage the entire ServiceSync platform.</p>
+      <p class="text-gray-500 text-sm mt-1">Manage users, money, trust, and AI operations.</p>
     </div>
-    <button onclick="location.reload()" class="flex items-center gap-2 px-4 py-2 border border-gray-200 bg-white text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 transition shadow-sm">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    <button type="button" onclick="location.reload()" class="flex items-center gap-2 px-4 py-2 border border-gray-200 bg-white text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 transition shadow-sm">
+      {{ icon('refresh','w-4 h-4') }}
       Refresh
     </button>
   </div>
 
+  <!-- Attention banner -->
+  {% if pending_disputes > 0 or pending_verifications > 0 %}
+  <div class="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3.5 rounded-2xl bg-amber-50 border border-amber-100">
+    <div class="flex items-center gap-2 text-amber-800 text-sm font-semibold min-w-0">
+      {{ icon('alert','w-4 h-4 flex-shrink-0 text-amber-500') }}
+      <span>
+        Needs attention:
+        {% if pending_disputes > 0 %}<a href="/admin?tab=disputes" class="underline hover:text-amber-900">{{ pending_disputes }} open dispute{{ 's' if pending_disputes != 1 else '' }}</a>{% endif %}
+        {% if pending_disputes > 0 and pending_verifications > 0 %}<span class="text-amber-400"> · </span>{% endif %}
+        {% if pending_verifications > 0 %}<a href="/admin?tab=verifications" class="underline hover:text-amber-900">{{ pending_verifications }} verification{{ 's' if pending_verifications != 1 else '' }} pending</a>{% endif %}
+      </span>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- ====== PLATFORM KPI CARDS ====== -->
-  <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-blue-500">
+  <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+    <a href="/admin?tab=users" class="admin-kpi bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-blue-500 block">
       <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Users</p>
       <p class="text-2xl font-extrabold text-gray-900">{{ total_users }}</p>
       <p class="text-xs text-gray-400 mt-0.5">{{ total_customers }} customers · {{ total_contractors }} contractors</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-green-500">
+    </a>
+    <a href="/admin?tab=users" class="admin-kpi bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-green-500 block">
       <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Verified</p>
       <p class="text-2xl font-extrabold text-gray-900">{{ verified_contractors }}</p>
       <p class="text-xs text-gray-400 mt-0.5">of {{ total_contractors }} contractors</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-amber-400">
+    </a>
+    <a href="/admin?tab=users" class="admin-kpi bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-amber-400 block">
       <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Premium</p>
       <p class="text-2xl font-extrabold text-gray-900">{{ premium_contractors }}</p>
       <p class="text-xs text-gray-400 mt-0.5">of {{ total_contractors }} contractors</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-indigo-500">
+    </a>
+    <a href="/admin?tab=jobs" class="admin-kpi bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-indigo-500 block">
       <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Jobs</p>
       <p class="text-2xl font-extrabold text-gray-900">{{ total_jobs }}</p>
-      <p class="text-xs text-gray-400 mt-0.5">{{ open_jobs }} open · {{ booked_jobs }} booked · {{ completed_jobs }} done</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-amber-500">
+      <p class="text-xs text-gray-400 mt-0.5">{{ booked_jobs }} booked · {{ in_progress_jobs | default(0) }} active · {{ completed_jobs }} done</p>
+    </a>
+    <a href="/admin?tab=escrows" class="admin-kpi bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-amber-500 block">
       <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Escrows</p>
       <p class="text-2xl font-extrabold text-gray-900">{{ total_escrows }}</p>
       <p class="text-xs text-gray-400 mt-0.5">{{ held_escrows }} held · {{ released_escrows }} released</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-red-500">
+    </a>
+    <a href="/admin?tab=disputes" class="admin-kpi bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-red-500 block">
       <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Disputes</p>
       <p class="text-2xl font-extrabold text-gray-900">{{ all_disputes | length }}</p>
       <p class="text-xs text-gray-400 mt-0.5">{{ pending_disputes }} pending</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-purple-500">
+    </a>
+    <a href="/admin?tab=verifications" class="admin-kpi bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-teal-500 block">
+      <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Verifications</p>
+      <p class="text-2xl font-extrabold text-gray-900">{{ pending_verifications }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">pending review</p>
+    </a>
+    <a href="/admin?tab=ai-logs" class="admin-kpi bg-white rounded-xl shadow-sm border border-gray-200 p-5 border-l-4 border-l-purple-500 block">
       <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">AI Matches</p>
       <p class="text-2xl font-extrabold text-gray-900">{{ total_matches }}</p>
       <p class="text-xs text-gray-400 mt-0.5">avg {{ avg_latency_ms }}ms latency</p>
-    </div>
+    </a>
   </div>
 
   <!-- ====== TAB NAVIGATION ====== -->
-  {% set active_tab = request.query_params.get('tab', 'overview') %}
   <div class="flex gap-1 bg-gray-100 rounded-xl p-1 mb-8 overflow-x-auto">
     {% set tabs = [
-      ('overview', 'Overview'),
-      ('users', 'Users (' ~ total_users ~ ')'),
-      ('jobs', 'Jobs (' ~ total_jobs ~ ')'),
-      ('escrows', 'Escrows (' ~ total_escrows ~ ')'),
-      ('disputes', 'Disputes (' ~ all_disputes | length ~ ')'),
-      ('verifications', 'Verifications (' ~ pending_verifications ~ ')'),
-      ('ai-logs', 'AI Logs (' ~ audit_logs | length ~ ')')
+      ('overview', 'Overview', none),
+      ('users', 'Users', total_users),
+      ('jobs', 'Jobs', total_jobs),
+      ('escrows', 'Escrows', total_escrows),
+      ('disputes', 'Disputes', pending_disputes if pending_disputes > 0 else all_disputes | length),
+      ('verifications', 'Verifications', pending_verifications if pending_verifications > 0 else all_verifications | length),
+      ('ai-logs', 'AI Logs', audit_logs | length)
     ] %}
-    {% for tab_id, tab_label in tabs %}
+    {% for tab_id, tab_label, tab_count in tabs %}
     <a href="/admin?tab={{ tab_id }}"
-       class="px-4 py-2 text-sm font-semibold rounded-lg transition whitespace-nowrap {{ 'bg-white text-gray-900 shadow-sm' if active_tab == tab_id else 'text-gray-500 hover:text-gray-700' }}">
-      {{ tab_label }}
+       class="relative px-4 py-2 text-sm font-semibold rounded-lg transition whitespace-nowrap {{ 'bg-white text-gray-900 shadow-sm' if active_tab == tab_id else 'text-gray-500 hover:text-gray-700' }}">
+      {{ tab_label }}{% if tab_count is not none %} ({{ tab_count }}){% endif %}
+      {% if tab_id == 'disputes' and pending_disputes > 0 and active_tab != 'disputes' %}
+      <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
+      {% elif tab_id == 'verifications' and pending_verifications > 0 and active_tab != 'verifications' %}
+      <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full"></span>
+      {% endif %}
     </a>
     {% endfor %}
   </div>
@@ -83,51 +141,88 @@
   <!-- ====== TAB: OVERVIEW ====== -->
   {% if active_tab == 'overview' %}
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Recent Activity -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-      <h3 class="text-sm font-bold text-gray-900 mb-4">Recent Jobs</h3>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-gray-900">Recent Jobs</h3>
+        <a href="/admin?tab=jobs" class="text-xs font-semibold text-blue-600 hover:text-blue-700">View all</a>
+      </div>
       <div class="space-y-3">
         {% for job in all_jobs[:8] %}
-        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <div>
-            <p class="text-sm font-semibold text-gray-800 truncate max-w-[200px]">{{ job.description }}</p>
-            <p class="text-xs text-gray-400">Job #{{ job.id }}</p>
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg gap-3">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-gray-800 truncate">{{ job.description }}</p>
+            <p class="text-xs text-gray-400">Job #{{ job.id }}
+              {% set cust = users_by_id.get(job.customer_id) %}
+              {% if cust %} · {{ cust.full_name }}{% endif %}
+            </p>
           </div>
-          <span class="px-2.5 py-1 text-xs font-bold rounded-full
+          <span class="flex-shrink-0 px-2.5 py-1 text-xs font-bold rounded-full
             {{ 'bg-green-50 text-green-700' if job.status == 'completed' else
+               'bg-cyan-50 text-cyan-700' if job.status == 'in_progress' else
+               'bg-amber-50 text-amber-700' if job.status == 'completed_pending' else
                'bg-blue-50 text-blue-700' if job.status == 'booked' else
-               'bg-amber-50 text-amber-700' if job.status == 'matched' else
+               'bg-indigo-50 text-indigo-700' if job.status == 'matched' else
+               'bg-red-50 text-red-700' if job.status == 'cancelled' else
                'bg-gray-100 text-gray-600' }}">
-            {{ job.status }}
+            {{ job.status | replace('_', ' ') }}
           </span>
         </div>
         {% else %}
-        <p class="text-sm text-gray-400 text-center py-6">No jobs yet.</p>
+        {{ empty_state('No jobs yet', 'Jobs will appear here as customers book pros.', 'briefcase', 'blue', compact=true) }}
         {% endfor %}
       </div>
     </div>
 
-    <!-- Disputes Summary -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-      <h3 class="text-sm font-bold text-gray-900 mb-4">Recent Disputes</h3>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-gray-900">Recent Disputes</h3>
+        <a href="/admin?tab=disputes" class="text-xs font-semibold text-blue-600 hover:text-blue-700">View all</a>
+      </div>
       <div class="space-y-3">
         {% for dispute in all_disputes[:8] %}
-        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <div>
-            <p class="text-sm font-semibold text-gray-800 truncate max-w-[200px]">{{ dispute.reason }}</p>
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg gap-3">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-gray-800 truncate">{{ dispute.reason }}</p>
             <p class="text-xs text-gray-400">Dispute #{{ dispute.id }} · Job #{{ dispute.job_id }}</p>
           </div>
-          <span class="px-2.5 py-1 text-xs font-bold rounded-full
+          <span class="flex-shrink-0 px-2.5 py-1 text-xs font-bold rounded-full
             {{ 'bg-green-50 text-green-700' if dispute.status == 'resolved' else
                'bg-red-50 text-red-700' if dispute.status == 'pending_ai' else
                'bg-amber-50 text-amber-700' }}">
-            {{ dispute.status }}
+            {{ dispute.status | replace('_', ' ') }}
           </span>
         </div>
         {% else %}
-        <p class="text-sm text-gray-400 text-center py-6">No disputes. All clear!</p>
+        {{ empty_state('All clear', 'No disputes on the platform right now.', 'check', 'emerald', compact=true) }}
         {% endfor %}
       </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 lg:col-span-2">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-gray-900">Pending Verifications</h3>
+        <a href="/admin?tab=verifications" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Review queue</a>
+      </div>
+      {% set pending_vrs = all_verifications | selectattr('status', 'equalto', 'pending') | list %}
+      {% if pending_vrs %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {% for vr in pending_vrs[:6] %}
+        <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+          <div class="flex items-center gap-2 mb-1">
+            <p class="text-sm font-semibold text-gray-800 truncate">
+              {{ vr.contractor.full_name if vr.contractor else 'Contractor #' ~ vr.contractor_id }}
+            </p>
+            {% if vr.contractor and subscription_service.is_premium(vr.contractor) %}
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white">Priority</span>
+            {% endif %}
+          </div>
+          <p class="text-xs text-gray-400">Requesting {{ vr.requested_level | replace('_', ' ') | title }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      {{ empty_state('No pending verifications', 'New contractor document requests will show up here.', 'shield', 'emerald', compact=true) }}
+      {% endif %}
     </div>
   </div>
   {% endif %}
@@ -135,12 +230,22 @@
   <!-- ====== TAB: USERS ====== -->
   {% if active_tab == 'users' %}
   <div class="bg-white rounded-2xl overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5">
-    <div class="px-6 py-4 border-b border-gray-100">
+    <div class="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <h2 class="text-base font-bold text-gray-900">All Users</h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex gap-1 bg-gray-100 rounded-lg p-1" data-filter-group="users-role">
+          <button type="button" class="admin-filter-chip active" data-filter="all" data-target="users-role">All</button>
+          <button type="button" class="admin-filter-chip" data-filter="customer" data-target="users-role">Customers</button>
+          <button type="button" class="admin-filter-chip" data-filter="contractor" data-target="users-role">Contractors</button>
+          <button type="button" class="admin-filter-chip" data-filter="admin" data-target="users-role">Admins</button>
+        </div>
+        <input type="search" placeholder="Search name or email…" data-table-search="users-table"
+          class="admin-search text-sm border border-gray-200 rounded-lg px-3 py-1.5 w-full sm:w-52 bg-white" />
+      </div>
     </div>
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-100">
-        <thead class="bg-gray-50">
+    <div class="admin-table-wrap overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-100" id="users-table">
+        <thead class="bg-gray-50 sticky top-0 z-10">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">User</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Role</th>
@@ -154,15 +259,16 @@
         </thead>
         <tbody class="divide-y divide-gray-50">
           {% for user in all_users %}
-          <tr class="hover:bg-gray-50 transition-colors">
+          <tr class="hover:bg-gray-50 transition-colors admin-row" data-role="{{ user.role }}"
+              data-search="{{ (user.full_name ~ ' ' ~ user.email ~ ' ' ~ user.role) | lower }}">
             <td class="px-6 py-4">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
-                  {{ user.full_name[0] | upper }}
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0">
+                  {{ (user.full_name or '?')[0] | upper }}
                 </div>
-                <div>
-                  <p class="text-sm font-semibold text-gray-900">{{ user.full_name }}</p>
-                  <p class="text-xs text-gray-400">{{ user.email }}</p>
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-gray-900 truncate">{{ user.full_name }}</p>
+                  <p class="text-xs text-gray-400 truncate">{{ user.email }}</p>
                 </div>
               </div>
             </td>
@@ -225,22 +331,27 @@
               {% if user.role == 'contractor' %}
                 <div class="flex items-center gap-1">
                   <form method="POST" action="/admin/user/{{ user.id }}/verify" class="inline">
-                  <select name="verification_level" onchange="this.form.submit()" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white cursor-pointer hover:border-blue-300 transition">
+                  <select name="verification_level" onchange="this.form.submit()" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white cursor-pointer hover:border-blue-300 transition" title="Set verification level">
                     {% for level in ['none', 'bronze', 'silver', 'gold', 'verified_pro'] %}
                     <option value="{{ level }}" {{ 'selected' if (user.verification_level or 'none') == level }}>{{ level | replace('_', ' ') | capitalize }}</option>
                     {% endfor %}
                   </select>
                 </form>
                 <form method="POST" action="/admin/user/{{ user.id }}/toggle-availability" class="inline">
-                  <button type="submit" class="text-xs text-gray-400 hover:text-blue-600 transition px-1" title="Toggle availability">{{ icon('refresh','w-4 h-4') }}</button>
+                  <button type="submit" class="text-xs text-gray-400 hover:text-blue-600 transition px-1" title="Cycle availability">{{ icon('refresh','w-4 h-4') }}</button>
                 </form>
               </div>
               {% else %}—{% endif %}
             </td>
           </tr>
+          {% else %}
+          <tr><td colspan="8">{{ empty_state('No users yet', 'Signups will appear in this directory.', 'users', 'blue') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
+      <div id="users-table-empty" class="hidden">
+        {{ empty_state('No matching users', 'Try a different search or role filter.', 'search', 'gray', compact=true) }}
+      </div>
     </div>
   </div>
   {% endif %}
@@ -248,12 +359,14 @@
   <!-- ====== TAB: JOBS ====== -->
   {% if active_tab == 'jobs' %}
   <div class="bg-white rounded-2xl overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5">
-    <div class="px-6 py-4 border-b border-gray-100">
+    <div class="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <h2 class="text-base font-bold text-gray-900">All Jobs</h2>
+      <input type="search" placeholder="Search jobs…" data-table-search="jobs-table"
+        class="admin-search text-sm border border-gray-200 rounded-lg px-3 py-1.5 w-full sm:w-56 bg-white" />
     </div>
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-100">
-        <thead class="bg-gray-50">
+    <div class="admin-table-wrap overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-100" id="jobs-table">
+        <thead class="bg-gray-50 sticky top-0 z-10">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Job</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Customer</th>
@@ -261,35 +374,56 @@
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Location</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Created</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Chat</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
           {% for job in all_jobs %}
-          <tr class="hover:bg-gray-50 transition-colors">
+          {% set cust = users_by_id.get(job.customer_id) %}
+          {% set cont = users_by_id.get(job.assigned_contractor_id) if job.assigned_contractor_id else none %}
+          <tr class="hover:bg-gray-50 transition-colors admin-row"
+              data-search="{{ (job.description ~ ' ' ~ job.status ~ ' ' ~ (cust.full_name if cust else '') ~ ' ' ~ (cont.full_name if cont else '') ~ ' ' ~ job.id) | lower }}">
             <td class="px-6 py-4">
               <p class="text-sm font-semibold text-gray-900">#{{ job.id }}</p>
-              <p class="text-xs text-gray-400 truncate max-w-[200px]">{{ job.description }}</p>
+              <p class="text-xs text-gray-400 truncate max-w-[220px]">{{ job.description }}</p>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-600">User #{{ job.customer_id }}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">{{ 'User #' ~ job.assigned_contractor_id if job.assigned_contractor_id else '—' }}</td>
+            <td class="px-6 py-4 text-sm text-gray-600">
+              {% if cust %}<span class="font-medium text-gray-800">{{ cust.full_name }}</span><br><span class="text-xs text-gray-400">#{{ job.customer_id }}</span>
+              {% else %}User #{{ job.customer_id }}{% endif %}
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-600">
+              {% if cont %}<span class="font-medium text-gray-800">{{ cont.full_name }}</span><br><span class="text-xs text-gray-400">#{{ job.assigned_contractor_id }}</span>
+              {% elif job.assigned_contractor_id %}User #{{ job.assigned_contractor_id }}
+              {% else %}—{% endif %}
+            </td>
             <td class="px-6 py-4 text-sm text-gray-600">{{ format_location(job) }}</td>
             <td class="px-6 py-4">
               <span class="px-2.5 py-1 text-xs font-bold rounded-full
                 {{ 'bg-green-50 text-green-700' if job.status == 'completed' else
+                   'bg-cyan-50 text-cyan-700' if job.status == 'in_progress' else
+                   'bg-amber-50 text-amber-700' if job.status == 'completed_pending' else
                    'bg-blue-50 text-blue-700' if job.status == 'booked' else
-                   'bg-amber-50 text-amber-700' if job.status == 'matched' else
+                   'bg-indigo-50 text-indigo-700' if job.status == 'matched' else
                    'bg-red-50 text-red-700' if job.status == 'cancelled' else
                    'bg-gray-100 text-gray-600' }}">
-                {{ job.status }}
+                {{ job.status | replace('_', ' ') }}
               </span>
             </td>
-            <td class="px-6 py-4 text-xs text-gray-400">{{ job.created_at.strftime('%b %d, %H:%M') }}</td>
+            <td class="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">{{ job.created_at.strftime('%b %d, %H:%M') if job.created_at else '—' }}</td>
+            <td class="px-6 py-4">
+              {% if job.assigned_contractor_id %}
+              <a href="/chat/{{ job.id }}" class="text-xs font-semibold text-blue-600 hover:text-blue-800">Open</a>
+              {% else %}—{% endif %}
+            </td>
           </tr>
           {% else %}
-          <tr><td colspan="6" class="px-6 py-12 text-center text-gray-400 text-sm">No jobs yet.</td></tr>
+          <tr><td colspan="7">{{ empty_state('No jobs yet', 'Bookings will appear in this table.', 'briefcase', 'blue') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
+      <div id="jobs-table-empty" class="hidden">
+        {{ empty_state('No matching jobs', 'Try a different search term.', 'search', 'gray', compact=true) }}
+      </div>
     </div>
   </div>
   {% endif %}
@@ -297,12 +431,22 @@
   <!-- ====== TAB: ESCROWS ====== -->
   {% if active_tab == 'escrows' %}
   <div class="bg-white rounded-2xl overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5">
-    <div class="px-6 py-4 border-b border-gray-100">
+    <div class="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <h2 class="text-base font-bold text-gray-900">All Escrows</h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex gap-1 bg-gray-100 rounded-lg p-1" data-filter-group="escrows-status">
+          <button type="button" class="admin-filter-chip active" data-filter="all" data-target="escrows-status">All</button>
+          <button type="button" class="admin-filter-chip" data-filter="held" data-target="escrows-status">Held</button>
+          <button type="button" class="admin-filter-chip" data-filter="disputed" data-target="escrows-status">Disputed</button>
+          <button type="button" class="admin-filter-chip" data-filter="released" data-target="escrows-status">Released</button>
+        </div>
+        <input type="search" placeholder="Search escrows…" data-table-search="escrows-table"
+          class="admin-search text-sm border border-gray-200 rounded-lg px-3 py-1.5 w-full sm:w-44 bg-white" />
+      </div>
     </div>
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-100">
-        <thead class="bg-gray-50">
+    <div class="admin-table-wrap overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-100" id="escrows-table">
+        <thead class="bg-gray-50 sticky top-0 z-10">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Escrow</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Job</th>
@@ -315,9 +459,12 @@
         </thead>
         <tbody class="divide-y divide-gray-50">
           {% for escrow in all_escrows %}
-          <tr class="hover:bg-gray-50 transition-colors">
+          <tr class="hover:bg-gray-50 transition-colors admin-row" data-status="{{ escrow.status }}"
+              data-search="{{ (escrow.id ~ ' ' ~ escrow.job_id ~ ' ' ~ escrow.status) | lower }}">
             <td class="px-6 py-4 text-sm font-semibold text-gray-900">#{{ escrow.id }}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">#{{ escrow.job_id }}</td>
+            <td class="px-6 py-4 text-sm text-gray-600">
+              <a href="/chat/{{ escrow.job_id }}" class="text-blue-600 hover:underline font-medium">#{{ escrow.job_id }}</a>
+            </td>
             <td class="px-6 py-4 text-sm font-semibold text-gray-900">${{ '%.2f' | format(escrow.total_amount | float) }}</td>
             <td class="px-6 py-4 text-sm text-gray-500">${{ '%.2f' | format(escrow.platform_fee | float) }}</td>
             <td class="px-6 py-4 text-sm text-green-600 font-semibold">${{ '%.2f' | format(escrow.contractor_payout | float) }}</td>
@@ -329,16 +476,18 @@
                    'bg-red-50 text-red-700' if escrow.status == 'disputed' else
                    'bg-purple-50 text-purple-700' if escrow.status == 'penalty_split' else
                    'bg-gray-100 text-gray-600' }}">
-                {{ escrow.status }}
+                {{ escrow.status | replace('_', ' ') }}
               </span>
             </td>
             <td class="px-6 py-4">
               {% if escrow.status == 'held' %}
               <div class="flex items-center gap-1">
-                <form method="POST" action="/admin/escrow/{{ escrow.id }}/release" class="inline">
+                <form method="POST" action="/admin/escrow/{{ escrow.id }}/release" class="inline"
+                      onsubmit="return confirm('Release ${{ '%.2f' | format(escrow.contractor_payout | float) }} to the contractor for job #{{ escrow.job_id }}?');">
                   <button type="submit" class="text-xs font-semibold text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-2 py-1 rounded-lg transition">Release</button>
                 </form>
-                <form method="POST" action="/admin/escrow/{{ escrow.id }}/refund" class="inline">
+                <form method="POST" action="/admin/escrow/{{ escrow.id }}/refund" class="inline"
+                      onsubmit="return confirm('Refund ${{ '%.2f' | format(escrow.total_amount | float) }} to the customer for job #{{ escrow.job_id }}? This cannot be undone.');">
                   <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg transition">Refund</button>
                 </form>
               </div>
@@ -346,10 +495,13 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="7" class="px-6 py-12 text-center text-gray-400 text-sm">No escrows yet.</td></tr>
+          <tr><td colspan="7">{{ empty_state('No escrows yet', 'Funded jobs create escrow records here.', 'wallet', 'emerald') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
+      <div id="escrows-table-empty" class="hidden">
+        {{ empty_state('No matching escrows', 'Try a different filter or search.', 'search', 'gray', compact=true) }}
+      </div>
     </div>
   </div>
   {% endif %}
@@ -358,21 +510,25 @@
   {% if active_tab == 'disputes' %}
   <div class="space-y-4">
     {% for dispute in all_disputes %}
+    {% set raiser = users_by_id.get(dispute.raised_by) %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-      <div class="flex items-start justify-between mb-4">
-        <div>
-          <div class="flex items-center gap-2 mb-1">
+      <div class="flex items-start justify-between mb-4 gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
             <h3 class="text-sm font-bold text-gray-900">Dispute #{{ dispute.id }}</h3>
              <span class="px-2 py-0.5 text-xs font-bold rounded-full
               {{ 'bg-green-50 text-green-700' if dispute.status == 'resolved' else
                  'bg-red-50 text-red-700' if dispute.status == 'pending_ai' else
                  'bg-amber-50 text-amber-700' }}">
-              {{ dispute.status }}
+              {{ dispute.status | replace('_', ' ') }}
             </span>
           </div>
-          <p class="text-xs text-gray-400">Job #{{ dispute.job_id }} · Raised by User #{{ dispute.raised_by }}</p>
+          <p class="text-xs text-gray-400">
+            Job <a href="/chat/{{ dispute.job_id }}" class="text-blue-600 hover:underline font-medium">#{{ dispute.job_id }}</a>
+            · Raised by {% if raiser %}<span class="text-gray-600">{{ raiser.full_name }}</span>{% else %}User #{{ dispute.raised_by }}{% endif %}
+          </p>
         </div>
-        <p class="text-xs text-gray-400">{{ dispute.created_at.strftime('%b %d, %Y %H:%M') if dispute.created_at else '' }}</p>
+        <p class="text-xs text-gray-400 flex-shrink-0">{{ dispute.created_at.strftime('%b %d, %Y %H:%M') if dispute.created_at else '' }}</p>
       </div>
       <div class="bg-gray-50 rounded-xl p-4 mb-4">
         <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Reason</p>
@@ -400,13 +556,14 @@
       </div>
       {% endif %}
       {% if dispute.status != 'resolved' %}
-      <form method="POST" action="/admin/dispute/{{ dispute.id }}/resolve" class="flex items-end gap-3 mt-4 pt-4 border-t border-gray-100">
+      <form method="POST" action="/admin/dispute/{{ dispute.id }}/resolve" class="flex flex-col sm:flex-row sm:items-end gap-3 mt-4 pt-4 border-t border-gray-100"
+            onsubmit="return confirm('Resolve this dispute with the selected refund percentage?');">
         <div class="flex-1">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Resolution Notes</label>
           <input type="text" name="resolution" required placeholder="Describe the resolution..."
             class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
-        <div class="w-32">
+        <div class="w-full sm:w-32">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Refund %</label>
           <input type="number" name="refund_pct" min="0" max="100"
             value="{{ dispute.ai_recommended_refund_pct if dispute.ai_recommended_refund_pct is not none else 50 }}" required
@@ -419,8 +576,8 @@
       {% endif %}
     </div>
     {% else %}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-      <p class="text-gray-400 text-sm">No disputes yet. All clear!</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200">
+      {{ empty_state('No disputes yet', 'When a party opens a dispute, it will land here with the AI recommendation.', 'check', 'emerald') }}
     </div>
     {% endfor %}
   </div>
@@ -428,12 +585,19 @@
 
   <!-- ====== TAB: VERIFICATIONS ====== -->
   {% if active_tab == 'verifications' %}
-  <div class="space-y-4">
+  <div class="mb-4 flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1 w-fit" data-filter-group="vr-status">
+    <button type="button" class="admin-filter-chip active" data-filter="all" data-target="vr-status">All</button>
+    <button type="button" class="admin-filter-chip" data-filter="pending" data-target="vr-status">Pending ({{ pending_verifications }})</button>
+    <button type="button" class="admin-filter-chip" data-filter="approved" data-target="vr-status">Approved</button>
+    <button type="button" class="admin-filter-chip" data-filter="rejected" data-target="vr-status">Rejected</button>
+  </div>
+  <div class="space-y-4" id="verifications-list">
     {% for vr in all_verifications %}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-      <div class="flex items-start justify-between mb-4">
-        <div>
-          <div class="flex items-center gap-2 mb-1">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 admin-row" data-status="{{ vr.status }}"
+         data-search="{{ ((vr.contractor.full_name if vr.contractor else '') ~ ' ' ~ vr.requested_level ~ ' ' ~ vr.status) | lower }}">
+      <div class="flex items-start justify-between mb-4 gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
              <h3 class="text-sm font-bold text-gray-900">
                {{ vr.contractor.full_name if vr.contractor else 'Contractor #' ~ vr.contractor_id }}
              </h3>
@@ -447,26 +611,26 @@
               {{ vr.status }}
             </span>
             <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-50 text-blue-700">
-              Requesting: {{ vr.requested_level }}
+              Requesting: {{ vr.requested_level | replace('_', ' ') }}
             </span>
           </div>
           <p class="text-xs text-gray-400">Request #{{ vr.id }} · Contractor #{{ vr.contractor_id }}{% if vr.contractor %} · {{ vr.contractor.email }}{% endif %}</p>
         </div>
-        <p class="text-xs text-gray-400">{{ vr.created_at.strftime('%b %d, %Y %H:%M') if vr.created_at else '' }}</p>
+        <p class="text-xs text-gray-400 flex-shrink-0">{{ vr.created_at.strftime('%b %d, %Y %H:%M') if vr.created_at else '' }}</p>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <div class="bg-gray-50 rounded-xl p-3">
           <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">ID Document</p>
-          {% if vr.id_document_url %}<a href="{{ vr.id_document_url }}" target="_blank" class="text-sm text-blue-600 hover:underline break-all">View</a>{% else %}<p class="text-sm text-gray-400">Not provided</p>{% endif %}
+          {% if vr.id_document_url %}<a href="{{ vr.id_document_url }}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline break-all">View document</a>{% else %}<p class="text-sm text-gray-400">Not provided</p>{% endif %}
         </div>
         <div class="bg-gray-50 rounded-xl p-3">
           <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Trade License</p>
-          {% if vr.license_document_url %}<a href="{{ vr.license_document_url }}" target="_blank" class="text-sm text-blue-600 hover:underline break-all">View</a>{% else %}<p class="text-sm text-gray-400">Not provided</p>{% endif %}
+          {% if vr.license_document_url %}<a href="{{ vr.license_document_url }}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline break-all">View document</a>{% else %}<p class="text-sm text-gray-400">Not provided</p>{% endif %}
         </div>
         <div class="bg-gray-50 rounded-xl p-3">
           <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Insurance</p>
-          {% if vr.insurance_document_url %}<a href="{{ vr.insurance_document_url }}" target="_blank" class="text-sm text-blue-600 hover:underline break-all">View</a>{% else %}<p class="text-sm text-gray-400">Not provided</p>{% endif %}
+          {% if vr.insurance_document_url %}<a href="{{ vr.insurance_document_url }}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline break-all">View document</a>{% else %}<p class="text-sm text-gray-400">Not provided</p>{% endif %}
         </div>
       </div>
 
@@ -486,12 +650,14 @@
 
       {% if vr.status == 'pending' %}
       <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 mt-4 pt-4 border-t border-gray-100">
-        <form method="POST" action="/admin/verification/{{ vr.id }}/approve" class="inline">
+        <form method="POST" action="/admin/verification/{{ vr.id }}/approve" class="inline"
+              onsubmit="return confirm('Approve this contractor at {{ vr.requested_level | replace('_', ' ') }}?');">
           <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition shadow-sm">
-            Approve → {{ vr.requested_level }}
+            Approve → {{ vr.requested_level | replace('_', ' ') }}
           </button>
         </form>
-        <form method="POST" action="/admin/verification/{{ vr.id }}/reject" class="flex items-end gap-2 flex-1">
+        <form method="POST" action="/admin/verification/{{ vr.id }}/reject" class="flex items-end gap-2 flex-1"
+              onsubmit="return confirm('Reject this verification request?');">
           <div class="flex-1">
             <label class="block text-xs font-semibold text-gray-600 mb-1">Rejection Reason (optional)</label>
             <input type="text" name="review_notes" placeholder="Why is this being rejected?"
@@ -505,23 +671,30 @@
       {% endif %}
     </div>
     {% else %}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-      <p class="text-gray-400 text-sm">No verification requests yet.</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200">
+      {{ empty_state('No verification requests yet', 'Contractors submit ID, license, and insurance docs from their dashboard.', 'shield', 'blue') }}
     </div>
     {% endfor %}
+    <div id="vr-filter-empty" class="hidden bg-white rounded-2xl shadow-sm border border-gray-200">
+      {{ empty_state('No requests in this filter', 'Switch filter chips to see other statuses.', 'search', 'gray', compact=true) }}
+    </div>
   </div>
   {% endif %}
 
   <!-- ====== TAB: AI LOGS ====== -->
   {% if active_tab == 'ai-logs' %}
   <div class="bg-white rounded-2xl overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5">
-    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-      <h2 class="text-base font-bold text-gray-900">AI Audit Log</h2>
-      <span class="text-xs text-gray-400">{{ audit_logs | length }} records</span>
+    <div class="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <h2 class="text-base font-bold text-gray-900">AI Audit Log</h2>
+        <span class="text-xs text-gray-400">{{ audit_logs | length }} records · {{ total_reroutes }} reroutes · {{ total_omnichannel_replies }} omnichannel</span>
+      </div>
+      <input type="search" placeholder="Filter by action…" data-table-search="ai-logs-table"
+        class="admin-search text-sm border border-gray-200 rounded-lg px-3 py-1.5 w-full sm:w-48 bg-white" />
     </div>
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-100">
-        <thead class="bg-gray-50">
+    <div class="admin-table-wrap overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-100" id="ai-logs-table">
+        <thead class="bg-gray-50 sticky top-0 z-10">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Timestamp</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Action</th>
@@ -533,8 +706,9 @@
         </thead>
         <tbody class="divide-y divide-gray-50">
           {% for log in audit_logs %}
-          <tr class="hover:bg-gray-50 transition-colors group">
-            <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-600 font-mono">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+          <tr class="hover:bg-gray-50 transition-colors group admin-row"
+              data-search="{{ (log.action_type ~ ' ' ~ log.status) | lower }}">
+            <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-600 font-mono">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else '—' }}</td>
             <td class="px-6 py-3 whitespace-nowrap">
               <span class="px-2.5 py-1 text-xs font-bold rounded-lg
                 {{ 'bg-blue-50 text-blue-700' if log.action_type == 'triage_and_match' else
@@ -558,7 +732,7 @@
             </td>
             <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500 font-mono">{{ log.prompt_tokens or '—' }} / {{ log.completion_tokens or '—' }}</td>
             <td class="px-6 py-3 whitespace-nowrap">
-              <button onclick="const r=document.getElementById('inspector-{{ log.id }}');r.classList.toggle('hidden')"
+              <button type="button" onclick="const r=document.getElementById('inspector-{{ log.id }}');r.classList.toggle('hidden')"
                 class="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition">Inspect</button>
             </td>
           </tr>
@@ -577,13 +751,113 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="6" class="px-6 py-12 text-center text-gray-400 text-sm">No audit log entries yet.</td></tr>
+          <tr><td colspan="6">{{ empty_state('No audit log entries yet', 'AI triage, reroutes, and omnichannel replies are logged here.', 'sparkles', 'purple') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
+      <div id="ai-logs-table-empty" class="hidden">
+        {{ empty_state('No matching logs', 'Try a different action filter.', 'search', 'gray', compact=true) }}
+      </div>
     </div>
   </div>
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  // Role / status chip filters
+  document.querySelectorAll('[data-filter-group]').forEach(function (group) {
+    const groupName = group.getAttribute('data-filter-group');
+    group.querySelectorAll('[data-filter]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        group.querySelectorAll('[data-filter]').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        applyFilters();
+      });
+    });
+  });
+
+  function activeFilter(groupName) {
+    const group = document.querySelector('[data-filter-group="' + groupName + '"]');
+    if (!group) return 'all';
+    const active = group.querySelector('.admin-filter-chip.active');
+    return active ? active.getAttribute('data-filter') : 'all';
+  }
+
+  function applyFilters() {
+    // Users
+    filterTable('users-table', {
+      role: activeFilter('users-role'),
+      roleAttr: 'data-role',
+    });
+    // Escrows
+    filterTable('escrows-table', {
+      role: activeFilter('escrows-status'),
+      roleAttr: 'data-status',
+    });
+    // Verifications (cards, not table)
+    filterCards('verifications-list', {
+      status: activeFilter('vr-status'),
+      emptyId: 'vr-filter-empty',
+    });
+    // Search-only tables
+    filterTable('jobs-table', {});
+    filterTable('ai-logs-table', {});
+  }
+
+  function filterTable(tableId, opts) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    const searchInput = document.querySelector('[data-table-search="' + tableId + '"]');
+    const q = (searchInput && searchInput.value || '').trim().toLowerCase();
+    const roleFilter = opts.role || 'all';
+    const roleAttr = opts.roleAttr || 'data-role';
+    let visible = 0;
+    table.querySelectorAll('tbody tr.admin-row').forEach(function (row) {
+      // skip inspector rows (no admin-row)
+      const roleOk = roleFilter === 'all' || row.getAttribute(roleAttr) === roleFilter;
+      const hay = row.getAttribute('data-search') || row.textContent.toLowerCase();
+      const searchOk = !q || hay.indexOf(q) !== -1;
+      const show = roleOk && searchOk;
+      row.style.display = show ? '' : 'none';
+      // Hide following inspector row if present
+      const next = row.nextElementSibling;
+      if (next && next.id && next.id.indexOf('inspector-') === 0) {
+        if (!show) next.classList.add('hidden');
+      }
+      if (show) visible++;
+    });
+    const empty = document.getElementById(tableId + '-empty');
+    if (empty) empty.classList.toggle('hidden', visible > 0 || !q && roleFilter === 'all');
+    // If table has real data rows but all filtered out, show empty
+    if (empty && table.querySelectorAll('tbody tr.admin-row').length > 0) {
+      empty.classList.toggle('hidden', visible > 0);
+    }
+  }
+
+  function filterCards(listId, opts) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    const status = opts.status || 'all';
+    let visible = 0;
+    list.querySelectorAll('.admin-row').forEach(function (card) {
+      const ok = status === 'all' || card.getAttribute('data-status') === status;
+      card.style.display = ok ? '' : 'none';
+      if (ok) visible++;
+    });
+    const empty = document.getElementById(opts.emptyId);
+    if (empty) {
+      const hasAny = list.querySelectorAll('.admin-row').length > 0;
+      empty.classList.toggle('hidden', visible > 0 || !hasAny);
+    }
+  }
+
+  document.querySelectorAll('[data-table-search]').forEach(function (input) {
+    input.addEventListener('input', applyFilters);
+  });
+})();
+</script>
 {% endblock %}

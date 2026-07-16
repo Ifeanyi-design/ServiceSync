@@ -7,12 +7,12 @@
 <div class="max-w-5xl mx-auto py-8 px-4 sm:px-6">
 
   <!-- Flash messages -->
+  {# Custom plan toasts; mark cancelled so base.html job-cancel toast does not double-fire #}
+  <div data-custom-toast-cancelled class="hidden" aria-hidden="true"></div>
   {% if request.query_params.get('upgraded') %}
   <script>document.addEventListener('DOMContentLoaded',()=>showToast("You're now on Premium. Enjoy lower commission and boosted ranking!",'success'));</script>
   {% elif request.query_params.get('cancelled') %}
   <script>document.addEventListener('DOMContentLoaded',()=>showToast('Your subscription was cancelled. You are back on the Free plan.','info'));</script>
-  {% elif request.query_params.get('error') %}
-  <script>document.addEventListener('DOMContentLoaded',()=>showToast('{{ request.query_params.get("error") }}','error'));</script>
   {% endif %}
 
   <!-- Page Header -->

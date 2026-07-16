@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_ui.html" import empty_state %}
 
 {% block title %}Analytics — ServiceSync{% endblock %}
 {% block meta_description %}Premium advanced analytics: earnings, completion rate, reputation breakdown, and dispute rate.{% endblock %}
@@ -18,14 +19,15 @@
   </div>
 
   {% if not is_premium %}
-  <!-- Upsell for free tier -->
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
-    <div class="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
-      <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-    </div>
-    <h2 class="text-lg font-bold text-gray-800 mb-1">Analytics is a Premium feature</h2>
-    <p class="text-gray-500 text-sm max-w-md mx-auto mb-5">Upgrade to see earnings trends, completion and on-time rates, reputation breakdown, and dispute analytics.</p>
-    <a href="/billing" class="inline-block px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-white font-bold text-sm hover:from-amber-500 hover:to-yellow-600 transition shadow-md">Upgrade to Premium</a>
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
+    {{ empty_state(
+      'Analytics is a Premium feature',
+      'Upgrade to see earnings trends, completion and on-time rates, reputation breakdown, and dispute analytics.',
+      'chart', 'amber',
+      cta_href='/billing',
+      cta_label='Upgrade to Premium',
+      cta_primary=true
+    ) }}
   </div>
   {% else %}
 

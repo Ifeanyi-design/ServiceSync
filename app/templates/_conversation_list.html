@@ -2,6 +2,7 @@
    Expects: conversations, active_conversation_id (optional), current_user
    Optional: inbox_filter ("active" | "archived")
 #}
+{% from "_ui.html" import empty_state %}
 {% set inbox_filter = inbox_filter if inbox_filter is defined else 'active' %}
 <div class="flex flex-col h-full min-h-0">
   <div class="flex-shrink-0 px-4 pt-4 pb-3 border-b border-gray-100 dark:border-slate-700">
@@ -106,28 +107,13 @@
       {% endfor %}
       <div id="no-results" class="hidden text-center py-8 text-gray-400 text-sm">No matches.</div>
     {% else %}
-      <div class="px-6 py-12 text-center">
-        <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-blue-50 dark:bg-slate-800 flex items-center justify-center">
-          <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-        </div>
-        <p class="text-sm font-bold text-gray-700 dark:text-slate-200 mb-1">
-          {% if inbox_filter == 'archived' %}No archived chats{% else %}No conversations yet{% endif %}
-        </p>
-        <p class="text-xs text-gray-400 mb-4 leading-relaxed">
-          {% if inbox_filter == 'archived' %}
-          Archive a conversation from the chat menu (⋯) to hide it here.
-          {% elif current_user.role == 'customer' %}
-          Book a pro to start chatting.
-          {% else %}
-          Jobs will appear here when assigned.
-          {% endif %}
-        </p>
-        {% if inbox_filter == 'archived' %}
-        <a href="/messages" class="inline-flex text-xs font-bold text-blue-600 hover:text-blue-700">← Active inbox</a>
-        {% elif current_user.role == 'customer' %}
-        <a href="/search" class="inline-flex text-xs font-bold text-blue-600 hover:text-blue-700">Find a Pro →</a>
-        {% endif %}
-      </div>
+      {% if inbox_filter == 'archived' %}
+      {{ empty_state('No archived chats', 'Archive a conversation from the chat menu (⋯) to hide it here.', 'chat', 'gray', cta_href='/messages', cta_label='Active inbox', compact=true) }}
+      {% elif current_user.role == 'customer' %}
+      {{ empty_state('No conversations yet', 'Book a pro to start chatting.', 'chat', 'blue', cta_href='/search', cta_label='Find a Pro', compact=true) }}
+      {% else %}
+      {{ empty_state('No conversations yet', 'Jobs will appear here when assigned.', 'chat', 'blue', compact=true) }}
+      {% endif %}
     {% endif %}
   </div>
 </div>

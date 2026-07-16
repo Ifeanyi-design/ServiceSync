@@ -138,13 +138,9 @@
     {% endfor %}
   </div>
   {% else %}
-  <!-- Empty State -->
-  <div class="flex flex-col items-center justify-center py-20 text-center bg-white rounded-2xl border border-dashed border-gray-200">
-    <div class="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
-      <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-    </div>
-    <h3 class="text-lg font-bold text-gray-700 mb-1">No contractors found</h3>
-    <p class="text-gray-400 text-sm max-w-xs">Try adjusting your search filters or check back later.</p>
+  {% from "_ui.html" import empty_state %}
+  <div class="bg-white rounded-2xl border border-dashed border-gray-200">
+    {{ empty_state('No contractors found', 'Try adjusting your search filters, or describe the job in AI search for ranked matches.', 'users', 'blue', cta_href='/search', cta_label='Find a Pro with AI') }}
   </div>
   {% endif %}
 

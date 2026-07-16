@@ -811,13 +811,16 @@ async def admin_dashboard(request: Request, current_user: User = Depends(get_cur
 
     jobs_result = await db.exec(select(Job))
     all_jobs = list(jobs_result.all())
+    all_jobs.sort(key=lambda j: j.created_at or datetime.min, reverse=True)
     total_jobs = len(all_jobs)
     open_jobs = len([j for j in all_jobs if j.status == "open"])
     booked_jobs = len([j for j in all_jobs if j.status == "booked"])
     completed_jobs = len([j for j in all_jobs if j.status == "completed"])
+    in_progress_jobs = len([j for j in all_jobs if j.status == "in_progress"])
 
     escrows_result = await db.exec(select(Escrow))
     all_escrows = list(escrows_result.all())
+    all_escrows.sort(key=lambda e: e.id or 0, reverse=True)
     total_escrows = len(all_escrows)
     held_escrows = len([e for e in all_escrows if e.status == "held"])
     released_escrows = len([e for e in all_escrows if e.status == "released"])
@@ -829,6 +832,7 @@ async def admin_dashboard(request: Request, current_user: User = Depends(get_cur
 
     # Verification requests (with contractor loaded). Premium contractors get
     # priority review — sorted premium-first, then newest-first within each group.
+    # Pending requests sort above resolved ones for ops speed.
     vr_result = await db.exec(
         select(VerificationRequest)
         .options(selectinload(VerificationRequest.contractor))
@@ -836,11 +840,20 @@ async def admin_dashboard(request: Request, current_user: User = Depends(get_cur
     all_verifications = list(vr_result.all())
     all_verifications.sort(
         key=lambda v: (
+            0 if v.status == "pending" else 1,
             0 if (v.contractor and subscription_service.is_premium(v.contractor)) else 1,
             -(v.created_at.timestamp() if v.created_at else 0),
         )
     )
     pending_verifications = len([v for v in all_verifications if v.status == "pending"])
+
+    users_by_id = {u.id: u for u in all_users}
+    # Stable display order: admins → contractors → customers, then name
+    role_rank = {"admin": 0, "contractor": 1, "customer": 2}
+    all_users_sorted = sorted(
+        all_users,
+        key=lambda u: (role_rank.get(u.role, 9), (u.full_name or "").lower()),
+    )
 
     return templates.TemplateResponse(request=request, name="admin_dashboard.html", context={
         "request": request,
@@ -850,7 +863,8 @@ async def admin_dashboard(request: Request, current_user: User = Depends(get_cur
         "total_reroutes": total_reroutes,
         "total_omnichannel_replies": total_omnichannel_replies,
         "avg_latency_ms": avg_latency_ms,
-        "all_users": all_users,
+        "all_users": all_users_sorted,
+        "users_by_id": users_by_id,
         "total_users": total_users,
         "total_customers": total_customers,
         "total_contractors": total_contractors,
@@ -862,6 +876,7 @@ async def admin_dashboard(request: Request, current_user: User = Depends(get_cur
         "open_jobs": open_jobs,
         "booked_jobs": booked_jobs,
         "completed_jobs": completed_jobs,
+        "in_progress_jobs": in_progress_jobs,
         "all_escrows": all_escrows,
         "total_escrows": total_escrows,
         "held_escrows": held_escrows,
@@ -890,7 +905,10 @@ async def admin_verify_user(
     user.verification_level = verification_level
     db.add(user)
     await db.commit()
-    return RedirectResponse(url="/admin?tab=users", status_code=302)
+    return RedirectResponse(
+        url="/admin?tab=users&success=Verification+level+updated",
+        status_code=302,
+    )
 
 
 @router.post("/admin/verification/{req_id}/approve")
@@ -905,7 +923,7 @@ async def admin_approve_verification(
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
     if req.status != "pending":
-        return RedirectResponse(url="/admin?tab=verifications", status_code=302)
+        return RedirectResponse(url="/admin?tab=verifications&info=Already+reviewed", status_code=302)
 
     from datetime import datetime as _dt
     req.status = "approved"
@@ -918,7 +936,10 @@ async def admin_approve_verification(
         db.add(contractor)
     db.add(req)
     await db.commit()
-    return RedirectResponse(url="/admin?tab=verifications", status_code=302)
+    return RedirectResponse(
+        url="/admin?tab=verifications&success=Verification+approved",
+        status_code=302,
+    )
 
 
 @router.post("/admin/verification/{req_id}/reject")
@@ -934,7 +955,7 @@ async def admin_reject_verification(
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
     if req.status != "pending":
-        return RedirectResponse(url="/admin?tab=verifications", status_code=302)
+        return RedirectResponse(url="/admin?tab=verifications&info=Already+reviewed", status_code=302)
 
     from datetime import datetime as _dt
     req.status = "rejected"
@@ -943,7 +964,10 @@ async def admin_reject_verification(
     req.reviewed_at = _dt.utcnow()
     db.add(req)
     await db.commit()
-    return RedirectResponse(url="/admin?tab=verifications", status_code=302)
+    return RedirectResponse(
+        url="/admin?tab=verifications&success=Verification+rejected",
+        status_code=302,
+    )
 
 
 @router.post("/admin/user/{user_id}/toggle-availability")
@@ -961,7 +985,10 @@ async def admin_toggle_availability(
     user.availability_status = cycle.get(user.availability_status, "available")
     db.add(user)
     await db.commit()
-    return RedirectResponse(url="/admin?tab=users", status_code=302)
+    return RedirectResponse(
+        url=f"/admin?tab=users&success=Availability+set+to+{user.availability_status}",
+        status_code=302,
+    )
 
 
 @router.post("/admin/dispute/{dispute_id}/resolve")
@@ -978,12 +1005,15 @@ async def admin_resolve_dispute(
     if not dispute:
         raise HTTPException(status_code=404, detail="Dispute not found")
     if dispute.status == "resolved":
-        return RedirectResponse(url="/admin?tab=disputes", status_code=302)
+        return RedirectResponse(url="/admin?tab=disputes&info=Already+resolved", status_code=302)
 
     from app.services.escrow_service import resolve_dispute as resolve_escrow_dispute
     dispute = await resolve_escrow_dispute(db, dispute, resolution, refund_pct, current_user.id)
     await db.commit()
-    return RedirectResponse(url="/admin?tab=disputes", status_code=302)
+    return RedirectResponse(
+        url="/admin?tab=disputes&success=Dispute+resolved",
+        status_code=302,
+    )
 
 
 @router.post("/admin/escrow/{escrow_id}/release")
@@ -1010,9 +1040,15 @@ async def admin_release_escrow(
         except Exception:
             pass
         await db.commit()
-    except ValueError:
-        pass
-    return RedirectResponse(url="/admin?tab=escrows", status_code=302)
+        return RedirectResponse(
+            url="/admin?tab=escrows&success=Escrow+released+to+contractor",
+            status_code=302,
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/admin?tab=escrows&error={str(e)[:120]}",
+            status_code=302,
+        )
 
 
 @router.post("/admin/escrow/{escrow_id}/refund")
@@ -1031,8 +1067,11 @@ async def admin_refund_escrow(
         escrow = await refund_escrow(db, escrow, reason="admin_refund")
         await db.commit()
     except ValueError as e:
-        return RedirectResponse(url=f"/admin?tab=escrows&error={str(e)}", status_code=302)
-    return RedirectResponse(url="/admin?tab=escrows", status_code=302)
+        return RedirectResponse(url=f"/admin?tab=escrows&error={str(e)[:120]}", status_code=302)
+    return RedirectResponse(
+        url="/admin?tab=escrows&success=Escrow+refunded+to+customer",
+        status_code=302,
+    )
 
 
 @router.post("/jobs/{job_id}/start")

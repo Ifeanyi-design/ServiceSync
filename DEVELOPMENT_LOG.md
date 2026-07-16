@@ -19,7 +19,7 @@
 | **3** | Chat depth (attachments DB, presence, receipts) | **Done** | Filename in DB, true presence, real receipts, typing WS, jump/date/nav badge. |
 | **4** | Trust & marketing polish | **Done** | Trade icons, honest trust bar, FAQ accordion, quieter gradients, no dead social #. |
 | **5** | Product UX extras | **Done** | Search, job card, safety tools, lightbox polish, dark mode, review prompt, archive/mute, shared icons. |
-| **6** | Money flow + discovery + night mode | **Done (6.1–6.9)** | Pay → escrow → dispute → wallet; home/search/AI chat polish; dark surfaces. |
+| **6** | Money flow + discovery + night mode | **Done (6.1–6.11 + 6c)** | Pay → escrow → dispute → wallet; home/search/AI chat; dark surfaces; admin ops; final QoL/empty/loading pass (6c). |
 
 ### First thing in a new session
 
@@ -30,7 +30,8 @@
    ```
    Includes `o9p0q1r2s3t4` (archive/mute columns + `userblock` / `userreport` tables), plus earlier `last_read` / `attachment_name`.
 3. Smoke-check Phase 6 money path: `/jobs/{id}/pay` → fund → dashboard timeline → confirm/release or dispute → `/wallet` withdraw; dark toggle on pay/wallet/search/home.
-4. Next open work: **6.10 Admin UI**, **6.11 QoL**, BizLive (deferred).
+4. Admin: `/admin` tabs (users/jobs/escrows/disputes/verifications/AI), action toasts, release/refund confirms.
+5. Next open work: **BizLive** (Phase 8, deferred). Phase 6 fully closed (6a money/discovery, 6b admin/QoL, 6c standard-of-living polish).
 
 ### Key files (UI/chat)
 
@@ -169,8 +170,9 @@ See session entry **2026-07-16 (5)** below.
 | **6.7** | B Discovery | **Contractor search** — AI triage widget + result cards, empty states, ranking badges | **Done** |
 | **6.8** | B Discovery | **AI chat UI** — draft approve/dismiss polish; search triage feel | **Done** |
 | **6.9** | C Theme | **Night mode** — global surface remaps + money/discovery pages readable in `html.dark` | **Done** |
-| **6.10** | C Ops | **Admin UI** polish | Pending |
-| **6.11** | C QoL | Cross-app empty states / toasts consistency | Pending |
+| **6.10** | C Ops | **Admin UI** polish | **Done** |
+| **6.11** | C QoL | Cross-app empty states / toasts consistency | **Done** |
+| **6c** | C Final | **Standard of living** — remaining empties, loading buttons, residual dark surfaces | **Done** |
 
 **Key files (Phase 6):**
 
@@ -195,11 +197,99 @@ See session entry **2026-07-16 (5)** below.
 
 ### How to continue (prompt templates for next session)
 
-- *“Continue ServiceSync Phase 6 — finish remaining 6.x items / smoke-check money flow.”*
-- *“Phase 6.10 admin UI polish.”*
+- *“Smoke-check ServiceSync Phase 6 money loop + admin actions.”*
+- *“Start BizLive / Phase 8 (deferred) or next product priority.”*
 - *“Run alembic upgrade head and walk pay → release → wallet.”*
 
 When finishing a phase: mark the table row **Done**, append a dated session entry at the top of the log (same style as Phase 1/2), and update this handoff table.
+
+---
+
+## 2026-07-16 (6c) — Phase 6 final: Track C standard-of-living polish
+
+### Scope
+Close Phase 6 with Track C residual work: consistent empty states across remaining surfaces, form submit loading, night-mode edge cases (dashed borders, messages empty pane, glass cards, sticky headers).
+
+### Progress log
+
+1. **Shared `empty_state` macro** (`_ui.html`)
+   - `framed`, `cta_onclick`, `cta_primary` options
+   - Extra icons: `link`, `chart`
+
+2. **Empty states migrated**
+   - Wallet transactions, payment methods, contractor dispatches
+   - Customer dashboard no-jobs, integrations channels, analytics premium upsell
+   - Search “no matches yet”, messages inbox empty + desktop empty pane
+   - Conversation list active/archived empties
+
+3. **Loading feedback**
+   - Global `setButtonLoading` + `data-loading-label` on form submit
+   - Wired on wallet withdraw + save payment method
+
+4. **Night mode residual**
+   - Dashed borders, messages empty pane, glass-card, sticky table headers
+   - Disabled button opacity; submit spinner styles
+
+### Files touched
+- `DEVELOPMENT_LOG.md`
+- `app/templates/_ui.html`
+- `app/templates/base.html`
+- `app/templates/wallet.html`, `payment_methods.html`
+- `app/templates/customer_dashboard.html`, `contractor_dashboard.html`
+- `app/templates/integrations.html`, `analytics.html`, `search.html`
+- `app/templates/messages.html`, `_conversation_list.html`
+
+### Smoke-check
+- `python -c "from app.main import app"`
+- `pytest tests/`
+- Manual: empty dashboards/wallet/methods; dark mode dashed cards; withdraw button loading label
+
+### Still open
+- BizLive (Phase 8) deferred — Phase 6 complete
+
+---
+
+## 2026-07-16 (6b) — Phase 6.10–6.11: admin UI + QoL consistency
+
+### Scope
+Finish Phase 6 remainder: admin ops dashboard polish and cross-app empty states / toast consistency.
+
+### Progress log
+
+1. **6.10 Admin UI**
+   - Attention banner for pending disputes + verifications
+   - Clickable KPI cards → relevant tabs; 8-card grid (includes verifications)
+   - Tab badges / pending dots; sticky table headers; client search + role/status filters
+   - User names on jobs/disputes (via `users_by_id`); full job lifecycle status badges
+   - Confirm dialogs on release/refund/approve/reject/resolve
+   - Success/info/error redirects → global toasts after admin actions
+   - Polished empty states via shared `_ui.html` macro
+   - Pending-first verification sort; overview “pending verifications” strip
+
+2. **6.11 QoL consistency**
+   - Shared `empty_state` macro in `app/templates/_ui.html`
+   - Global toast handler in `base.html`: decode messages, `info`, `saved` map, dark-mode toast surfaces
+   - Customer/contractor dashboard flash banners → `showToast`
+   - Integrations inline banners → global toasts; remove duplicate success/error scripts on payment methods / settings / wallet / billing
+   - Contractor listing + drafts empty states use shared macro + CTAs
+
+### Files touched
+- `DEVELOPMENT_LOG.md`
+- `app/web/pages.py` (admin context + success redirects)
+- `app/templates/admin_dashboard.html`
+- `app/templates/_ui.html` (new)
+- `app/templates/base.html`
+- `app/templates/customer_dashboard.html`, `contractor_dashboard.html`
+- `app/templates/integrations.html`, `billing.html`, `payment_methods.html`, `customer_settings.html`, `wallet.html`
+- `app/templates/contractor_listing.html`, `drafts.html`
+
+### Smoke-check
+- `python -c "from app.main import app"`
+- `pytest tests/`
+- Manual: `/admin` tabs, filter/search, release confirm + toast; dark mode toasts; dashboard flash → toast
+
+### Still open
+- BizLive (Phase 8) deferred
 
 ---
 
@@ -233,9 +323,9 @@ Document Phase 6 roadmap; implement money-flow polish (pay, timeline, disputes, 
 - Manual: dark toggle on `/`, `/search`, `/jobs/{id}/pay`, `/wallet`, `/payment-methods`, dashboards
 - Manual money loop: pay → start → complete → confirm/release or dispute
 
-### Still open
-- **6.10** Admin UI polish
-- **6.11** Broader QoL consistency
+### Still open (resolved in 6b)
+- ~~**6.10** Admin UI polish~~ → Done in session 6b
+- ~~**6.11** Broader QoL consistency~~ → Done in session 6b
 
 ---
 
@@ -528,7 +618,7 @@ Items listed as “still open” after Phase 1 (split inbox, notifications) were
 - Global-first: remove US-only ZIP assumptions.
 - BizLive: keep in master plan, defer from MVP.
 - MVP focus: AI Concierge, profiles, booking, escrow, messaging, verification basics.
-- **UI track (2026-07-16):** Phases **1–6.9 complete**. Phase 6 = money flow polish + discovery + global night mode. Next: **6.10 admin UI**, **6.11 QoL**.
+- **UI track (2026-07-16):** Phases **1–6 complete** (incl. 6.10 admin + 6.11 QoL). Next product: **BizLive** (deferred) or new priorities.
 
 ---
 
