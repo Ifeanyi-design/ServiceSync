@@ -164,6 +164,29 @@
   #message-thread::-webkit-scrollbar { width: 5px; }
   #message-thread::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
 
+  .jump-latest-btn {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 1rem;
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    background: #1e3a5f;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.25);
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.2s ease;
+  }
+  .jump-latest-btn:hover { transform: translateY(-1px); background: #1e40af; }
+  .jump-latest-btn.hidden { display: none !important; }
+
   /* ===== Bubbles ===== */
   .bubble-mine {
     background: linear-gradient(145deg, #2563eb 0%, #4f46e5 100%);
@@ -531,7 +554,7 @@
             <div class="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white font-black text-sm shadow-lg ring-2 ring-white/30 overflow-hidden group-hover:ring-white">
               {% if partner.avatar_url %}<img src="{{ partner.avatar_url }}" alt="{{ partner.full_name }}" class="w-full h-full object-cover" />{% else %}{{ partner.full_name[0] | upper }}{% endif %}
             </div>
-            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-indigo-900 bg-green-400" id="status-dot"></span>
+            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-indigo-900 bg-gray-400" id="status-dot" title="Offline"></span>
           {% if partner.role == 'contractor' %}</a>{% else %}</div>{% endif %}
           <div class="min-w-0">
             <p class="font-bold text-white text-sm leading-tight truncate">{{ partner.full_name }}</p>
@@ -628,44 +651,69 @@
     {% endif %}
 
     <!-- ====== MESSAGE THREAD (only scrollable region) ====== -->
-    <div id="message-thread" class="flex-1 min-h-0" role="log" aria-live="polite" aria-relevant="additions">
+    <div class="relative flex-1 min-h-0 flex flex-col">
+    <div id="message-thread" class="flex-1 min-h-0 overflow-y-auto" role="log" aria-live="polite" aria-relevant="additions">
 
-      <div class="flex items-center gap-3 my-3">
+      <div class="flex items-center gap-3 my-3 date-sep" data-date-key="start">
         <div class="flex-1 border-t border-gray-100"></div>
         <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex-shrink-0 px-2">Conversation started</span>
         <div class="flex-1 border-t border-gray-100"></div>
       </div>
 
+      {% set ns = namespace(prev_day='') %}
       {% for message in past_messages %}
       {% if not message.content.startswith('[AI DRAFT') %}
-      <div class="flex {% if message.sender_id == current_user.id %}flex-row-reverse{% endif %} items-end gap-2 group py-1 msg-enter"
-           id="msg-db-{{ message.id }}">
+      {% set day_key = message.timestamp.strftime('%Y-%m-%d') if message.timestamp else '' %}
+      {% if day_key and day_key != ns.prev_day %}
+      {% set ns.prev_day = day_key %}
+      <div class="flex items-center gap-3 my-3 date-sep" data-date-key="{{ day_key }}">
+        <div class="flex-1 border-t border-gray-100"></div>
+        <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex-shrink-0 px-2 date-sep-label" data-iso="{{ day_key }}">{{ day_key }}</span>
+        <div class="flex-1 border-t border-gray-100"></div>
+      </div>
+      {% endif %}
+      {% set is_mine = message.sender_id == current_user.id %}
+      {% set receipt = '' %}
+      {% if is_mine %}
+        {% if partner_last_read_at and message.timestamp and message.timestamp <= partner_last_read_at %}
+          {% set receipt = 'read' %}
+        {% else %}
+          {% set receipt = 'delivered' %}
+        {% endif %}
+      {% endif %}
+      <div class="flex {% if is_mine %}flex-row-reverse{% endif %} items-end gap-2 group py-1 msg-enter"
+           id="msg-db-{{ message.id }}"
+           data-msg-id="{{ message.id }}"
+           data-sender-id="{{ message.sender_id }}"
+           data-ts="{{ message.timestamp.isoformat() if message.timestamp else '' }}"
+           {% if is_mine %}data-receipt="{{ receipt }}"{% endif %}>
 
-        {% if message.sender_id != current_user.id %}
+        {% if not is_mine %}
          <div class="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-[11px] font-bold mb-0.5 ring-2 ring-purple-100 overflow-hidden">
            {% if partner.avatar_url %}<img src="{{ partner.avatar_url }}" alt="" class="w-full h-full object-cover" />{% else %}{{ partner.full_name[0] | upper }}{% endif %}
          </div>
         {% endif %}
 
-          <div class="flex flex-col {{ 'items-end' if message.sender_id == current_user.id else 'items-start' }} max-w-[82%] sm:max-w-[68%]">
-           <div class="{{ 'bubble-mine' if message.sender_id == current_user.id else 'bubble-theirs' }}">
+          <div class="flex flex-col {{ 'items-end' if is_mine else 'items-start' }} max-w-[82%] sm:max-w-[68%]">
+           <div class="{{ 'bubble-mine' if is_mine else 'bubble-theirs' }}">
              {% if message.attachment_url %}
+               {% set att_name = message.attachment_name or '' %}
                {% if message.attachment_type == 'image' %}
                <img
                  src="{{ message.attachment_url }}"
-                 alt="Shared image"
+                 alt="{{ att_name or 'Shared image' }}"
                  class="media-thumb mb-1.5"
                  loading="lazy"
                  data-media-type="image"
                  data-media-url="{{ message.attachment_url }}"
-                 data-media-name="Image"
+                 data-media-name="{{ att_name or 'Image' }}"
                  onclick="openMediaViewer(this.dataset.mediaType, this.dataset.mediaUrl, this.dataset.mediaName)"
                />
                {% elif message.attachment_type == 'video' %}
                <div class="video-thumb-wrap mb-1.5"
                     data-media-type="video"
                     data-media-url="{{ message.attachment_url }}"
-                    data-media-name="Video"
+                    data-media-name="{{ att_name or 'Video' }}"
                     onclick="openMediaViewer(this.dataset.mediaType, this.dataset.mediaUrl, this.dataset.mediaName)">
                  <video src="{{ message.attachment_url }}#t=0.1" preload="metadata" muted playsinline></video>
                  <div class="video-play-badge"><span>
@@ -677,8 +725,8 @@
                  class="file-card mb-1.5 w-full"
                  data-media-type="file"
                  data-media-url="{{ message.attachment_url }}"
-                 data-media-name=""
-                 onclick="openMediaViewer('file', this.dataset.mediaUrl, fileDisplayName(this.dataset.mediaUrl))">
+                 data-media-name="{{ att_name }}"
+                 onclick="openMediaViewer('file', this.dataset.mediaUrl, this.dataset.mediaName || fileDisplayName(this.dataset.mediaUrl))">
                  <span class="file-card-icon" data-ext-slot></span>
                  <span class="file-card-meta">
                    <span class="file-card-name" data-name-slot>Document</span>
@@ -689,7 +737,7 @@
                {% endif %}
              {% endif %}
              {% if message.content %}<p class="whitespace-pre-wrap">{{ message.content }}</p>{% endif %}
-             <span class="msg-time">{{ message.timestamp.strftime('%H:%M') }}</span>
+             <span class="msg-time">{{ message.timestamp.strftime('%H:%M') }}{% if is_mine %}<span class="receipt-icon" data-receipt-icon>{% if receipt == 'read' %}<span class="text-cyan-200 ml-0.5">✓✓</span>{% else %}<span class="opacity-85 ml-0.5">✓✓</span>{% endif %}</span>{% endif %}</span>
            </div>
         </div>
       </div>
@@ -698,6 +746,13 @@
 
       <div id="live-messages"></div>
       <div id="scroll-anchor" class="h-1"></div>
+    </div>
+
+    <!-- Jump to latest (shown when scrolled up) -->
+    <button type="button" id="jump-latest-btn" class="jump-latest-btn hidden" onclick="scrollToBottom(true)" aria-label="Jump to latest messages">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+      <span>Latest</span>
+    </button>
     </div>
 
     <!-- ====== INPUT AREA ====== -->
@@ -804,11 +859,17 @@
   const partnerInitial = partnerName[0].toUpperCase();
   const partnerAvatar  = {{ partner.avatar_url | tojson }};
   const currentUserId  = {{ current_user.id }};
+  const partnerId      = {{ partner_id | default(partner.id) }};
 
   const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
   const wsUrl = `${wsProtocol}://${location.host}/api/v1/chat/ws/${conversationId}`;
 
   let socket = null;
+  let partnerOnline = false;
+  let lastTypingSent = 0;
+  let typingHideTimer = null;
+  let pendingAckBubble = null; // last optimistically rendered own bubble awaiting ack
+
   const statusEl        = document.getElementById('connection-status');
   const statusDot       = document.getElementById('status-dot');
   const liveMessages    = document.getElementById('live-messages');
@@ -816,6 +877,7 @@
   const typingIndicator = document.getElementById('typing-indicator');
   const messageInput    = document.getElementById('message-input');
   const messageThread   = document.getElementById('message-thread');
+  const jumpLatestBtn   = document.getElementById('jump-latest-btn');
 
   // ====== File helpers ======
   function extFromUrl(url) {
@@ -882,7 +944,7 @@
     return false;
   }
 
-  // Hydrate historic file cards (name + icon from URL)
+  // Hydrate historic file cards (name + icon from URL / attachment_name)
   function hydrateFileCards(root) {
     (root || document).querySelectorAll('.file-card').forEach(card => {
       const url = card.dataset.mediaUrl || '';
@@ -899,6 +961,41 @@
     });
   }
   hydrateFileCards(document);
+
+  // ====== Date separators (Today / Yesterday / formatted) ======
+  function formatDateLabel(isoDay) {
+    if (!isoDay) return '';
+    const d = new Date(isoDay + 'T12:00:00');
+    if (isNaN(d.getTime())) return isoDay;
+    const today = new Date();
+    const yest = new Date();
+    yest.setDate(today.getDate() - 1);
+    const key = (x) => x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0');
+    if (isoDay === key(today)) return 'Today';
+    if (isoDay === key(yest)) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+  }
+
+  function hydrateDateSeparators(root) {
+    (root || document).querySelectorAll('.date-sep-label[data-iso]').forEach(el => {
+      el.textContent = formatDateLabel(el.dataset.iso);
+    });
+  }
+  hydrateDateSeparators(document);
+
+  function ensureDateSeparator(isoTs) {
+    const d = isoTs ? new Date(isoTs) : new Date();
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    if (document.querySelector(`.date-sep[data-date-key="${key}"]`)) return;
+    const sep = document.createElement('div');
+    sep.className = 'flex items-center gap-3 my-3 date-sep';
+    sep.dataset.dateKey = key;
+    sep.innerHTML = `
+      <div class="flex-1 border-t border-gray-100"></div>
+      <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex-shrink-0 px-2 date-sep-label" data-iso="${key}">${formatDateLabel(key)}</span>
+      <div class="flex-1 border-t border-gray-100"></div>`;
+    liveMessages.appendChild(sep);
+  }
 
   // ====== Media viewer ======
   function openMediaViewer(type, url, name) {
@@ -932,7 +1029,6 @@
       vid.playsInline = true;
       stage.appendChild(vid);
     } else if (ext === 'pdf') {
-      // Real PDF preview via iframe (native browser PDF viewer)
       const iframe = document.createElement('iframe');
       iframe.src = url + '#toolbar=1&navpanes=0';
       iframe.title = displayName;
@@ -944,7 +1040,6 @@
       iframe.title = displayName;
       stage.appendChild(iframe);
     } else {
-      // Office docs etc. — clear panel, no empty broken page
       const panel = document.createElement('div');
       panel.className = 'mv-file-panel';
       panel.innerHTML = `
@@ -970,11 +1065,9 @@
     const viewer = document.getElementById('media-viewer');
     const stage  = document.getElementById('mv-stage');
     if (!viewer) return;
-    // Stop any playing video
     stage.querySelectorAll('video').forEach(v => { try { v.pause(); } catch(e){} });
     stage.innerHTML = '';
     viewer.classList.remove('open');
-    // body already locked by chat-mode; don't unlock page scroll
   }
 
   document.addEventListener('keydown', (e) => {
@@ -985,43 +1078,175 @@
     }
   });
 
+  // ====== Presence UI (partner online, not own WS) ======
+  function setPartnerPresence(online) {
+    partnerOnline = !!online;
+    if (!statusEl || !statusDot) return;
+    statusDot.classList.remove('bg-green-400', 'bg-gray-400', 'bg-red-400', 'bg-amber-400');
+    if (online) {
+      statusEl.textContent = 'Online';
+      statusDot.classList.add('bg-green-400');
+      statusDot.title = 'Online';
+    } else {
+      statusEl.textContent = 'Offline';
+      statusDot.classList.add('bg-gray-400');
+      statusDot.title = 'Offline';
+    }
+  }
+
+  function setConnectionState(state) {
+    // Own socket connectivity (shown only until we know partner presence)
+    if (!statusEl || !statusDot) return;
+    if (state === 'reconnecting') {
+      statusEl.textContent = 'Reconnecting…';
+      statusDot.classList.remove('bg-green-400', 'bg-gray-400');
+      statusDot.classList.add('bg-red-400');
+    } else if (state === 'error') {
+      statusEl.textContent = 'Connection error';
+      statusDot.classList.remove('bg-green-400');
+      statusDot.classList.add('bg-red-400');
+    } else if (state === 'connected') {
+      // Don't claim partner Online yet — wait for presence event
+      if (!partnerOnline) {
+        statusEl.textContent = 'Offline';
+        statusDot.classList.remove('bg-green-400', 'bg-red-400');
+        statusDot.classList.add('bg-gray-400');
+      }
+    }
+  }
+
+  // ====== Read receipts ======
+  function getReceiptIcon(status) {
+    if (status === 'sent')      return '<span class="opacity-70 ml-0.5">✓</span>';
+    if (status === 'delivered') return '<span class="opacity-85 ml-0.5">✓✓</span>';
+    if (status === 'read')      return '<span class="text-cyan-200 ml-0.5">✓✓</span>';
+    return '';
+  }
+
+  function setBubbleReceipt(wrapper, status) {
+    if (!wrapper) return;
+    wrapper.dataset.receipt = status;
+    const icon = wrapper.querySelector('[data-receipt-icon]');
+    if (icon) icon.innerHTML = getReceiptIcon(status);
+  }
+
+  function markAllOwnAsRead() {
+    document.querySelectorAll('.msg-enter[data-receipt]').forEach(el => {
+      if (String(el.dataset.senderId || currentUserId) == String(currentUserId) || el.dataset.receipt) {
+        setBubbleReceipt(el, 'read');
+      }
+    });
+    // Historic messages without data-sender-id on live may still have data-receipt
+    document.querySelectorAll('.msg-enter[data-receipt]:not([data-receipt="read"])').forEach(el => {
+      setBubbleReceipt(el, 'read');
+    });
+  }
+
+  function sendReadReceipt() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    try { socket.send(JSON.stringify({ type: 'read' })); } catch (e) {}
+  }
+
+  function sendTyping() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    const now = Date.now();
+    if (now - lastTypingSent < 1500) return;
+    lastTypingSent = now;
+    try { socket.send(JSON.stringify({ type: 'typing' })); } catch (e) {}
+  }
+
+  function showPartnerTyping() {
+    if (!typingIndicator) return;
+    typingIndicator.classList.remove('hidden');
+    if (typingHideTimer) clearTimeout(typingHideTimer);
+    typingHideTimer = setTimeout(() => {
+      typingIndicator.classList.add('hidden');
+    }, 3000);
+  }
+
   // ====== WebSocket ======
   function connectWebSocket() {
     socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
-      statusEl.textContent = 'Online';
-      statusDot.classList.remove('bg-gray-400','bg-red-400');
-      statusDot.classList.add('bg-green-400');
+      setConnectionState('connected');
     };
 
     socket.onclose = () => {
-      statusEl.textContent = 'Reconnecting…';
-      statusDot.classList.remove('bg-green-400');
-      statusDot.classList.add('bg-red-400');
+      partnerOnline = false;
+      setConnectionState('reconnecting');
       setTimeout(connectWebSocket, 3000);
     };
 
-    socket.onerror = () => { statusEl.textContent = 'Connection error'; };
+    socket.onerror = () => { setConnectionState('error'); };
 
-     socket.onmessage = (event) => {
-       typingIndicator.classList.add('hidden');
-       let text = event.data, attachment = null;
-       try {
-         const p = JSON.parse(event.data);
-         if (p && typeof p === 'object') {
-           text = p.content || '';
-           if (p.attachment_url) {
-             attachment = {
-               url: p.attachment_url,
-               type: p.attachment_type,
-               name: p.attachment_name || '',
-             };
-           }
-         }
-       } catch (e) {}
-       appendBubble('partner', text, 'delivered', attachment);
-     };
+    socket.onmessage = (event) => {
+      let p = null;
+      try { p = JSON.parse(event.data); } catch (e) { p = null; }
+
+      // Plain-text legacy fallback
+      if (!p || typeof p !== 'object') {
+        typingIndicator.classList.add('hidden');
+        ensureDateSeparator(new Date().toISOString());
+        appendBubble('partner', event.data, null, null);
+        sendReadReceipt();
+        return;
+      }
+
+      const t = p.type;
+
+      if (t === 'presence') {
+        const ids = (p.online_user_ids || []).map(Number);
+        const online = ids.includes(Number(partnerId)) || (Number(p.user_id) === Number(partnerId) && p.online);
+        // Prefer explicit list when present
+        if (p.online_user_ids) {
+          setPartnerPresence(ids.includes(Number(partnerId)));
+        } else if (Number(p.user_id) === Number(partnerId)) {
+          setPartnerPresence(!!p.online);
+        }
+        return;
+      }
+
+      if (t === 'typing') {
+        if (Number(p.user_id) === Number(partnerId)) showPartnerTyping();
+        return;
+      }
+
+      if (t === 'read') {
+        if (Number(p.user_id) === Number(partnerId)) markAllOwnAsRead();
+        return;
+      }
+
+      if (t === 'message_ack') {
+        if (pendingAckBubble) {
+          setBubbleReceipt(pendingAckBubble, p.status === 'delivered' ? 'delivered' : 'sent');
+          if (p.id) pendingAckBubble.dataset.msgId = p.id;
+        }
+        return;
+      }
+
+      if (t === 'pong') return;
+
+      // Chat message (type message or legacy dict with content)
+      if (t === 'message' || p.content !== undefined || p.attachment_url) {
+        // Ignore echoes of our own messages (we render optimistically)
+        if (p.sender_id != null && Number(p.sender_id) === Number(currentUserId)) {
+          return;
+        }
+        typingIndicator.classList.add('hidden');
+        const attachment = p.attachment_url ? {
+          url: p.attachment_url,
+          type: p.attachment_type,
+          name: p.attachment_name || '',
+        } : null;
+        ensureDateSeparator(p.timestamp || new Date().toISOString());
+        appendBubble('partner', p.content || '', null, attachment, p.id, p.timestamp);
+        sendReadReceipt();
+        return;
+      }
+
+      // Draft-style plain content in structured wrapper already handled above
+    };
   }
 
   connectWebSocket();
@@ -1042,7 +1267,13 @@
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       document.getElementById('message-form').requestSubmit();
+      return;
     }
+    sendTyping();
+  }
+
+  if (messageInput) {
+    messageInput.addEventListener('input', () => sendTyping());
   }
 
   // ====== Emoji Picker ======
@@ -1064,6 +1295,7 @@
     messageInput.focus();
     try { messageInput.setSelectionRange(pos, pos); } catch (e) {}
     autoGrowComposer(messageInput);
+    sendTyping();
   }
   document.addEventListener('click', (e) => {
     const picker = document.getElementById('emoji-picker');
@@ -1137,14 +1369,6 @@
     }
   }
 
-  // ====== Read Receipts ======
-  function getReceiptIcon(status) {
-    if (status === 'sent')      return '<span class="opacity-70 ml-0.5">✓</span>';
-    if (status === 'delivered') return '<span class="opacity-85 ml-0.5">✓✓</span>';
-    if (status === 'read')      return '<span class="text-cyan-200 ml-0.5">✓✓</span>';
-    return '';
-  }
-
   function escHtml(t) {
     return String(t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
@@ -1188,13 +1412,18 @@
   }
 
   // ====== Append Bubble ======
-  function appendBubble(side, text, status, attachment) {
+  function appendBubble(side, text, status, attachment, msgId, ts) {
     const isMine = side === 'mine';
-    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const receipt = isMine ? getReceiptIcon(status || 'sent') : '';
+    const when = ts ? new Date(ts) : new Date();
+    const now = when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const receiptStatus = isMine ? (status || 'sent') : null;
+    const receipt = isMine ? `<span class="receipt-icon" data-receipt-icon>${getReceiptIcon(receiptStatus)}</span>` : '';
 
     const wrapper = document.createElement('div');
     wrapper.className = `flex ${isMine ? 'flex-row-reverse' : ''} items-end gap-2 group py-1 msg-enter`;
+    if (msgId) wrapper.dataset.msgId = msgId;
+    wrapper.dataset.senderId = isMine ? currentUserId : partnerId;
+    if (isMine) wrapper.dataset.receipt = receiptStatus;
 
     if (!isMine) {
       const av = partnerAvatar
@@ -1203,7 +1432,7 @@
       wrapper.innerHTML += `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-[11px] font-bold mb-0.5 ring-2 ring-purple-100 overflow-hidden">${av}</div>`;
     }
 
-    const draftMatch = text && text.match(/^\[AI DRAFT:(\d+)\]\s*(.*)/s);
+    const draftMatch = text && text.match(/^\[AI DRAFT:(\d+)\]\s*([\s\S]*)/);
     if (draftMatch) {
       const draftId = parseInt(draftMatch[1]);
       const draftContent = draftMatch[2];
@@ -1238,12 +1467,31 @@
     }
 
     liveMessages.appendChild(wrapper);
-    scrollToBottom(true);
+    if (isMine) pendingAckBubble = wrapper;
+    if (isNearBottom() || isMine) scrollToBottom(true);
+    else updateJumpLatest();
+    return wrapper;
+  }
+
+  function isNearBottom(threshold) {
+    if (!messageThread) return true;
+    const t = threshold == null ? 80 : threshold;
+    return messageThread.scrollHeight - messageThread.scrollTop - messageThread.clientHeight < t;
+  }
+
+  function updateJumpLatest() {
+    if (!jumpLatestBtn || !messageThread) return;
+    jumpLatestBtn.classList.toggle('hidden', isNearBottom(120));
   }
 
   function scrollToBottom(smooth) {
     if (!scrollAnchor) return;
     scrollAnchor.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant', block: 'end' });
+    if (jumpLatestBtn) jumpLatestBtn.classList.add('hidden');
+  }
+
+  if (messageThread) {
+    messageThread.addEventListener('scroll', () => updateJumpLatest(), { passive: true });
   }
 
   // ====== Send Message ======
@@ -1253,35 +1501,27 @@
     if ((!text && !pendingAttachment) || !socket || socket.readyState !== WebSocket.OPEN) return;
 
     const att = pendingAttachment;
-    if (att) {
-      socket.send(JSON.stringify({
-        content: text,
-        attachment_url: att.url,
-        attachment_type: att.type,
-        attachment_name: att.name || '',
-      }));
-    } else {
-      socket.send(text);
-    }
-    appendBubble('mine', text, 'sent', att);
+    const payload = att
+      ? {
+          content: text,
+          attachment_url: att.url,
+          attachment_type: att.type,
+          attachment_name: att.name || '',
+        }
+      : { content: text };
+
+    socket.send(JSON.stringify(payload));
+    ensureDateSeparator(new Date().toISOString());
+    appendBubble('mine', text, partnerOnline ? 'delivered' : 'sent', att);
     clearAttachment();
     messageInput.value = '';
     autoGrowComposer(messageInput);
     messageInput.focus();
-
-    setTimeout(() => {
-      const times = liveMessages.querySelectorAll('.msg-enter:last-child .msg-time');
-      if (times.length) {
-        const el = times[times.length - 1];
-        el.innerHTML = el.innerHTML.replace('✓', '✓✓');
-      }
-    }, 600);
   }
 
   // Scroll to bottom on load
   scrollToBottom(false);
-  // After images load, re-pin bottom
-  messageThread.querySelectorAll('img').forEach(img => {
+  messageThread && messageThread.querySelectorAll('img').forEach(img => {
     if (!img.complete) img.addEventListener('load', () => scrollToBottom(false), { once: true });
   });
 

@@ -1331,6 +1331,12 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
     msg_result = await db.exec(select(DirectMessage).where(DirectMessage.conversation_id == conversation_id).order_by(DirectMessage.timestamp.asc()))
     past_messages = msg_result.all()
 
+    # Partner's read cursor — used for historic ✓✓ / read state on own messages
+    if current_user.id == conversation.customer_id:
+        partner_last_read_at = getattr(conversation, "last_read_at_contractor", None)
+    else:
+        partner_last_read_at = getattr(conversation, "last_read_at_customer", None)
+
     job = await db.get(Job, conversation.job_id)
     escrow = None
     if job:
@@ -1348,6 +1354,8 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
         "current_user": current_user,
         "conversation": conversation,
         "partner": partner,
+        "partner_id": partner_id,
+        "partner_last_read_at": partner_last_read_at,
         "past_messages": past_messages,
         "job": job,
         "escrow": escrow,

@@ -1,5 +1,209 @@
 # ServiceSync — Development Log
 
+---
+
+## UI/UX ROADMAP & SESSION HANDOFF (2026-07-16)
+
+> **Read this first** when resuming UI work in a new chat/session.
+> Context: full site audit → phased fixes. User asked for chat-room layout (no
+> footer, messages-only scroll), media viewer fixes, then Phase 2 + split inbox.
+> Always log progress in this file when continuing.
+
+### Status snapshot
+
+| Phase | Name | Status | Outcome |
+|-------|------|--------|---------|
+| **0** | Site audit (observations) | Done | Audit delivered in chat (not a code PR). |
+| **1** | Chat room shell + media + bubbles/emoji | **Done** | Full-height chat, no footer, lightbox media, better composer. |
+| **2** | Notifications + footer + desktop split inbox | **Done** | Real bell, legal pages, messages/chat split UI. |
+| **3** | Chat depth (attachments DB, presence, receipts) | **Done** | Filename in DB, true presence, real receipts, typing WS, jump/date/nav badge. |
+| **4** | Trust & marketing polish | **Next** | Landing icons, real stats, less “template SaaS”. |
+| **5** | Product UX extras | Pending | In-thread search, safety tools, job context card, dark mode. |
+
+### First thing in a new session
+
+1. Skim this handoff + Phase 1/2 entries below.
+2. Run migration if not applied yet:
+   ```bash
+   alembic upgrade head
+   ```
+   Migration: `m7n8o9p0q1r2` — `conversation.last_read_at_customer`,
+   `conversation.last_read_at_contractor`.
+   (Neon cold-start can make CLI slow; use a long timeout or run on host that
+   already has a warm DB connection.)
+3. Smoke-check: `/messages`, `/chat/{id}`, bell dropdown, presence/typing, `/about` `/privacy` `/terms`.
+4. Pick **Phase 4** (recommended) unless user prioritizes something else.
+
+### Key files (UI/chat)
+
+| Area | Path |
+|------|------|
+| Layout shell / nav / footer / notif bell | `app/templates/base.html` |
+| Chat room + media lightbox | `app/templates/chat.html` |
+| Messages list (split empty pane) | `app/templates/messages.html` |
+| Shared inbox list partial | `app/templates/_conversation_list.html` |
+| About / Privacy / Terms | `app/templates/legal_page.html` |
+| Landing marketing | `app/templates/index.html` |
+| Notifications service | `app/services/notification_service.py` |
+| Upload helper | `app/services/upload_service.py` |
+| Chat WS + upload API | `app/api/v1/endpoints/chat.py` |
+| Notif API | `app/api/v1/endpoints/users.py` → `GET /me/notifications` |
+| Web routes (messages, chat, legal) | `app/web/pages.py` |
+| Models | `app/models/all_models.py` (`Conversation`, `DirectMessage`) |
+
+### Layout blocks (do not regress)
+
+`base.html` supports:
+- `{% block body_class %}`
+- `{% block main_class %}`
+- `{% block footer %}` — empty on chat/messages to hide marketing footer
+- Chat uses `body.chat-mode` + `main.chat-main` (locked `100dvh`, only `#message-thread` scrolls)
+- Messages uses `body.messages-mode` + `main.messages-main` similarly
+
+---
+
+### Phase 1 — DONE (detail)
+
+**Goal:** Feel like a real chat app, not a page with a chat widget + footer.
+
+- No footer on chat; viewport locked; only message list scrolls.
+- Media: image/video full-view lightbox; PDF iframe preview; docs download panel (no empty tab).
+- File cards with type badges; UUID filenames → human labels (“PDF Document”).
+- Upload API returns `name`, `ext`, `content_type`, `size`.
+- Bubbles + always-visible times; multi-line composer (Enter send, Shift+Enter newline); emoji tray polish.
+
+**Files:** `base.html`, `chat.html`, `chat.py` (upload response).
+
+---
+
+### Phase 2 — DONE (detail)
+
+**Goal:** Honest notifications + credible footer + desktop messaging layout.
+
+- Real notifications from unread messages + job actions (pay/start/confirm/dispute).
+- Bell badge only when `unread_count > 0`; panel via `GET /api/v1/users/me/notifications`.
+- Read cursors on Conversation; set on chat open (`mark_conversation_read`).
+- Footer → real `/about`, `/privacy`, `/terms` (+ cookie section); no Blog/Careers `#`.
+- Desktop: `/messages` list + empty pane; `/chat/{id}` list sidebar + thread.
+- Shared `_conversation_list.html`; unread badges; “You:” preview prefix.
+
+**Files:** see Phase 2 session entry below.
+
+---
+
+### Phase 3 — DONE (chat depth)
+
+**Goal:** Messaging quality comparable to WhatsApp/iMessage for a marketplace.
+
+| # | Task | Status |
+|---|------|--------|
+| 3.1 | Persist original attachment filename in DB | **Done** |
+| 3.2 | True partner presence | **Done** |
+| 3.3 | Real read receipts | **Done** |
+| 3.4 | Typing indicators over WS | **Done** |
+| 3.5 | “Jump to latest” button | **Done** |
+| 3.6 | Date separators | **Done** |
+| 3.7 | Nav Messages unread badge | **Done** |
+
+See session entry **2026-07-16 (3)** below for files and details.
+
+---
+
+### Phase 4 — Trust & marketing polish — NEXT
+
+**Goal:** Landing and brand feel finished and honest.
+
+| # | Task | Why | Hint |
+|---|------|-----|------|
+| 4.1 | Fix trade icons on homepage (`paint`, `pest` fall through to raw text) | Looks unfinished | Extend `{% macro icon %}` or use proper SVG names in `index.html` trade grid. |
+| 4.2 | Soften or source real social-proof stats | Generic “&lt; 10s / 5+ trades” feels mock | Real metrics or quieter copy. |
+| 4.3 | Tone down gradient density slightly | Less “template SaaS” | CSS pass on hero/CTA cards. |
+| 4.4 | FAQ accordion | FAQs all open as walls of text | Collapse/expand in `index.html`. |
+| 4.5 | Social footer links | Twitter/LinkedIn still `href="#"` | Real URLs or remove icons. |
+| 4.6 | Optional: real contractor photos / coverage map on landing | Trust | Static demos or seeded data. |
+
+---
+
+### Phase 5 — Product UX extras — not started
+
+**Goal:** Power-user and safety features for marketplace chat/jobs.
+
+| # | Task | Why |
+|---|------|-----|
+| 5.1 | In-thread message search | Find old quotes/addresses |
+| 5.2 | Expandable job context card in chat header (address, schedule, amount) | Reduce leaving chat for job details |
+| 5.3 | Report / block / safety tools | Marketplace risk |
+| 5.4 | Image lightbox polish (zoom, swipe next if multiple) | Media UX |
+| 5.5 | Dark mode (especially contractor night use) | Comfort |
+| 5.6 | Post-job review prompt after completion | Growth/trust |
+| 5.7 | Archive / mute / filter conversations | Inbox hygiene |
+| 5.8 | Deduplicate giant `{% macro icon %}` across templates into one partial | Maintainability |
+
+---
+
+### Known issues / constraints (do not re-discover)
+
+1. **Migrations required:** `alembic upgrade head` — includes `m7n8o9p0q1r2` (last_read) and `n8o9p0q1r2s3` (`attachment_name`). Without columns, unread/attachment names may soft-fail; chat should still open.
+2. **Presence is per-process** unless Redis hub is configured (`REDIS_URL`). Multi-worker without Redis may show Offline incorrectly across instances.
+3. **Tailwind via CDN** — fine for MVP; production build pipeline is optional later.
+4. **Neon cold start** — Alembic may timeout; increase timeout or warm connection.
+5. **Demo mode** still works with zero cloud config (local uploads, mock payments).
+6. **Auth for notif API** uses session cookie (`credentials: 'same-origin'` in `base.html` fetch).
+
+### How to continue (prompt templates for next session)
+
+- *“Continue ServiceSync UI from DEVELOPMENT_LOG Phase 4 — landing polish.”*
+- *“Do Phase 5 product UX extras from DEVELOPMENT_LOG.”*
+
+When finishing a phase: mark the table row **Done**, append a dated session entry at the top of the log (same style as Phase 1/2), and update this handoff table.
+
+---
+
+## 2026-07-16 (3) — Phase 3: Chat depth
+
+### Progress log
+1. **Attachment original filename (3.1)**
+   - `DirectMessage.attachment_name` + migration `n8o9p0q1r2s3`.
+   - WS handler saves and broadcasts `attachment_name`; historic file cards hydrate from DB.
+
+2. **True partner presence (3.2)**
+   - `ConnectionManager.online_user_ids` / `is_user_online`.
+   - On connect: snapshot + broadcast `{type:"presence"}`; offline on last socket leave.
+   - UI: green Online only if peer is in the conversation; otherwise Offline.
+
+3. **Real read receipts (3.3)**
+   - Opening WS marks conversation read + broadcasts `{type:"read"}`.
+   - Historic own messages use partner `last_read_at_*` for ✓✓ vs cyan read.
+   - Receiving a message while in-thread sends read; sender upgrades all own bubbles.
+
+4. **Typing over WS (3.4)**
+   - Composer sends `{type:"typing"}` (throttled); peer shows `#typing-indicator`.
+
+5. **Jump to latest (3.5)** — FAB when scrolled up on `#message-thread`.
+
+6. **Date separators (3.6)** — Today / Yesterday / date for historic + live.
+
+7. **Nav Messages badge (3.7)**
+   - Notifications API returns `messages_unread_count`.
+   - `base.html` badges the Messages nav link (refreshed with bell poll).
+
+8. **WS protocol** — control messages (`typing`/`read`/`presence`/`ping`) are not persisted; chat messages broadcast as structured JSON with `id` + `message_ack` to sender.
+
+### Files touched
+- `app/models/all_models.py`
+- `alembic/versions/n8o9p0q1r2s3_add_attachment_name.py`
+- `app/api/v1/endpoints/chat.py`
+- `app/services/notification_service.py`
+- `app/web/pages.py`
+- `app/templates/chat.html`
+- `app/templates/base.html`
+- `DEVELOPMENT_LOG.md`
+
+### Deploy note
+Run migration: `alembic upgrade head` (adds `directmessage.attachment_name`).
+
+---
+
 ## 2026-07-16 (2) — Phase 2: Notifications, footer, split inbox
 
 ### Progress log
@@ -34,12 +238,11 @@
 - `DEVELOPMENT_LOG.md`
 
 ### Deploy note
-Run migration: `alembic upgrade head` (adds conversation last_read columns). Until then, chat open may error if columns missing — run migrate before relying on unread.
+Run migration: `alembic upgrade head` (adds conversation last_read columns).
 
-### Still open (later)
-- Persist original attachment filenames in DB.
-- True online presence + real read receipts over WS.
-- Optional: dark mode, message search in-thread.
+### Closed by this phase (were open after Phase 1)
+- Desktop split inbox
+- Real notifications / fake red dot
 
 ---
 
@@ -72,11 +275,8 @@ Run migration: `alembic upgrade head` (adds conversation last_read columns). Unt
 - `app/api/v1/endpoints/chat.py`
 - `DEVELOPMENT_LOG.md` (this entry)
 
-### Still open (later phases)
-- Desktop split inbox (messages list + chat).
-- Real notifications (hide fake red dot).
-- Persist original attachment filename in DB (currently derived from URL / live WS `attachment_name`).
-- True partner presence + real read receipts.
+### Note
+Items listed as “still open” after Phase 1 (split inbox, notifications) were completed in Phase 2. Remaining work is in the **UI/UX ROADMAP** handoff at the top of this file.
 
 ---
 
@@ -177,6 +377,7 @@ Run migration: `alembic upgrade head` (adds conversation last_read columns). Unt
 - Global-first: remove US-only ZIP assumptions.
 - BizLive: keep in master plan, defer from MVP.
 - MVP focus: AI Concierge, profiles, booking, escrow, messaging, verification basics.
+- **UI track (2026-07-16):** Phases **1–3 complete** (chat shell, media, notifications, footer, split inbox, chat depth). **Next = Phase 4** (landing / trust polish).
 
 ---
 
@@ -184,6 +385,8 @@ Run migration: `alembic upgrade head` (adds conversation last_read columns). Unt
 
 | Date | Feature | Status | Notes | Issues |
 |---|---|---|---|---|
+| 2026-07-16 | UI Phase 1: chat room + media lightbox | Completed | No footer, full-height, messages-only scroll; PDF/image/video viewer; bubbles/emoji. | Attachment original name not in DB (Phase 3.1). |
+| 2026-07-16 | UI Phase 2: notifications + footer + split inbox | Completed | Real bell API; legal pages; desktop messages/chat sidebar; last_read migration. | Run `alembic upgrade head` for last_read columns. |
 | 2026-06-17 | FastAPI application foundation | Completed | App starts with `uvicorn app.main:app --reload`. | Initial dependency/import blockers resolved. |
 | 2026-06-17 | User and contractor model | Completed | `User` includes role, profession, service radius, pricing, working hours, AI tone, trade qualifications. | Global location fields added in Phase 1. |
 | 2026-06-17 | Job model | Completed | `Job` supports customer, assigned contractor, description, status, urgency, emergency flag, and global location. | Escrow still pending. |

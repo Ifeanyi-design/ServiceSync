@@ -174,6 +174,23 @@
       display: flex;
       animation: pulseGlow 2s infinite;
     }
+    /* Nav "Messages" unread badge */
+    .nav-msg-badge {
+      display: none;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      margin-left: 6px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 18px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .nav-msg-badge.has-unread { display: inline-block; }
     #notif-panel {
       position: absolute;
       right: 0;
@@ -272,10 +289,10 @@
               <a href="/search" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/search' %}active{% endif %}">Find a Pro</a>
               <a href="/contractors" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path.startswith('/contractors') %}active{% endif %}">Browse Contractors</a>
               <a href="/dashboard/customer" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/dashboard/customer' %}active{% endif %}">My Jobs</a>
-              <a href="/messages" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/messages' %}active{% endif %}">Messages</a>
+              <a href="/messages" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/messages' or path.startswith('/chat') %}active{% endif %}">Messages<span class="nav-msg-badge" data-msg-badge aria-hidden="true"></span></a>
             {% elif current_user.role == 'contractor' %}
               <a href="/dashboard/contractor" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/dashboard/contractor' %}active{% endif %}">My Dispatch</a>
-              <a href="/messages" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/messages' %}active{% endif %}">Messages</a>
+              <a href="/messages" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/messages' or path.startswith('/chat') %}active{% endif %}">Messages<span class="nav-msg-badge" data-msg-badge aria-hidden="true"></span></a>
               <a href="/drafts" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/drafts' %}active{% endif %}">Drafts</a>
               <a href="/analytics" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/analytics' %}active{% endif %}">Analytics</a>
               <a href="/wallet" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/wallet' %}active{% endif %}">Wallet</a>
@@ -676,6 +693,7 @@
         const data = await resp.json();
         const items = data.items || [];
         const count = data.unread_count || 0;
+        const msgCount = data.messages_unread_count || 0;
 
         if (dot) {
           if (count > 0) {
@@ -686,6 +704,17 @@
             dot.textContent = '';
           }
         }
+
+        // Nav Messages badge (message unreads only)
+        document.querySelectorAll('[data-msg-badge]').forEach(badge => {
+          if (msgCount > 0) {
+            badge.classList.add('has-unread');
+            badge.textContent = msgCount > 9 ? '9+' : String(msgCount);
+          } else {
+            badge.classList.remove('has-unread');
+            badge.textContent = '';
+          }
+        });
 
         if (!items.length) {
           list.innerHTML = `
@@ -716,6 +745,10 @@
       } catch (err) {
         // Fail closed: hide badge, show honest empty/error
         if (dot) { dot.classList.remove('has-unread'); dot.textContent = ''; }
+        document.querySelectorAll('[data-msg-badge]').forEach(badge => {
+          badge.classList.remove('has-unread');
+          badge.textContent = '';
+        });
         if (list && !list.dataset.loaded) {
           list.innerHTML = `<div class="px-4 py-8 text-center text-sm text-gray-400">Couldn't load notifications.</div>`;
         }

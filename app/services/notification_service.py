@@ -269,4 +269,10 @@ async def build_notifications(
 
     unique = unique[:limit]
     unread_count = sum(1 for it in unique if it.get("unread"))
-    return {"items": unique, "unread_count": unread_count}
+    # Sum of unread *messages* across conversations (for nav Messages badge)
+    messages_unread_count = sum(c.get("unread_count", 0) or 0 for c in convs)
+    return {
+        "items": unique,
+        "unread_count": unread_count,
+        "messages_unread_count": messages_unread_count,
+    }

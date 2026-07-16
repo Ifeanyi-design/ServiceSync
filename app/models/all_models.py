@@ -23,6 +23,7 @@ class DirectMessage(SQLModel, table=True):
     content: str
     attachment_url: Optional[str] = None
     attachment_type: Optional[str] = None  # image | video | file
+    attachment_name: Optional[str] = None  # original client filename (not UUID storage name)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     
     conversation: "Conversation" = Relationship(back_populates="messages")

@@ -45,17 +45,23 @@ class ConnectionManager:
             if not self.active_connections[conversation_id]:
                 del self.active_connections[conversation_id]
 
+    def online_user_ids(self, conversation_id: int) -> List[int]:
+        """Unique user IDs currently connected to this conversation on this instance."""
+        conns = self.active_connections.get(conversation_id) or []
+        return list({uid for _, uid in conns})
+
+    def is_user_online(self, conversation_id: int, user_id: int) -> bool:
+        return user_id in self.online_user_ids(conversation_id)
+
     async def broadcast_to_conversation(self, message: str, conversation_id: int, sender_websocket: WebSocket):
-        # Fan out locally, then to other instances via the hub. We exclude the
-        # sender by user_id so we don't need the (per-connection) websocket object
-        # once the message crosses an instance boundary.
+        # Hub handles local delivery (no Redis) or cross-instance fanout (Redis).
+        # Exclude sender by user_id so multi-instance don't need the websocket object.
         sender_uid = None
         if conversation_id in self.active_connections:
             for connection, uid in self.active_connections[conversation_id]:
                 if connection == sender_websocket:
                     sender_uid = uid
                     break
-        await self._deliver(conversation_id, message, sender_uid)
         from app.services.broadcast_hub import publish
         await publish(conversation_id, message, exclude_user_id=sender_uid)
 
@@ -72,15 +78,38 @@ class ConnectionManager:
             except Exception:
                 dead.append((connection, uid))
         for d in dead:
-            self.active_connections[conversation_id].remove(d)
+            try:
+                self.active_connections[conversation_id].remove(d)
+            except (ValueError, KeyError):
+                pass
 
     async def broadcast_to_all(self, message: str, conversation_id: int):
-        await self._deliver(conversation_id, message)
+        from app.services.broadcast_hub import publish
+        await publish(conversation_id, message, exclude_user_id=None)
 
     async def send_to_user(self, message: str, conversation_id: int, target_user_id: int):
-        await self._deliver(conversation_id, message, exclude_user_id=None)
-        # send_to_user is intentionally local-only: a single-user target is almost
-        # always the connected contractor on this instance (e.g. AI drafts).
+        """Deliver only to a specific user on this instance (e.g. AI drafts)."""
+        if conversation_id not in self.active_connections:
+            return
+        dead = []
+        for connection, uid in self.active_connections[conversation_id]:
+            if uid != target_user_id:
+                continue
+            try:
+                await connection.send_text(message)
+            except Exception:
+                dead.append((connection, uid))
+        for d in dead:
+            try:
+                self.active_connections[conversation_id].remove(d)
+            except (ValueError, KeyError):
+                pass
+
+    async def send_json_to_socket(self, websocket: WebSocket, payload: dict):
+        try:
+            await websocket.send_text(json.dumps(payload))
+        except Exception:
+            pass
 
 manager = ConnectionManager()
 from app.services.broadcast_hub import register_local_deliverer
@@ -231,9 +260,20 @@ async def approve_draft(
     draft.status = "approved"
     draft.resolved_at = datetime.utcnow()
     await db.commit()
+    await db.refresh(new_msg)
 
-    # Broadcast to all in conversation (now customer can see the approved message)
-    await manager.broadcast_to_all(clean_content, request.conversation_id)
+    # Broadcast structured message so chat clients render consistently
+    payload = json.dumps({
+        "type": "message",
+        "id": new_msg.id,
+        "sender_id": current_user.id,
+        "content": clean_content,
+        "attachment_url": None,
+        "attachment_type": None,
+        "attachment_name": None,
+        "timestamp": (new_msg.timestamp.isoformat() + "Z") if new_msg.timestamp else datetime.utcnow().isoformat() + "Z",
+    })
+    await manager.broadcast_to_all(payload, request.conversation_id)
     logger.info("Draft %d approved by contractor %d", draft.id, current_user.id)
 
     return {"status": "sent", "content": clean_content}
@@ -298,12 +338,23 @@ async def upload_chat_media(
     }
 
 
+def _presence_payload(conversation_id: int, user_id: int, online: bool) -> str:
+    return json.dumps({
+        "type": "presence",
+        "user_id": user_id,
+        "online": online,
+        "online_user_ids": manager.online_user_ids(conversation_id),
+    })
+
+
 @router.websocket("/ws/{conversation_id}")
 async def websocket_endpoint(
     websocket: WebSocket, 
     conversation_id: int, 
     token: Optional[str] = Query(None)
 ):
+    from datetime import datetime
+
     token = _get_websocket_token(websocket, token)
     if not token:
         await websocket.close(code=1008, reason="Missing token")
@@ -317,46 +368,154 @@ async def websocket_endpoint(
         await websocket.close(code=1008, reason="Invalid token")
         return
 
-    # Verify user belongs to the conversation
+    # Verify user belongs to the conversation; capture peer id for presence/receipts
+    peer_id: Optional[int] = None
     async with async_session_maker() as db:
         result = await db.exec(select(Conversation).where(Conversation.id == conversation_id))
         conversation = result.first()
         if not conversation or user_id not in [conversation.customer_id, conversation.contractor_id]:
             await websocket.close(code=1008, reason="Unauthorized")
             return
+        peer_id = (
+            conversation.contractor_id
+            if user_id == conversation.customer_id
+            else conversation.customer_id
+        )
 
     await manager.connect(websocket, conversation_id, user_id)
+
+    # Snapshot of who is online for the newly connected client
+    await manager.send_json_to_socket(websocket, {
+        "type": "presence",
+        "user_id": user_id,
+        "online": True,
+        "online_user_ids": manager.online_user_ids(conversation_id),
+    })
+    # Tell peers we came online
+    await manager.broadcast_to_conversation(
+        _presence_payload(conversation_id, user_id, True),
+        conversation_id,
+        websocket,
+    )
+
+    # Opening the thread = read: advance cursor + notify peer
+    try:
+        async with async_session_maker() as db:
+            conv_result = await db.exec(select(Conversation).where(Conversation.id == conversation_id))
+            conv = conv_result.first()
+            if conv:
+                from app.services.notification_service import mark_conversation_read
+                await mark_conversation_read(db, conv, user_id)
+        read_evt = json.dumps({
+            "type": "read",
+            "user_id": user_id,
+            "read_at": datetime.utcnow().isoformat() + "Z",
+        })
+        await manager.broadcast_to_conversation(read_evt, conversation_id, websocket)
+    except Exception as e:
+        logger.warning("WS initial read mark failed: %s", e)
+
     try:
         while True:
             data = await websocket.receive_text()
 
-            # Support JSON messages carrying an attachment
+            # Parse control vs chat payloads
             content = data
             attachment_url = None
             attachment_type = None
+            attachment_name = None
+            control_type = None
             try:
                 parsed = json.loads(data)
                 if isinstance(parsed, dict):
-                    content = parsed.get("content", "")
-                    attachment_url = parsed.get("attachment_url")
-                    attachment_type = parsed.get("attachment_type")
+                    control_type = parsed.get("type")
+                    if control_type in ("typing", "read", "presence", "ping"):
+                        pass  # control message — handled below
+                    else:
+                        content = parsed.get("content", "") or ""
+                        attachment_url = parsed.get("attachment_url")
+                        attachment_type = parsed.get("attachment_type")
+                        attachment_name = parsed.get("attachment_name") or None
+                        control_type = None  # treat as chat message
             except (json.JSONDecodeError, TypeError, ValueError):
-                pass
+                control_type = None
 
-            # Save to DB asynchronously
+            # --- Control messages (not persisted) ---
+            if control_type == "typing":
+                typing_evt = json.dumps({"type": "typing", "user_id": user_id})
+                await manager.broadcast_to_conversation(typing_evt, conversation_id, websocket)
+                continue
+
+            if control_type == "read":
+                try:
+                    async with async_session_maker() as db:
+                        conv_result = await db.exec(
+                            select(Conversation).where(Conversation.id == conversation_id)
+                        )
+                        conv = conv_result.first()
+                        if conv:
+                            from app.services.notification_service import mark_conversation_read
+                            await mark_conversation_read(db, conv, user_id)
+                except Exception as e:
+                    logger.warning("WS read mark failed: %s", e)
+                read_evt = json.dumps({
+                    "type": "read",
+                    "user_id": user_id,
+                    "read_at": datetime.utcnow().isoformat() + "Z",
+                })
+                await manager.broadcast_to_conversation(read_evt, conversation_id, websocket)
+                continue
+
+            if control_type == "ping":
+                await manager.send_json_to_socket(websocket, {"type": "pong"})
+                continue
+
+            if control_type == "presence":
+                # Clients shouldn't set presence; ignore
+                continue
+
+            # Empty chat (no text, no attachment) — ignore
+            if not (content or "").strip() and not attachment_url:
+                continue
+
+            # Save chat message to DB
+            new_msg = None
             async with async_session_maker() as db:
                 new_msg = DirectMessage(
                     conversation_id=conversation_id,
                     sender_id=user_id,
-                    content=content,
+                    content=content or "",
                     attachment_url=attachment_url,
                     attachment_type=attachment_type,
+                    attachment_name=attachment_name,
                 )
                 db.add(new_msg)
                 await db.commit()
-                
-            # Broadcast to other participant
-            await manager.broadcast_to_conversation(data, conversation_id, websocket)
+                await db.refresh(new_msg)
+
+            # Structured broadcast so clients get id + original filename
+            ts = new_msg.timestamp.isoformat() + "Z" if new_msg.timestamp else datetime.utcnow().isoformat() + "Z"
+            msg_payload = {
+                "type": "message",
+                "id": new_msg.id,
+                "sender_id": user_id,
+                "content": content or "",
+                "attachment_url": attachment_url,
+                "attachment_type": attachment_type,
+                "attachment_name": attachment_name,
+                "timestamp": ts,
+            }
+            await manager.broadcast_to_conversation(
+                json.dumps(msg_payload), conversation_id, websocket
+            )
+
+            # Ack sender: delivered if peer currently in this conversation
+            peer_online = peer_id is not None and manager.is_user_online(conversation_id, peer_id)
+            await manager.send_json_to_socket(websocket, {
+                "type": "message_ack",
+                "id": new_msg.id,
+                "status": "delivered" if peer_online else "sent",
+            })
 
             # AI Autonomy: check if the receiver is a contractor with auto-reply enabled
             async with async_session_maker() as db:
@@ -365,7 +524,6 @@ async def websocket_endpoint(
                 if not conversation:
                     continue
 
-                # Determine who the contractor is
                 contractor_id = conversation.contractor_id
                 customer_id = conversation.customer_id
 
@@ -379,6 +537,7 @@ async def websocket_endpoint(
                     continue
 
                 autonomy = contractor.ai_autonomy_level or 1
+                alert_text = content or (f"[attachment: {attachment_name or attachment_type or 'file'}]")
 
                 # Level 1: manual — send cross-platform alert
                 if autonomy == 1:
@@ -386,12 +545,11 @@ async def websocket_endpoint(
                         customer_result = await db.exec(select(User).where(User.id == customer_id))
                         customer = customer_result.first()
                         customer_name = customer.full_name if customer else "Customer"
-                        await alert_new_message(db, contractor_id, customer_name, data)
+                        await alert_new_message(db, contractor_id, customer_name, alert_text)
                     except Exception:
                         pass
                     continue
 
-                # Build contractor context for AI
                 contractor_context = {
                     "profession": contractor.profession,
                     "base_pricing": contractor.base_pricing,
@@ -401,11 +559,9 @@ async def websocket_endpoint(
                     "ai_tone_preference": contractor.ai_tone_preference,
                 }
 
-                # Generate AI reply
-                ai_reply = await generate_contractor_reply(data, contractor_context)
+                ai_reply = await generate_contractor_reply(alert_text, contractor_context)
 
                 if autonomy == 2:
-                    # Level 2: AI Draft — save to DB, send to contractor only
                     draft = AIDraft(
                         conversation_id=conversation_id,
                         contractor_id=contractor_id,
@@ -416,12 +572,23 @@ async def websocket_endpoint(
                     await db.commit()
                     await db.refresh(draft)
 
-                    draft_msg = f"[AI DRAFT:{draft.id}] {ai_reply}"
-                    # Only send draft to the contractor, NOT the customer
+                    draft_msg = json.dumps({
+                        "type": "message",
+                        "id": None,
+                        "sender_id": contractor_id,
+                        "content": f"[AI DRAFT:{draft.id}] {ai_reply}",
+                        "attachment_url": None,
+                        "attachment_type": None,
+                        "attachment_name": None,
+                        "timestamp": datetime.utcnow().isoformat() + "Z",
+                        "is_draft": True,
+                    })
                     await manager.send_to_user(draft_msg, conversation_id, contractor_id)
-                    logger.info("Draft %d created for conversation %d, sent to contractor %d via WS", draft.id, conversation_id, contractor_id)
+                    logger.info(
+                        "Draft %d created for conversation %d, sent to contractor %d via WS",
+                        draft.id, conversation_id, contractor_id,
+                    )
 
-                    # Send to Telegram with inline keyboard
                     try:
                         async with async_session_maker() as tg_db:
                             tg_result = await tg_db.exec(
@@ -467,7 +634,6 @@ async def websocket_endpoint(
                         logger.error("Telegram draft send error: %s", str(e))
 
                 elif autonomy == 3:
-                    # Level 3: Auto-Reply — send as the contractor
                     auto_dm = DirectMessage(
                         conversation_id=conversation_id,
                         sender_id=contractor_id,
@@ -475,15 +641,25 @@ async def websocket_endpoint(
                     )
                     db.add(auto_dm)
                     await db.commit()
-                    await manager.broadcast_to_all(ai_reply, conversation_id)
+                    await db.refresh(auto_dm)
+                    auto_payload = json.dumps({
+                        "type": "message",
+                        "id": auto_dm.id,
+                        "sender_id": contractor_id,
+                        "content": ai_reply,
+                        "attachment_url": None,
+                        "attachment_type": None,
+                        "attachment_name": None,
+                        "timestamp": (auto_dm.timestamp.isoformat() + "Z") if auto_dm.timestamp else datetime.utcnow().isoformat() + "Z",
+                    })
+                    await manager.broadcast_to_all(auto_payload, conversation_id)
 
-                    # Log the auto-reply
                     audit = AIOperationsAuditLog(
                         action_type="chat_auto_reply",
                         user_id=customer_id,
                         contractor_id=contractor_id,
                         gemini_model_version=settings.GEMINI_MODEL,
-                        input_context={"message": data},
+                        input_context={"message": alert_text},
                         raw_ai_response=ai_reply,
                         structured_decision={"autonomy_level": 3, "conversation_id": conversation_id},
                         status="success",
@@ -493,3 +669,19 @@ async def websocket_endpoint(
             
     except WebSocketDisconnect:
         manager.disconnect(websocket, conversation_id)
+        # Only announce offline if this user has no remaining sockets in the room
+        if not manager.is_user_online(conversation_id, user_id):
+            offline_payload = _presence_payload(conversation_id, user_id, False)
+            await manager.broadcast_to_all(offline_payload, conversation_id)
+    except Exception as e:
+        logger.error("WS error conversation=%s user=%s: %s", conversation_id, user_id, e)
+        manager.disconnect(websocket, conversation_id)
+        if not manager.is_user_online(conversation_id, user_id):
+            try:
+                await manager.broadcast_to_all(
+                    _presence_payload(conversation_id, user_id, False),
+                    conversation_id,
+                )
+            except Exception:
+                pass
+
