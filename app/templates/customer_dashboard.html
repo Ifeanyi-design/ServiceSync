@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "escrow_timeline.html" import escrow_timeline %}
 
 {% block title %}My Dashboard — ServiceSync{% endblock %}
 {% block meta_description %}Track your active jobs, manage payments, and review your service history all in one place.{% endblock %}
@@ -8,6 +9,7 @@
 {# ── Computed sets for status grouping ── #}
 {% set active_statuses = ['open','matched','booked','in_progress','completed_pending'] %}
 {% set active_jobs = customer_jobs | selectattr('status', 'in', active_statuses) | list %}
+{# Also keep disputed-held jobs visible if status already completed but escrow disputed #}
 {% set completed_jobs = customer_jobs | selectattr('status', 'equalto', 'completed') | list %}
 
 {# ── Total spent from escrow_map ── #}
@@ -258,8 +260,8 @@
           {# Action buttons #}
           <div class="flex flex-wrap gap-2">
 
-            {# Pay & Secure Escrow: booked + no escrow #}
-            {% if job.status == 'booked' and not esc %}
+            {# Pay & Secure Escrow: booked + unfunded / no escrow #}
+            {% if job.status == 'booked' and (not esc or esc.status == 'unfunded') %}
             <a href="/jobs/{{ job.id }}/pay"
               class="inline-flex items-center justify-center w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-md transition-all duration-200 active:scale-95">
               <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
@@ -288,8 +290,15 @@
             </a>
             {% endif %}
 
-            {# Open Dispute: completed_pending #}
-            {% if job.status == 'completed_pending' %}
+            {# Dispute status or open #}
+            {% set disp = dispute_map.get(job.id) if dispute_map is defined else none %}
+            {% if disp and disp.status != 'resolved' %}
+            <span class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-600 border border-red-100">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              Dispute {{ disp.status | replace('_',' ') }}
+              {% if disp.ai_recommended_refund_pct is not none %} · AI {{ disp.ai_recommended_refund_pct | int }}% refund{% endif %}
+            </span>
+            {% elif esc and esc.status == 'held' and job.status in ['in_progress', 'completed_pending'] %}
             <button type="button"
               onclick="openDisputeModal('{{ job.id }}')"
               class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-all duration-200">
@@ -299,7 +308,7 @@
             {% endif %}
 
             {# Receipt link for released escrow #}
-            {% if esc and esc.status == 'released' %}
+            {% if esc and esc.status in ['released', 'refunded', 'penalty_split'] %}
             <a href="/jobs/{{ job.id }}/receipt"
               class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-gray-50 text-gray-600 border border-gray-100 hover:bg-gray-100 transition-all duration-200">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -308,7 +317,7 @@
             {% endif %}
 
             {# Cancel Job #}
-            {% if job.status in ['open', 'matched', 'booked'] %}
+            {% if job.status in ['open', 'matched', 'booked'] and (not esc or esc.status == 'unfunded') %}
             <form method="POST" action="/jobs/{{ job.id }}/cancel" class="inline">
               <button type="submit" 
                 onclick="return confirm('Are you sure you want to cancel this job?');"
@@ -320,6 +329,13 @@
             {% endif %}
 
           </div>
+
+          {# Escrow lifecycle timeline #}
+          {% if esc %}
+          <div class="mt-4 pt-4 border-t border-gray-100">
+            {{ escrow_timeline(esc, job, compact=true) }}
+          </div>
+          {% endif %}
 
           {# Meta row: date #}
           <p class="text-[10px] text-gray-400 mt-3">Posted {{ job.created_at.strftime('%b %d, %Y') }}</p>
@@ -427,6 +443,9 @@
     </div>
 
     <form id="dispute-form" method="POST" action="" class="space-y-4">
+      <div class="px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-xs text-amber-800">
+        <strong>What happens next:</strong> Funds stay frozen. Our AI reviews chat + job details, then an admin finalizes the refund split.
+      </div>
       <div>
         <label class="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Reason for Dispute</label>
         <textarea name="reason" rows="4" required

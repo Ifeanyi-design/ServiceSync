@@ -16,8 +16,14 @@
       Tell us what you need.<br/><span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">We'll find the right pro.</span>
     </h1>
     <p class="text-lg text-gray-500 max-w-xl mx-auto leading-relaxed">
-      Our AI triage bot collects your job details and instantly matches you with the best available local professionals.
+      Chat with our AI triage bot — it ranks verified locals by trust, availability, and distance. Book with escrow when you're ready.
     </p>
+    <div class="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold text-gray-500">
+      <span class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">Verified tiers</span>
+      <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">Reputation score</span>
+      <span class="px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-100">Boosted / Premium</span>
+      <span class="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">Distance &amp; availability</span>
+    </div>
   </div>
 
   <!-- ====== TWO-COLUMN LAYOUT: Chat + Results ====== -->
@@ -28,16 +34,19 @@
       <div id="chat-widget" class="bg-white rounded-3xl shadow-xl border border-gray-200 flex flex-col h-[600px] overflow-hidden sticky top-24">
 
         <!-- Chat Header -->
-        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4 flex items-center space-x-3 flex-shrink-0">
-          <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4 flex items-center justify-between flex-shrink-0">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+            </div>
+            <div>
+              <p class="text-white font-semibold text-sm leading-none">Gemini AI Triage</p>
+              <p class="text-blue-100 text-xs mt-0.5 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block animate-pulse"></span>Online · private chat
+              </p>
+            </div>
           </div>
-          <div>
-            <p class="text-white font-semibold text-sm leading-none">Gemini AI Triage</p>
-            <p class="text-blue-100 text-xs mt-0.5 flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block animate-pulse"></span>Online
-            </p>
-          </div>
+          <button type="button" onclick="resetSearchChat()" class="text-[10px] font-bold uppercase tracking-wider text-blue-100 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition" title="Start over">Reset</button>
         </div>
 
         <!-- Chat Messages -->
@@ -106,7 +115,10 @@
           </svg>
         </div>
         <h2 class="text-xl font-bold text-gray-800 mb-2">No matches yet</h2>
-        <p class="text-gray-400 max-w-xs text-sm leading-relaxed">Chat with our AI assistant on the left — once we know your profession, urgency, and location, we'll surface the perfect pros here.</p>
+        <p class="text-gray-400 max-w-xs text-sm leading-relaxed mb-4">Describe the problem, your city/area, and urgency in the AI chat. Matches appear here ranked by verification, reputation, and distance.</p>
+        <div class="flex flex-wrap justify-center gap-2 text-[10px] font-semibold text-gray-400">
+          <span>Try: “clogged sink in Ikeja, Lagos”</span>
+        </div>
       </div>
 
       <!-- Matched Contractors Grid (populated by JS or server-side) -->
@@ -264,6 +276,23 @@
 
   function escHtml(text) {
     return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function resetSearchChat() {
+    chatHistory.length = 0;
+    messagesContainer.innerHTML = `
+      <div class="flex items-end gap-2 animate-fade-in">
+        <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center">
+          <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+        </div>
+        <div class="max-w-[80%] bg-white border border-gray-100 text-gray-800 text-sm px-4 py-2.5 rounded-2xl rounded-bl-none shadow-sm leading-relaxed">
+          Hi! I'm your AI assistant. Tell me what problem you're having at home — I'll find the best local professionals for you!
+        </div>
+      </div>`;
+    if (jscards) jscards.innerHTML = '';
+    if (emptyState) emptyState.classList.remove('hidden');
+    if (contractorsGrid && !{{ 'true' if matched_contractors else 'false' }}) contractorsGrid.classList.add('hidden');
+    chatInput.focus();
   }
 
   function showTyping() { typingIndicator.classList.remove('hidden'); messagesContainer.scrollTop = messagesContainer.scrollHeight; }

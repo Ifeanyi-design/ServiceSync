@@ -109,12 +109,13 @@
               <button type="button" onclick="selectWithdrawMethod('mobile')" id="btn-mobile"
                 class="flex-1 text-xs py-1.5 rounded-lg bg-white/20 text-white font-semibold transition">Mobile Money</button>
             </div>
-            <form method="POST" action="/wallet/withdraw" id="withdraw-form">
+            <form method="POST" action="/wallet/withdraw" id="withdraw-form" onsubmit="return validateWithdraw(event)">
               <input type="hidden" name="method" id="withdraw-method" value="bank" />
-              <input type="number" step="0.01" min="1" name="amount" placeholder="Amount (USD)"
+              <input type="number" step="0.01" min="1" max="{{ wallet.available_balance }}" name="amount" id="withdraw-amount"
+                placeholder="Amount (max ${{ '%.2f' | format(wallet.available_balance | float) }})" required
                 class="w-full mb-2 px-3 py-2 rounded-xl text-gray-900 text-sm bg-white placeholder-gray-400 border border-transparent focus:outline-none focus:ring-2 focus:ring-white/50 transition" />
               <div id="bank-fields">
-                <input type="text" name="bank_account" placeholder="Account number"
+                <input type="text" name="bank_account" placeholder="Account number" required
                   class="w-full mb-2 px-3 py-2 rounded-xl text-gray-900 text-sm bg-white border border-transparent focus:outline-none focus:ring-2 focus:ring-white/50 transition" />
               </div>
               <div id="mobile-fields" class="hidden">
@@ -127,7 +128,8 @@
                 <input type="text" name="phone" placeholder="Phone number"
                   class="w-full mb-2 px-3 py-2 rounded-xl text-gray-900 text-sm bg-white border border-transparent focus:outline-none transition" />
               </div>
-              <button type="submit" class="w-full py-2.5 rounded-xl bg-white text-emerald-700 font-bold text-sm hover:bg-emerald-50 active:scale-[.98] transition">
+              <button type="submit" class="w-full py-2.5 rounded-xl bg-white text-emerald-700 font-bold text-sm hover:bg-emerald-50 active:scale-[.98] transition"
+                {% if (wallet.available_balance | float) <= 0 %}disabled{% endif %}>
                 Withdraw Now
               </button>
             </form>
@@ -270,11 +272,22 @@
 
 {% block extra_scripts %}
 <script>
+  const AVAILABLE = {{ wallet.available_balance | float }};
+  function validateWithdraw(e) {
+    const amt = parseFloat(document.getElementById('withdraw-amount').value || '0');
+    if (!(amt > 0)) { e.preventDefault(); showToast('Enter a withdrawal amount', 'error'); return false; }
+    if (amt > AVAILABLE) { e.preventDefault(); showToast('Amount exceeds available balance', 'error'); return false; }
+    return true;
+  }
   // Withdrawal method toggle
   function selectWithdrawMethod(method) {
     document.getElementById('withdraw-method').value = method;
     document.getElementById('bank-fields').classList.toggle('hidden', method !== 'bank');
     document.getElementById('mobile-fields').classList.toggle('hidden', method !== 'mobile');
+    const bankInput = document.querySelector('#bank-fields input');
+    const phoneInput = document.querySelector('#mobile-fields input[name="phone"]');
+    if (bankInput) bankInput.required = method === 'bank';
+    if (phoneInput) phoneInput.required = method === 'mobile';
     document.getElementById('btn-bank').className = method === 'bank'
       ? 'flex-1 text-xs py-1.5 rounded-lg bg-white text-emerald-700 font-bold transition'
       : 'flex-1 text-xs py-1.5 rounded-lg bg-white/20 text-white font-semibold transition';

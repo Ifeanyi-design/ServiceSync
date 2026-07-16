@@ -311,8 +311,17 @@
               <td class="px-6 py-4">
                 <p class="text-sm font-semibold text-gray-800 max-w-xs truncate">{{ job.description }}</p>
                 <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100">
-                    <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span>Booked
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border
+                    {% if job.status == 'booked' %}bg-green-50 text-green-700 border-green-100
+                    {% elif job.status == 'in_progress' %}bg-indigo-50 text-indigo-700 border-indigo-100
+                    {% elif job.status == 'completed_pending' %}bg-amber-50 text-amber-700 border-amber-100
+                    {% else %}bg-gray-50 text-gray-600 border-gray-100{% endif %}">
+                    <span class="w-1.5 h-1.5 rounded-full
+                      {% if job.status == 'booked' %}bg-green-400
+                      {% elif job.status == 'in_progress' %}bg-indigo-400
+                      {% elif job.status == 'completed_pending' %}bg-amber-400
+                      {% else %}bg-gray-400{% endif %}"></span>
+                    {{ job.status | replace('_', ' ') | title }}
                   </span>
                   {% if escrow %}
                   {% if escrow.status == 'held' %}
@@ -378,12 +387,24 @@
                     Awaiting customer confirmation
                   </span>
                   {% endif %}
-                  {% if escrow and escrow.status in ('held', 'released') %}
+                  {% if escrow and escrow.status in ('held', 'released', 'refunded', 'penalty_split') %}
                   <a href="/jobs/{{ job.id }}/receipt" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-100 transition border border-gray-100">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     Receipt
                   </a>
                   {% endif %}
+                  {% set disp = dispute_map.get(job.id) if dispute_map is defined else none %}
+                  {% if disp and disp.status != 'resolved' %}
+                  <span class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg border border-red-100" title="{{ disp.reason }}">
+                    Dispute {{ disp.status | replace('_',' ') }}
+                    {% if disp.ai_recommended_refund_pct is not none %} · AI {{ disp.ai_recommended_refund_pct | int }}%{% endif %}
+                  </span>
+                  {% elif escrow and escrow.status == 'held' and job.status in ['in_progress', 'completed_pending'] %}
+                  <a href="/chat/{{ job.id }}" class="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-100 transition border border-red-100" title="Open dispute from chat">
+                    Dispute
+                  </a>
+                  {% endif %}
+                  {% if job.status == 'booked' and (not escrow or escrow.status == 'unfunded') %}
                   <button
                     onclick="cancelJob({{ job.id }}, this)"
                     class="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-100 transition border border-red-100"
@@ -392,6 +413,7 @@
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     Cancel
                   </button>
+                  {% endif %}
                 </div>
               </td>
             </tr>

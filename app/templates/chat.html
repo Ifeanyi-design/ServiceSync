@@ -205,6 +205,27 @@
     border: 1.5px solid #f59e0b;
     border-radius: 16px;
     box-shadow: 0 2px 12px rgba(245,158,11,0.15);
+    max-width: 100%;
+  }
+  .bubble-draft .draft-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.15);
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    margin-bottom: 0.5rem;
+  }
+  .bubble-draft .draft-hint {
+    font-size: 11px;
+    color: #92400e;
+    opacity: 0.85;
+    margin-top: 0.35rem;
   }
 
   @keyframes msgIn {
@@ -830,6 +851,21 @@
         <p class="font-medium text-gray-600 whitespace-pre-wrap">{{ job.description[:280] }}{% if job.description|length > 280 %}…{% endif %}</p>
       </div>
       {% endif %}
+      {% if escrow %}
+      <div class="mt-3 pt-3 border-t border-gray-100">
+        {% from "escrow_timeline.html" import escrow_timeline %}
+        {{ escrow_timeline(escrow, job, compact=true) }}
+      </div>
+      {% endif %}
+      {% if dispute and dispute.status != 'resolved' %}
+      <div class="mt-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-100 text-xs text-red-700">
+        <p class="font-bold">Dispute {{ dispute.status | replace('_',' ') }}</p>
+        <p class="mt-0.5 text-red-600/90">{{ dispute.reason[:160] }}{% if dispute.reason|length > 160 %}…{% endif %}</p>
+        {% if dispute.ai_recommended_refund_pct is not none %}
+        <p class="mt-1 font-semibold text-blue-700">AI recommends {{ dispute.ai_recommended_refund_pct | int }}% refund to customer</p>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
     {% endif %}
 
@@ -863,9 +899,13 @@
     </div>
     {% endif %}
 
+    {% if flash %}
+    <script>document.addEventListener('DOMContentLoaded', () => showToast({{ flash.message | tojson }}, {{ flash.kind | tojson }}));</script>
+    {% endif %}
+
     <!-- ====== JOB QUICK ACTIONS BAR ====== -->
     {% if job %}
-    <div class="flex-shrink-0 px-3 sm:px-5 py-2 border-b border-gray-100/80" style="background: linear-gradient(to right, rgba(248,250,255,0.95), rgba(245,248,255,0.95));">
+    <div class="job-quick-actions-bar flex-shrink-0 px-3 sm:px-5 py-2 border-b border-gray-100/80" style="background: linear-gradient(to right, rgba(248,250,255,0.95), rgba(245,248,255,0.95));">
       {% set e_status = escrow.status if escrow else 'none' %}
       <div class="flex flex-wrap items-center gap-2">
         <button type="button" onclick="toggleJobContext()" class="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline sm:pointer-events-none sm:no-underline sm:text-gray-400">
@@ -874,13 +914,13 @@
         <span class="w-px h-4 bg-gray-200"></span>
 
         {% if current_user.id == job.customer_id %}
-          {% if job.status == 'booked' and e_status != 'held' %}
+          {% if job.status == 'booked' and e_status not in ['held', 'released', 'disputed'] %}
           <a href="/jobs/{{ job.id }}/pay"
             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold transition shadow-sm shadow-blue-200 active:scale-95">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
             Pay &amp; Secure Escrow
           </a>
-          {% elif job.status == 'completed_pending' %}
+          {% elif job.status == 'completed_pending' and e_status == 'held' %}
           <form method="POST" action="/jobs/{{ job.id }}/confirm" class="inline">
             <button type="submit"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-xs font-bold transition shadow-sm shadow-green-200 active:scale-95">
@@ -892,16 +932,29 @@
           <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100">
              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg> Escrow funded — awaiting work
           </span>
+          {% elif e_status == 'disputed' %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 text-xs font-bold border border-red-100">
+            Funds frozen — dispute open
+          </span>
+          {% endif %}
+          {% if e_status == 'held' and job.status in ['in_progress', 'completed_pending'] and (not dispute or dispute.status == 'resolved') %}
+          <button type="button" onclick="document.getElementById('chat-dispute-modal').classList.remove('hidden')"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 text-xs font-bold border border-red-100 hover:bg-red-100 transition">
+            Open Dispute
+          </button>
           {% endif %}
 
         {% elif current_user.id == job.assigned_contractor_id %}
           {% if job.status == 'booked' %}
           <form method="POST" action="/jobs/{{ job.id }}/start" class="inline">
-            <button type="submit"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-bold transition shadow-sm shadow-emerald-200 active:scale-95">
+            <button type="submit" {% if e_status != 'held' %}disabled title="Waiting for customer to fund escrow"{% endif %}
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-bold transition shadow-sm shadow-emerald-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                Start Job
             </button>
           </form>
+          {% if e_status != 'held' %}
+          <span class="text-[11px] text-amber-600 font-semibold">Awaiting escrow funding</span>
+          {% endif %}
           {% elif job.status == 'in_progress' %}
           <form method="POST" action="/jobs/{{ job.id }}/mark-complete" class="inline">
             <button type="submit"
@@ -914,11 +967,44 @@
              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Awaiting customer confirmation
           </span>
           {% endif %}
+          {% if e_status == 'held' and job.status in ['in_progress', 'completed_pending'] and (not dispute or dispute.status == 'resolved') %}
+          <button type="button" onclick="document.getElementById('chat-dispute-modal').classList.remove('hidden')"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 text-xs font-bold border border-red-100 hover:bg-red-100 transition">
+            Open Dispute
+          </button>
+          {% elif e_status == 'disputed' %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 text-xs font-bold border border-red-100">
+            Dispute open — funds frozen
+          </span>
+          {% endif %}
         {% endif %}
 
         {% if job.status == 'completed' %}
         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 text-gray-500 text-xs font-bold">{{ icon('check-circle','w-4 h-4 mr-1.5 inline') }} Job Completed</span>
         {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Chat dispute modal #}
+    {% if job and escrow %}
+    <div id="chat-dispute-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-extrabold text-gray-900">Open a Dispute</h3>
+          <button type="button" onclick="document.getElementById('chat-dispute-modal').classList.add('hidden')" class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center">
+            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <p class="text-xs text-gray-500 mb-3">Funds will freeze. AI reviews chat history, then an admin finalizes the split.</p>
+        <form method="POST" action="/escrow/{{ job.id }}/dispute" class="space-y-3">
+          <textarea name="reason" rows="4" required placeholder="What went wrong?"
+            class="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"></textarea>
+          <div class="flex gap-2">
+            <button type="button" onclick="document.getElementById('chat-dispute-modal').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">Cancel</button>
+            <button type="submit" class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold">File Dispute</button>
+          </div>
+        </form>
       </div>
     </div>
     {% endif %}
@@ -1842,11 +1928,12 @@
       inner.className = 'flex flex-col items-start max-w-[82%] sm:max-w-[68%]';
       inner.innerHTML = `
         <div class="bubble-draft px-4 py-3 text-sm leading-relaxed">
-          <div class="flex items-center gap-1.5 mb-2">
-            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-            <span class="text-xs font-black text-amber-700 uppercase tracking-wide">AI Draft</span>
+          <div class="draft-badge">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            AI Draft · review before send
           </div>
-          <p class="text-amber-900 whitespace-pre-wrap">${escHtml(draftContent)}</p>
+          <p class="text-amber-900 whitespace-pre-wrap font-medium">${escHtml(draftContent)}</p>
+          <p class="draft-hint">Only you see this until you approve. Edit autonomy level under Integrations.</p>
         </div>
         <div class="flex items-center gap-2 mt-2">
           <button onclick="approveDraft(${draftId})"

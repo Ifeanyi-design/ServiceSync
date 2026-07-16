@@ -398,6 +398,105 @@
     html.dark #report-modal .rm-card { background: #1e293b; color: #e2e8f0; }
     html.dark .conv-card:hover { background: rgba(30, 41, 59, 0.6) !important; }
     html.dark .conv-card.is-active { background: rgba(37, 99, 235, 0.15) !important; }
+
+    /* ====== Phase 6.9 — global surfaces (money + discovery pages) ====== */
+    html.dark main { color: #e2e8f0; }
+    html.dark .bg-white { background-color: #1e293b !important; }
+    html.dark .bg-gray-50,
+    html.dark .bg-gray-50\/40,
+    html.dark .bg-gray-50\/80,
+    html.dark .bg-gray-50\/60 { background-color: #0f172a !important; }
+    html.dark .bg-gray-100 { background-color: #1e293b !important; }
+    html.dark .bg-white\/95 { background-color: rgba(15, 23, 42, 0.95) !important; }
+    html.dark .text-gray-900 { color: #f1f5f9 !important; }
+    html.dark .text-gray-800 { color: #e2e8f0 !important; }
+    html.dark .text-gray-700 { color: #cbd5e1 !important; }
+    html.dark .text-gray-600 { color: #94a3b8 !important; }
+    html.dark .text-gray-500 { color: #94a3b8 !important; }
+    html.dark .text-gray-400 { color: #64748b !important; }
+    html.dark .text-gray-300 { color: #64748b !important; }
+    html.dark .border-gray-50,
+    html.dark .border-gray-100,
+    html.dark .border-gray-200,
+    html.dark .border-gray-100\/80 { border-color: rgba(148, 163, 184, 0.14) !important; }
+    html.dark .divide-gray-50 > :not([hidden]) ~ :not([hidden]),
+    html.dark .divide-y > :not([hidden]) ~ :not([hidden]) { border-color: rgba(148, 163, 184, 0.1); }
+    html.dark .shadow-sm,
+    html.dark .shadow-md,
+    html.dark .shadow-lg,
+    html.dark .shadow-xl { --tw-shadow-color: rgba(0,0,0,0.35); }
+    html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]),
+    html.dark select,
+    html.dark textarea {
+      background-color: #0f172a !important;
+      border-color: #334155 !important;
+      color: #e2e8f0 !important;
+    }
+    html.dark input::placeholder,
+    html.dark textarea::placeholder { color: #64748b !important; }
+    /* Soft tinted panels */
+    html.dark .bg-blue-50,
+    html.dark .bg-blue-50\/30,
+    html.dark .bg-blue-50\/40 { background-color: rgba(37, 99, 235, 0.12) !important; }
+    html.dark .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.12) !important; }
+    html.dark .bg-emerald-50,
+    html.dark .bg-green-50 { background-color: rgba(16, 185, 129, 0.12) !important; }
+    html.dark .bg-amber-50,
+    html.dark .bg-yellow-50 { background-color: rgba(245, 158, 11, 0.12) !important; }
+    html.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.12) !important; }
+    html.dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.12) !important; }
+    html.dark .bg-orange-50 { background-color: rgba(249, 115, 22, 0.12) !important; }
+    html.dark .border-blue-100,
+    html.dark .border-blue-200 { border-color: rgba(59, 130, 246, 0.25) !important; }
+    html.dark .border-emerald-100,
+    html.dark .border-green-100 { border-color: rgba(16, 185, 129, 0.25) !important; }
+    html.dark .border-amber-100,
+    html.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.25) !important; }
+    html.dark .border-red-100,
+    html.dark .border-red-200 { border-color: rgba(239, 68, 68, 0.25) !important; }
+    html.dark .text-blue-700,
+    html.dark .text-blue-800 { color: #93c5fd !important; }
+    html.dark .text-blue-600 { color: #60a5fa !important; }
+    html.dark .text-emerald-700,
+    html.dark .text-green-700 { color: #6ee7b7 !important; }
+    html.dark .text-emerald-600,
+    html.dark .text-green-600 { color: #34d399 !important; }
+    html.dark .text-amber-700,
+    html.dark .text-amber-800,
+    html.dark .text-amber-900 { color: #fcd34d !important; }
+    html.dark .text-red-600,
+    html.dark .text-red-700 { color: #fca5a5 !important; }
+    html.dark .text-indigo-700 { color: #a5b4fc !important; }
+    html.dark .hover\:bg-gray-50:hover { background-color: rgba(30, 41, 59, 0.85) !important; }
+    html.dark .hover\:bg-blue-50:hover,
+    html.dark .hover\:bg-blue-50\/30:hover { background-color: rgba(37, 99, 235, 0.15) !important; }
+    html.dark .hover\:bg-red-50:hover { background-color: rgba(239, 68, 68, 0.12) !important; }
+    /* Pay / wallet / forms */
+    html.dark #processing-overlay { background: rgba(15, 23, 42, 0.9) !important; }
+    html.dark .pay-tab:not(.active) { color: #94a3b8; }
+    html.dark .filter-btn:not(.active) {
+      background: #1e293b;
+      border-color: #334155;
+      color: #94a3b8;
+    }
+    html.dark .bubble-draft {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(180, 83, 9, 0.22) 100%) !important;
+      border-color: rgba(245, 158, 11, 0.45) !important;
+    }
+    html.dark .bubble-draft .text-amber-900,
+    html.dark .bubble-draft .text-amber-700 { color: #fde68a !important; }
+    html.dark .escrow-timeline-widget .ring-white { --tw-ring-color: #1e293b; }
+    html.dark .job-quick-actions-bar {
+      background: linear-gradient(to right, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)) !important;
+      border-color: rgba(148, 163, 184, 0.12) !important;
+    }
+    html.dark .review-prompt-banner {
+      background: rgba(245, 158, 11, 0.12) !important;
+      border-color: rgba(245, 158, 11, 0.3) !important;
+    }
+    html.dark #chat-widget,
+    html.dark #chat-messages { border-color: rgba(148, 163, 184, 0.12); }
+    html.dark footer .text-gray-900 { color: #f1f5f9 !important; }
   </style>
 
   {% block extra_head %}{% endblock %}

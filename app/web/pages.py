@@ -436,16 +436,26 @@ async def wallet_page(request: Request, current_user: User = Depends(get_current
 @router.post("/wallet/withdraw")
 async def wallet_withdraw(
     amount: float = Form(...),
+    method: str = Form(default="bank"),
+    bank_account: str = Form(default=""),
+    mobile_provider: str = Form(default=""),
+    phone: str = Form(default=""),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if current_user.role != "contractor":
         return RedirectResponse(url="/")
+    dest = "linked account"
+    if method == "mobile":
+        dest = f"{(mobile_provider or 'mobile').title()} {phone[-4:] if phone and len(phone) >= 4 else phone or ''}".strip()
+    elif bank_account:
+        last4 = "".join(ch for ch in bank_account if ch.isdigit())[-4:]
+        dest = f"bank ····{last4}" if last4 else "bank account"
     try:
         txn = await wallet_service.withdraw(
             db, current_user.id, Decimal(str(amount)),
             reference=f"wd_{current_user.id}_{int(datetime.utcnow().timestamp())}",
-            note="Withdrawal to linked account",
+            note=f"Withdrawal via {method} to {dest}",
         )
     except ValueError as e:
         return RedirectResponse(url=f"/wallet?error={e}", status_code=302)
@@ -474,7 +484,11 @@ async def pay_job_page(request: Request, job_id: int, error: Optional[str] = Non
 
     fees = calculate_fees(Decimal(str(amount)), rate=commission_rate(contractor))
     from app.models.all_models import PaymentMethod
-    pm_result = await db.exec(select(PaymentMethod).where(PaymentMethod.user_id == current_user.id))
+    pm_result = await db.exec(
+        select(PaymentMethod)
+        .where(PaymentMethod.user_id == current_user.id)
+        .order_by(PaymentMethod.is_default.desc(), PaymentMethod.id.desc())
+    )
     saved_methods = pm_result.all()
     return templates.TemplateResponse(request=request, name="pay_job.html", context={
         "request": request,
@@ -568,7 +582,7 @@ async def web_fund_escrow(
     bank_account_number: str = Form(default=""),
     mobile_provider: str = Form(default=""),
     mobile_phone: str = Form(default=""),
-    saved_method_id: Optional[int] = Form(default=None),
+    saved_method_id: Optional[str] = Form(default=None),
     currency: str = Form(default="USD"),
     payment_intent_id: Optional[str] = Form(default=None),
     current_user: User = Depends(get_current_user),
@@ -592,12 +606,20 @@ async def web_fund_escrow(
     final_brand = card_brand
     final_last4 = card_last4
 
-    if saved_method_id:
+    saved_id = None
+    if saved_method_id and str(saved_method_id).strip().isdigit():
+        saved_id = int(saved_method_id)
+
+    if saved_id:
         from app.models.all_models import PaymentMethod
-        method = await db.get(PaymentMethod, saved_method_id)
+        method = await db.get(PaymentMethod, saved_id)
         if method and method.user_id == current_user.id:
             final_brand = method.brand or (method.provider.title() if method.provider else "Card")
             final_last4 = method.last4 or ""
+            if method.type == "bank_transfer":
+                final_brand = method.bank_name or "Bank Transfer"
+            elif method.type == "mobile_money":
+                final_brand = (method.provider or "Mobile").title()
     else:
         if payment_type == 'card':
             if not final_last4 and card_number:
@@ -631,6 +653,10 @@ async def web_fund_escrow(
         return RedirectResponse(url=f"/jobs/{job_id}/pay?error={e}", status_code=302)
 
     await db.commit()
+    # Prefer chat thread so customer sees funded status + next job actions
+    conv = (await db.exec(select(Conversation).where(Conversation.job_id == job_id))).first()
+    if conv:
+        return RedirectResponse(url=f"/chat/{conv.id}?paid=1", status_code=302)
     return RedirectResponse(url="/dashboard/customer?paid=1", status_code=302)
 
 
@@ -1116,12 +1142,20 @@ async def customer_dashboard(request: Request, current_user: User = Depends(get_
         for conv in conv_result.all():
             conversation_map[conv.job_id] = conv.id
 
+    # Dispute status by job (for open disputes UI)
+    dispute_map = {}
+    if job_ids:
+        disp_result = await db.exec(select(Dispute).where(Dispute.job_id.in_(job_ids)))
+        for d in disp_result.all():
+            dispute_map[d.job_id] = d
+
     return templates.TemplateResponse(request=request, name="customer_dashboard.html", context={
         "request": request,
         "current_user": current_user,
         "customer_jobs": customer_jobs,
         "escrow_map": escrow_map,
         "conversation_map": conversation_map,
+        "dispute_map": dispute_map,
         "reviewed_job_ids": reviewed_job_ids,
         "active_statuses": ["open", "matched", "booked", "in_progress", "completed_pending"],
         "flash": _flash_from_query(request),
@@ -1195,6 +1229,7 @@ async def contractor_dashboard(request: Request, current_user: User = Depends(ge
     
     # Load escrow data for each dispatch
     escrow_map = {}
+    dispute_map = {}
     total_earnings = 0
     for job in active_dispatches:
         escrow_result = await db.exec(select(Escrow).where(Escrow.job_id == job.id))
@@ -1203,6 +1238,10 @@ async def contractor_dashboard(request: Request, current_user: User = Depends(ge
             escrow_map[job.id] = escrow
             if escrow.status in ("released", "held"):
                 total_earnings += float(escrow.contractor_payout)
+            d_result = await db.exec(select(Dispute).where(Dispute.escrow_id == escrow.id))
+            d = d_result.first()
+            if d:
+                dispute_map[job.id] = d
     
     # Latest verification request (for the trust/verification card)
     vr_result = await db.exec(
@@ -1229,6 +1268,7 @@ async def contractor_dashboard(request: Request, current_user: User = Depends(ge
         "active_dispatches": active_dispatches,
         "jobs_today": jobs_today,
         "escrow_map": escrow_map,
+        "dispute_map": dispute_map,
         "total_earnings": total_earnings,
         "verification_request": verification_request,
         "effective_tier": subscription_service.effective_tier(current_user),
@@ -1347,9 +1387,13 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
 
     job = await db.get(Job, conversation.job_id)
     escrow = None
+    dispute = None
     if job:
         e_result = await db.exec(select(Escrow).where(Escrow.job_id == job.id))
         escrow = e_result.first()
+        if escrow:
+            d_result = await db.exec(select(Dispute).where(Dispute.escrow_id == escrow.id))
+            dispute = d_result.first()
 
     # Review status for post-job prompt (customers only)
     has_review = False
@@ -1372,6 +1416,7 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
             c["unread_count"] = 0
 
     job_location = format_location(job) if job else "—"
+    flash = _flash_from_query(request)
 
     return templates.TemplateResponse(request=request, name="chat.html", context={
         "request": request,
@@ -1383,6 +1428,7 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
         "past_messages": past_messages,
         "job": job,
         "escrow": escrow,
+        "dispute": dispute,
         "conversations": conversations,
         "active_conversation_id": conversation_id,
         "has_review": has_review,
@@ -1390,6 +1436,7 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
         "conv_muted": conv_muted,
         "job_location": job_location,
         "format_location": format_location,
+        "flash": flash,
     })
 
 
@@ -1733,5 +1780,10 @@ async def file_dispute(
         )
         await db.commit()
     except ValueError as e:
-        return RedirectResponse(url=f"/dashboard/customer?error={str(e)}", status_code=303)
-    return RedirectResponse(url="/dashboard/customer?success=Dispute+filed", status_code=303)
+        dash = "/dashboard/customer" if current_user.role == "customer" else "/contractor/dashboard"
+        return RedirectResponse(url=f"{dash}?error={str(e)}", status_code=303)
+    conv = (await db.exec(select(Conversation).where(Conversation.job_id == job_id))).first()
+    if conv:
+        return RedirectResponse(url=f"/chat/{conv.id}?success=Dispute+filed", status_code=303)
+    dash = "/dashboard/customer" if current_user.role == "customer" else "/contractor/dashboard"
+    return RedirectResponse(url=f"{dash}?success=Dispute+filed", status_code=303)

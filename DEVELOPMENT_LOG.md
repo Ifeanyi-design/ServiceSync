@@ -19,6 +19,7 @@
 | **3** | Chat depth (attachments DB, presence, receipts) | **Done** | Filename in DB, true presence, real receipts, typing WS, jump/date/nav badge. |
 | **4** | Trust & marketing polish | **Done** | Trade icons, honest trust bar, FAQ accordion, quieter gradients, no dead social #. |
 | **5** | Product UX extras | **Done** | Search, job card, safety tools, lightbox polish, dark mode, review prompt, archive/mute, shared icons. |
+| **6** | Money flow + discovery + night mode | **Done (6.1–6.9)** | Pay → escrow → dispute → wallet; home/search/AI chat polish; dark surfaces. |
 
 ### First thing in a new session
 
@@ -28,8 +29,8 @@
    alembic upgrade head
    ```
    Includes `o9p0q1r2s3t4` (archive/mute columns + `userblock` / `userreport` tables), plus earlier `last_read` / `attachment_name`.
-3. Smoke-check: `/chat/{id}` (search, ⋯ menu, job card), dark toggle, `/messages?filter=archived`.
-4. Next work is open (no Phase 6 UI track defined yet) — pick product priority with the user.
+3. Smoke-check Phase 6 money path: `/jobs/{id}/pay` → fund → dashboard timeline → confirm/release or dispute → `/wallet` withdraw; dark toggle on pay/wallet/search/home.
+4. Next open work: **6.10 Admin UI**, **6.11 QoL**, BizLive (deferred).
 
 ### Key files (UI/chat)
 
@@ -153,12 +154,88 @@ See session entry **2026-07-16 (5)** below.
 5. **Demo mode** still works with zero cloud config (local uploads, mock payments).
 6. **Auth for notif API** uses session cookie (`credentials: 'same-origin'` in `base.html` fetch).
 
+### Phase 6 — Money flow + discovery + night mode
+
+**Goal:** Make the full money loop feel production-ready, then polish discovery surfaces and dark mode so the product reads as finished for demos and day-to-day use.
+
+| # | Track | Task | Status |
+|---|-------|------|--------|
+| **6.1** | A Money | **Pay for job** — quote → fund escrow, saved methods, Stripe + mock, success/error states | **Done** |
+| **6.2** | A Money | **Escrow lifecycle UI** — reusable timeline (unfunded → held → work → confirm → released / refunded / disputed) | **Done** |
+| **6.3** | A Money | **Disputes** — file from dashboard/chat, status for both sides, AI recommendation path, frozen funds copy | **Done** |
+| **6.4** | A Money | **Wallet & withdrawal** — pending vs available, destination note, history filters, empty/error states | **Done** |
+| **6.5** | A Money | **Payment methods** — add/default/remove; selectable on pay screen; manage link | **Done** |
+| **6.6** | B Discovery | **Home page** — escrow trust story, clearer CTA path, dark-safe sections | **Done** |
+| **6.7** | B Discovery | **Contractor search** — AI triage widget + result cards, empty states, ranking badges | **Done** |
+| **6.8** | B Discovery | **AI chat UI** — draft approve/dismiss polish; search triage feel | **Done** |
+| **6.9** | C Theme | **Night mode** — global surface remaps + money/discovery pages readable in `html.dark` | **Done** |
+| **6.10** | C Ops | **Admin UI** polish | Pending |
+| **6.11** | C QoL | Cross-app empty states / toasts consistency | Pending |
+
+**Key files (Phase 6):**
+
+| Area | Path |
+|------|------|
+| Pay screen | `app/templates/pay_job.html`, `pages.py` `pay_job_page` / `web_fund_escrow` |
+| Escrow timeline | `app/templates/escrow_timeline.html` |
+| Wallet | `app/templates/wallet.html`, `wallet_service.py`, `pages.py` withdraw |
+| Payment methods | `app/templates/payment_methods.html` |
+| Disputes | customer/contractor dashboards, chat quick actions, `file_dispute` |
+| Home / search | `index.html`, `search.html` |
+| Chat AI drafts | `chat.html` `.bubble-draft` |
+| Dark mode | `base.html` `html.dark` rules |
+
+**Money loop acceptance (manual E2E):**
+
+1. Customer books pro → **Pay & Secure Escrow** with saved or new method  
+2. Escrow shows **held** + timeline progresses with job start/complete  
+3. Customer **Confirm & Release** → contractor wallet **pending** → clears → **Withdraw**  
+4. Or **Open Dispute** → funds frozen → admin resolve → job/escrow status consistent  
+5. Dark mode: pay, wallet, payment methods, search, home, dashboards readable  
+
 ### How to continue (prompt templates for next session)
 
-- *“Continue ServiceSync after Phase 5 — pick next product priority.”*
-- *“Run alembic upgrade head and smoke-check Phase 5 chat features.”*
+- *“Continue ServiceSync Phase 6 — finish remaining 6.x items / smoke-check money flow.”*
+- *“Phase 6.10 admin UI polish.”*
+- *“Run alembic upgrade head and walk pay → release → wallet.”*
 
 When finishing a phase: mark the table row **Done**, append a dated session entry at the top of the log (same style as Phase 1/2), and update this handoff table.
+
+---
+
+## 2026-07-16 (6) — Phase 6.1–6.9: money flow + discovery + night mode
+
+### Scope
+Document Phase 6 roadmap; implement money-flow polish (pay, timeline, disputes, wallet, payment methods), home/search/AI chat UX, and global night-mode surfaces.
+
+### Progress log
+
+1. **6.1 Pay** — Error banner; manage payment methods link; default/saved methods first (incl. bank/mobile); “use new method” radio; terms → `/terms`; post-fund redirect to chat with toast; empty `saved_method_id` safe.
+2. **6.2 Escrow timeline** — Rewrote `escrow_timeline.html` for real statuses (`unfunded`/`held`/`released`/`disputed`/`refunded`/`penalty_split`) + job stage; compact mode; wired into customer dashboard cards + chat job context.
+3. **6.3 Disputes** — `dispute_map` on customer + contractor dashboards; open dispute while held + in progress/completed_pending; status + AI refund % badges; chat dispute modal for both parties; dispute file redirects to chat; modal copy for AI → admin path.
+4. **6.4 Wallet** — Withdraw captures method/destination in txn note; amount max/validation; required bank/mobile fields.
+5. **6.5 Payment methods** — How-these-are-used banner; pay screen lists methods ordered by default.
+6. **6.6 Home** — Escrow trust chips; Step 3 escrow copy; new payment-protection section.
+7. **6.7 Search** — Ranking legend badges; AI widget reset; better empty state.
+8. **6.8 AI chat** — Draft bubble badge + hint; dark-mode draft styles.
+9. **6.9 Night mode** — Global `html.dark` surface remaps in `base.html` (cards, inputs, soft tints, pay/wallet/search).
+
+### Files touched
+- `DEVELOPMENT_LOG.md`
+- `app/templates/base.html`, `escrow_timeline.html`, `pay_job.html`, `wallet.html`, `payment_methods.html`
+- `app/templates/customer_dashboard.html`, `contractor_dashboard.html`, `chat.html`
+- `app/templates/index.html`, `search.html`
+- `app/web/pages.py` (pay redirect, withdraw notes, dispute_map, chat dispute context)
+
+### Smoke-check
+- `python -c "from app.main import app"` → ok
+- `pytest tests/` → 9 passed
+- Manual: dark toggle on `/`, `/search`, `/jobs/{id}/pay`, `/wallet`, `/payment-methods`, dashboards
+- Manual money loop: pay → start → complete → confirm/release or dispute
+
+### Still open
+- **6.10** Admin UI polish
+- **6.11** Broader QoL consistency
 
 ---
 
@@ -451,7 +528,7 @@ Items listed as “still open” after Phase 1 (split inbox, notifications) were
 - Global-first: remove US-only ZIP assumptions.
 - BizLive: keep in master plan, defer from MVP.
 - MVP focus: AI Concierge, profiles, booking, escrow, messaging, verification basics.
-- **UI track (2026-07-16):** Phases **1–5 complete**. Phase 5 = product UX extras (search, safety, dark mode, inbox hygiene).
+- **UI track (2026-07-16):** Phases **1–6.9 complete**. Phase 6 = money flow polish + discovery + global night mode. Next: **6.10 admin UI**, **6.11 QoL**.
 
 ---
 
