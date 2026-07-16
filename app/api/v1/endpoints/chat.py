@@ -15,7 +15,10 @@ from app.services.gemini_service import extract_triage_info, generate_contractor
 from app.services.matching_engine import find_matches
 from app.services.alert_service import alert_new_message
 from app.models.audit_log import AIOperationsAuditLog
-from app.models.all_models import Conversation, DirectMessage, User, OmnichannelIntegration, AIDraft
+from app.models.all_models import (
+    Conversation, DirectMessage, User, OmnichannelIntegration, AIDraft,
+    UserBlock, UserReport,
+)
 from app.core.database import async_session_maker
 import logging
 
@@ -684,4 +687,147 @@ async def websocket_endpoint(
                 )
             except Exception:
                 pass
+
+
+# ─── Phase 5: inbox hygiene + safety ───────────────────────────────────────
+
+class ConversationPrefsUpdate(BaseModel):
+    archived: Optional[bool] = None
+    muted: Optional[bool] = None
+
+
+class ReportBody(BaseModel):
+    reason: str = "other"
+    details: Optional[str] = None
+
+
+def _assert_participant(conv: Conversation, user_id: int) -> None:
+    if user_id not in (conv.customer_id, conv.contractor_id):
+        raise HTTPException(status_code=403, detail="Not a participant")
+
+
+@router.patch("/conversations/{conversation_id}/prefs")
+async def update_conversation_prefs(
+    conversation_id: int,
+    body: ConversationPrefsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Archive or mute a conversation for the current user only."""
+    conv = await db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    _assert_participant(conv, current_user.id)
+
+    is_customer = current_user.id == conv.customer_id
+    if body.archived is not None:
+        if is_customer:
+            conv.archived_by_customer = body.archived
+        else:
+            conv.archived_by_contractor = body.archived
+    if body.muted is not None:
+        if is_customer:
+            conv.muted_by_customer = body.muted
+        else:
+            conv.muted_by_contractor = body.muted
+
+    db.add(conv)
+    await db.commit()
+    await db.refresh(conv)
+    return {
+        "ok": True,
+        "conversation_id": conv.id,
+        "archived": conv.archived_by_customer if is_customer else conv.archived_by_contractor,
+        "muted": conv.muted_by_customer if is_customer else conv.muted_by_contractor,
+    }
+
+
+@router.post("/conversations/{conversation_id}/block")
+async def block_chat_partner(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Block the other participant. Hides their threads from your inbox."""
+    conv = await db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    _assert_participant(conv, current_user.id)
+
+    blocked_id = conv.contractor_id if current_user.id == conv.customer_id else conv.customer_id
+    if blocked_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot block yourself")
+
+    existing = (
+        await db.exec(
+            select(UserBlock).where(
+                UserBlock.blocker_id == current_user.id,
+                UserBlock.blocked_id == blocked_id,
+            )
+        )
+    ).first()
+    if not existing:
+        db.add(UserBlock(blocker_id=current_user.id, blocked_id=blocked_id))
+        await db.commit()
+    return {"ok": True, "blocked_id": blocked_id}
+
+
+@router.delete("/conversations/{conversation_id}/block")
+async def unblock_chat_partner(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    conv = await db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    _assert_participant(conv, current_user.id)
+    blocked_id = conv.contractor_id if current_user.id == conv.customer_id else conv.customer_id
+    rows = (
+        await db.exec(
+            select(UserBlock).where(
+                UserBlock.blocker_id == current_user.id,
+                UserBlock.blocked_id == blocked_id,
+            )
+        )
+    ).all()
+    for r in rows:
+        await db.delete(r)
+    await db.commit()
+    return {"ok": True, "blocked_id": blocked_id}
+
+
+@router.post("/conversations/{conversation_id}/report")
+async def report_chat_partner(
+    conversation_id: int,
+    body: ReportBody,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Submit a safety report about the other participant."""
+    conv = await db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    _assert_participant(conv, current_user.id)
+
+    reported_id = conv.contractor_id if current_user.id == conv.customer_id else conv.customer_id
+    allowed = {"harassment", "spam", "scam", "unsafe", "other"}
+    reason = (body.reason or "other").strip().lower()
+    if reason not in allowed:
+        reason = "other"
+    details = (body.details or "").strip()[:2000] or None
+
+    report = UserReport(
+        reporter_id=current_user.id,
+        reported_id=reported_id,
+        conversation_id=conv.id,
+        job_id=conv.job_id,
+        reason=reason,
+        details=details,
+        status="open",
+    )
+    db.add(report)
+    await db.commit()
+    await db.refresh(report)
+    return {"ok": True, "report_id": report.id}
 

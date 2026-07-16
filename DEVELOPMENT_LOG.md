@@ -18,7 +18,7 @@
 | **2** | Notifications + footer + desktop split inbox | **Done** | Real bell, legal pages, messages/chat split UI. |
 | **3** | Chat depth (attachments DB, presence, receipts) | **Done** | Filename in DB, true presence, real receipts, typing WS, jump/date/nav badge. |
 | **4** | Trust & marketing polish | **Done** | Trade icons, honest trust bar, FAQ accordion, quieter gradients, no dead social #. |
-| **5** | Product UX extras | **Next** | In-thread search, safety tools, job context card, dark mode. |
+| **5** | Product UX extras | **Done** | Search, job card, safety tools, lightbox polish, dark mode, review prompt, archive/mute, shared icons. |
 
 ### First thing in a new session
 
@@ -27,9 +27,9 @@
    ```bash
    alembic upgrade head
    ```
-   Includes `m7n8o9p0q1r2` (last_read) and `n8o9p0q1r2s3` (attachment_name).
-3. Smoke-check: `/`, `/chat/{id}` (header + composer in viewport), bell open/**close**, FAQ accordion.
-4. Pick **Phase 5** (recommended) unless user prioritizes something else.
+   Includes `o9p0q1r2s3t4` (archive/mute columns + `userblock` / `userreport` tables), plus earlier `last_read` / `attachment_name`.
+3. Smoke-check: `/chat/{id}` (search, ⋯ menu, job card), dark toggle, `/messages?filter=archived`.
+4. Next work is open (no Phase 6 UI track defined yet) — pick product priority with the user.
 
 ### Key files (UI/chat)
 
@@ -125,26 +125,28 @@ See session entry **2026-07-16 (4)** below.
 
 ---
 
-### Phase 5 — Product UX extras — NEXT
+### Phase 5 — Product UX extras — DONE
 
 **Goal:** Power-user and safety features for marketplace chat/jobs.
 
-| # | Task | Why |
-|---|------|-----|
-| 5.1 | In-thread message search | Find old quotes/addresses |
-| 5.2 | Expandable job context card in chat header (address, schedule, amount) | Reduce leaving chat for job details |
-| 5.3 | Report / block / safety tools | Marketplace risk |
-| 5.4 | Image lightbox polish (zoom, swipe next if multiple) | Media UX |
-| 5.5 | Dark mode (especially contractor night use) | Comfort |
-| 5.6 | Post-job review prompt after completion | Growth/trust |
-| 5.7 | Archive / mute / filter conversations | Inbox hygiene |
-| 5.8 | Deduplicate giant `{% macro icon %}` across templates into one partial | Maintainability |
+| # | Task | Status |
+|---|------|--------|
+| 5.1 | In-thread message search | **Done** |
+| 5.2 | Expandable job context card in chat header | **Done** |
+| 5.3 | Report / block / safety tools | **Done** |
+| 5.4 | Image lightbox polish (zoom, swipe next) | **Done** |
+| 5.5 | Dark mode | **Done** |
+| 5.6 | Post-job review prompt after completion | **Done** |
+| 5.7 | Archive / mute / filter conversations | **Done** |
+| 5.8 | Shared `{% macro icon %}` partial (`_icons.html`) | **Done** |
+
+See session entry **2026-07-16 (5)** below.
 
 ---
 
 ### Known issues / constraints (do not re-discover)
 
-1. **Migrations required:** `alembic upgrade head` — includes `m7n8o9p0q1r2` (last_read) and `n8o9p0q1r2s3` (`attachment_name`). Without columns, unread/attachment names may soft-fail; chat should still open.
+1. **Migrations required:** `alembic upgrade head` — includes `m7n8o9p0q1r2` (last_read), `n8o9p0q1r2s3` (`attachment_name`), and `o9p0q1r2s3t4` (archive/mute + block/report). Without Phase 5 columns/tables, archive/mute/block/report APIs will error.
 2. **Presence is per-process** unless Redis hub is configured (`REDIS_URL`). Multi-worker without Redis may show Offline incorrectly across instances.
 3. **Tailwind via CDN** — fine for MVP; production build pipeline is optional later.
 4. **Neon cold start** — Alembic may timeout; increase timeout or warm connection.
@@ -153,10 +155,42 @@ See session entry **2026-07-16 (4)** below.
 
 ### How to continue (prompt templates for next session)
 
-- *“Continue ServiceSync UI from DEVELOPMENT_LOG Phase 5.”*
-- *“Add in-thread message search (5.1) and job context card (5.2).”*
+- *“Continue ServiceSync after Phase 5 — pick next product priority.”*
+- *“Run alembic upgrade head and smoke-check Phase 5 chat features.”*
 
 When finishing a phase: mark the table row **Done**, append a dated session entry at the top of the log (same style as Phase 1/2), and update this handoff table.
+
+---
+
+## 2026-07-16 (5) — Phase 5 Product UX extras
+
+### Progress log
+
+1. **5.1 In-thread search** — header search opens bar; filters/highlights messages in `#message-thread`.
+2. **5.2 Job context card** — expandable panel: status, location, amount, schedule, description.
+3. **5.3 Safety tools** — overflow menu: report modal, block user; APIs under `/api/v1/chat/conversations/{id}/…`.
+4. **5.4 Lightbox polish** — zoom on images, prev/next gallery, swipe + arrow keys.
+5. **5.5 Dark mode** — `html.dark` + localStorage `ss-theme`; nav toggle; chat/messages surfaces.
+6. **5.6 Review prompt** — banner on completed jobs for customers without a review; posts to `/jobs/{id}/review`.
+7. **5.7 Archive / mute / filter** — Conversation columns + prefs API; Active/Archived tabs on `/messages`.
+8. **5.8 Icons** — single `app/templates/_icons.html`; templates import it.
+
+### Files touched
+- `app/templates/chat.html`, `base.html`, `_conversation_list.html`, `_icons.html` (+ icon import across templates)
+- `app/models/all_models.py` — archive/mute fields, `UserBlock`, `UserReport`
+- `alembic/versions/o9p0q1r2s3t4_phase5_safety_inbox.py`
+- `app/api/v1/endpoints/chat.py` — prefs / block / report endpoints
+- `app/services/notification_service.py` — filter archived/blocked; mute zeroes unread
+- `app/web/pages.py` — chat context + messages filter
+- `DEVELOPMENT_LOG.md`
+
+### Smoke-check
+- `alembic upgrade head` (needs `o9p0q1r2s3t4`)
+- `/chat/{id}`: search, Job # card, ⋯ mute/archive/report/block
+- Lightbox: multi-image arrows/swipe/zoom
+- Nav moon/sun dark toggle
+- Completed job (customer): review banner
+- `/messages` Active vs `?filter=archived`
 
 ---
 
@@ -417,7 +451,7 @@ Items listed as “still open” after Phase 1 (split inbox, notifications) were
 - Global-first: remove US-only ZIP assumptions.
 - BizLive: keep in master plan, defer from MVP.
 - MVP focus: AI Concierge, profiles, booking, escrow, messaging, verification basics.
-- **UI track (2026-07-16):** Phases **1–4 complete**. **Next = Phase 5** (product UX extras). Chat viewport + notif close fixed in session (4).
+- **UI track (2026-07-16):** Phases **1–5 complete**. Phase 5 = product UX extras (search, safety, dark mode, inbox hygiene).
 
 ---
 

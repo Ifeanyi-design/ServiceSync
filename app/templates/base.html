@@ -5,11 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}ServiceSync — AI-Native Home Services{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}ServiceSync connects you with the best local blue-collar professionals, powered by Gemini AI triage and autonomous matching.{% endblock %}" />
+  <!-- Theme flash-prevention (before CSS paint) -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('ss-theme');
+        if (t === 'dark' || (t !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
@@ -262,6 +274,85 @@
       transform: translateY(-1px);
     }
     .btn-primary:active { transform: scale(0.98); }
+
+    /* ====== Dark mode (Phase 5) ====== */
+    html.dark body {
+      background-color: #0b1220;
+      color: #e2e8f0;
+    }
+    html.dark .navbar-glass {
+      background: rgba(15, 23, 42, 0.92);
+      border-bottom-color: rgba(148, 163, 184, 0.12);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+    }
+    html.dark .nav-link { color: #94a3b8; }
+    html.dark .nav-link:hover,
+    html.dark .nav-link.active { color: #60a5fa; }
+    html.dark #notif-panel {
+      background: rgba(15, 23, 42, 0.98);
+      border-color: rgba(148, 163, 184, 0.15);
+    }
+    html.dark #notif-panel .notif-item { border-bottom-color: rgba(148, 163, 184, 0.1); }
+    html.dark #notif-panel .notif-item:hover { background: rgba(30, 41, 59, 0.8); }
+    html.dark #user-dropdown {
+      background: rgba(15, 23, 42, 0.98) !important;
+      border-color: rgba(148, 163, 184, 0.15) !important;
+    }
+    html.dark #mobile-menu {
+      background: rgba(15, 23, 42, 0.98);
+      border-top-color: rgba(148, 163, 184, 0.12);
+    }
+    html.dark footer {
+      background: #0f172a !important;
+      border-top-color: rgba(148, 163, 184, 0.1) !important;
+    }
+    html.dark ::-webkit-scrollbar-thumb { background: #475569; }
+    html.dark .notif-dot { border-color: #0f172a; }
+    html.dark .glass-card {
+      background: rgba(30, 41, 59, 0.75);
+      border-color: rgba(148, 163, 184, 0.12);
+    }
+    /* Chat room surfaces in dark mode */
+    html.dark body.chat-mode .chat-container,
+    html.dark body.chat-mode .chat-inbox-sidebar,
+    html.dark body.messages-mode .messages-sidebar,
+    html.dark body.messages-mode .messages-shell {
+      background: #0f172a !important;
+      border-color: rgba(148, 163, 184, 0.12) !important;
+    }
+    html.dark #message-thread {
+      background: #0b1220 !important;
+      background-image: none !important;
+    }
+    html.dark .bubble-theirs {
+      background: #1e293b !important;
+      color: #e2e8f0 !important;
+      border-color: rgba(148, 163, 184, 0.15) !important;
+    }
+    html.dark .chat-input-bar {
+      background: #0f172a !important;
+      border-top-color: rgba(148, 163, 184, 0.12) !important;
+    }
+    html.dark #message-input {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+      color: #e2e8f0;
+    }
+    html.dark .thread-search-bar,
+    html.dark .job-context-card {
+      background: #1e293b !important;
+      border-color: rgba(148, 163, 184, 0.12) !important;
+    }
+    html.dark .job-context-item p { color: #e2e8f0; }
+    html.dark .chat-overflow-menu {
+      background: #1e293b !important;
+      border-color: rgba(148, 163, 184, 0.15) !important;
+    }
+    html.dark .chat-overflow-menu button { color: #e2e8f0; }
+    html.dark .chat-overflow-menu button:hover { background: #334155; }
+    html.dark #report-modal .rm-card { background: #1e293b; color: #e2e8f0; }
+    html.dark .conv-card:hover { background: rgba(30, 41, 59, 0.6) !important; }
+    html.dark .conv-card.is-active { background: rgba(37, 99, 235, 0.15) !important; }
   </style>
 
   {% block extra_head %}{% endblock %}
@@ -315,10 +406,15 @@
 
         <!-- Right: Auth Controls -->
         <div class="flex items-center gap-2">
+          <!-- Dark mode toggle (Phase 5) -->
+          <button type="button" id="theme-toggle-btn" onclick="toggleTheme()" class="p-2.5 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-400 dark:hover:text-blue-300 dark:hover:bg-slate-800 transition-all duration-200" aria-label="Toggle dark mode" title="Toggle dark mode">
+            <svg id="theme-icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+            <svg id="theme-icon-sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          </button>
           {% if current_user %}
             <!-- Notification Bell (real data via /api/v1/users/me/notifications) -->
             <div class="relative" id="notif-wrapper">
-              <button type="button" onclick="toggleNotifPanel(event)" class="relative p-2.5 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200" aria-label="Notifications" aria-expanded="false" aria-controls="notif-panel" id="notif-btn">
+              <button type="button" onclick="toggleNotifPanel(event)" class="relative p-2.5 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-400 dark:hover:text-blue-300 dark:hover:bg-slate-800 transition-all duration-200" aria-label="Notifications" aria-expanded="false" aria-controls="notif-panel" id="notif-btn">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                 </svg>
@@ -562,6 +658,23 @@
 
   <!-- =====================  GLOBAL JS  ===================== -->
   <script>
+    // ====== Theme (dark mode) ======
+    function syncThemeIcons() {
+      const dark = document.documentElement.classList.contains('dark');
+      const moon = document.getElementById('theme-icon-moon');
+      const sun = document.getElementById('theme-icon-sun');
+      if (moon) moon.classList.toggle('hidden', dark);
+      if (sun) sun.classList.toggle('hidden', !dark);
+    }
+    function toggleTheme() {
+      const root = document.documentElement;
+      const next = root.classList.contains('dark') ? 'light' : 'dark';
+      root.classList.toggle('dark', next === 'dark');
+      try { localStorage.setItem('ss-theme', next); } catch (e) {}
+      syncThemeIcons();
+    }
+    syncThemeIcons();
+
     // ====== Dropdown Toggle ======
     function toggleDropdown() {
       const dropdown = document.getElementById('user-dropdown');

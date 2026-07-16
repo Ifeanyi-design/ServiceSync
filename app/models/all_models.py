@@ -38,10 +38,37 @@ class Conversation(SQLModel, table=True):
     # Per-participant read cursors for unread badges + notifications
     last_read_at_customer: Optional[datetime] = Field(default=None)
     last_read_at_contractor: Optional[datetime] = Field(default=None)
+    # Inbox hygiene (per participant)
+    archived_by_customer: bool = Field(default=False)
+    archived_by_contractor: bool = Field(default=False)
+    muted_by_customer: bool = Field(default=False)
+    muted_by_contractor: bool = Field(default=False)
 
     messages: List[DirectMessage] = Relationship(back_populates="conversation")
     customer: "User" = Relationship(sa_relationship_kwargs={"foreign_keys": "[Conversation.customer_id]"})
     contractor: "User" = Relationship(sa_relationship_kwargs={"foreign_keys": "[Conversation.contractor_id]"})
+
+
+class UserBlock(SQLModel, table=True):
+    """User A blocked user B — hides their conversations from the blocker's inbox."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    blocker_id: int = Field(foreign_key="user.id", index=True)
+    blocked_id: int = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserReport(SQLModel, table=True):
+    """Safety report submitted from chat or profile."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    reporter_id: int = Field(foreign_key="user.id", index=True)
+    reported_id: int = Field(foreign_key="user.id", index=True)
+    conversation_id: Optional[int] = Field(default=None, foreign_key="conversation.id")
+    job_id: Optional[int] = Field(default=None, foreign_key="job.id")
+    reason: str = Field(default="other")  # harassment, spam, scam, unsafe, other
+    details: Optional[str] = None
+    status: str = Field(default="open")  # open, reviewing, resolved, dismissed
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 
 class Job(SQLModel, table=True):

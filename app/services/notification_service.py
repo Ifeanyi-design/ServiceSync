@@ -13,7 +13,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.all_models import User, Job, Conversation, DirectMessage, Escrow
+from app.models.all_models import User, Job, Conversation, DirectMessage, Escrow, UserBlock
 
 
 def _last_read_for(conv: Conversation, user_id: int) -> Optional[datetime]:
@@ -68,9 +68,40 @@ async def count_unread_messages(
     return n
 
 
+def _is_archived_for(conv: Conversation, user_id: int) -> bool:
+    if user_id == conv.customer_id:
+        return bool(getattr(conv, "archived_by_customer", False))
+    if user_id == conv.contractor_id:
+        return bool(getattr(conv, "archived_by_contractor", False))
+    return False
+
+
+def _is_muted_for(conv: Conversation, user_id: int) -> bool:
+    if user_id == conv.customer_id:
+        return bool(getattr(conv, "muted_by_customer", False))
+    if user_id == conv.contractor_id:
+        return bool(getattr(conv, "muted_by_contractor", False))
+    return False
+
+
+async def get_blocked_user_ids(db: AsyncSession, user_id: int) -> set:
+    """Users this person has blocked (and who blocked them)."""
+    blocked: set = set()
+    try:
+        rows = (await db.exec(select(UserBlock).where(UserBlock.blocker_id == user_id))).all()
+        blocked.update(r.blocked_id for r in rows)
+        rows2 = (await db.exec(select(UserBlock).where(UserBlock.blocked_id == user_id))).all()
+        blocked.update(r.blocker_id for r in rows2)
+    except Exception:
+        pass
+    return blocked
+
+
 async def build_conversation_list(
     db: AsyncSession,
     current_user: User,
+    *,
+    include_archived: bool = False,
 ) -> List[Dict[str, Any]]:
     """Enriched conversation rows for /messages and chat sidebar."""
     if current_user.role == "customer":
@@ -99,12 +130,25 @@ async def build_conversation_list(
     result = await db.exec(query.order_by(Conversation.created_at.desc()))
     conversations_raw = result.all()
     conversations: List[Dict[str, Any]] = []
+    blocked_ids = await get_blocked_user_ids(db, current_user.id)
 
     for conv in conversations_raw:
         partner = conv.contractor if current_user.id == conv.customer_id else conv.customer
         if partner is None:
             partner_id = conv.contractor_id if current_user.id == conv.customer_id else conv.customer_id
             partner = await db.get(User, partner_id)
+
+        partner_id = partner.id if partner else (
+            conv.contractor_id if current_user.id == conv.customer_id else conv.customer_id
+        )
+        if partner_id in blocked_ids:
+            continue
+
+        is_archived = _is_archived_for(conv, current_user.id)
+        if is_archived and not include_archived:
+            continue
+
+        is_muted = _is_muted_for(conv, current_user.id)
 
         job = await db.get(Job, conv.job_id)
         msgs = sorted(conv.messages or [], key=lambda m: m.timestamp or datetime.min)
@@ -139,7 +183,9 @@ async def build_conversation_list(
             ),
             "latest_timestamp": latest_msg.timestamp if latest_msg else conv.created_at,
             "created_at": conv.created_at,
-            "unread_count": unread,
+            "unread_count": 0 if is_muted else unread,
+            "is_archived": is_archived,
+            "is_muted": is_muted,
         })
 
     # Most recent activity first

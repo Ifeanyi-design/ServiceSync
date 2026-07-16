@@ -1,53 +1,5 @@
 {% extends "base.html" %}
-{% macro icon(name, cls='w-5 h-5') %}{% set p = {
-  'shield':'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
-  'lock':'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
-  'credit-card':'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
-  'bank':'M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3',
-  'phone':'M3 5a2 2 0 012-2h3l2 5-2.5 1.5a11 11 0 005 5L19 16l5 2v3a2 2 0 01-2 2C10 23 1 14 1 5a2 2 0 012-2z',
-  'bell':'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9',
-  'user':'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
-  'settings':'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
-  'rocket':'M13 10V3L4 14h7v7l9-11h-7z',
-  'chat':'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',
-  'chart':'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
-  'briefcase':'M20 7h-16a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM9 7V5a2 2 0 012-2h2a2 2 0 012 2v2',
-  'star':'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z',
-  'trash':'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
-  'edit':'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.586a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
-  'check':'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
-  'check-circle':'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
-  'x':'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
-  'x-circle':'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
-  'info':'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-  'alert':'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-  'location':'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z',
-  'wallet':'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
-  'sparkles':'M5 3l1.5 4L11 8.5 6.5 10 5 14 3.5 10 0 8.5 5 3zM19 13l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z',
-  'search':'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
-  'logout':'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1',
-  'menu':'M4 6h16M4 12h16M4 18h16',
-  'heart':'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z',
-  'calendar':'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
-  'doc':'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
-  'wrench':'M14.7 6.3a4 4 0 00-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 005.4-5.4l-2.7 2.7-2-2 2.7-2.7z',
-  'clock':'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
-  'refund':'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6',
-  'bolt':'M13 10V3L4 14h7v7l9-11h-7z',
-  'smile':'M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-  'hand':'M8 13v-2a2 2 0 114 0v2m0-2a2 2 0 114 0v2m0-2a2 2 0 114 0v3a4 4 0 01-4 4H11a4 4 0 01-4-4V11a2 2 0 114 0v2',
-  'robot':'M8 12h.01M12 12h.01M16 12h.01M9 4h6a2 2 0 012 2v8a2 2 0 01-2 2H9a2 2 0 01-2-2V6a2 2 0 012-2zM12 22v-4M8 18h8',
-  'plug':'M7 4v4m10-4v4M5 8h14a2 2 0 012 2v2a4 4 0 01-4 4H7a4 4 0 01-4-4v-2a2 2 0 012-2zM12 16v4',
-  'plane':'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z',
-  'refresh':'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
-  'home':'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
-  'snow':'M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07',
-  'fire':'M12 2c1 3 3 4 3 7a3 3 0 01-6 0c0-1 .5-2 1-3 0 2 1 3 2 3a2 2 0 002-2c0-1-.5-2-1-3 1 1 2 2 2 4a4 4 0 11-8 0c0-3 3-5 3-8z',
-  'tree':'M12 2a4 4 0 014 4 4 4 0 01-1 8H9a4 4 0 01-1-8 4 4 0 014-4zm0 4v8m0 0l-2 4m2-4l2 4',
-  'building':'M3 21h18M5 21V5a2 2 0 012-2h6a2 2 0 012 2v16M19 21V11a2 2 0 00-2-2h-2',
-  'money':'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6'
-}.get(name, '') %}<svg class="{{ cls }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ p }}"/></svg>{% endmacro %}
-
+{% from "_icons.html" import icon %}
 {% block title %}Chat with {{ partner.full_name }} — ServiceSync{% endblock %}
 {% block meta_description %}Real-time peer-to-peer chat for your booked service job on ServiceSync.{% endblock %}
 
@@ -554,6 +506,171 @@
     resize: none;
     line-height: 1.4;
   }
+
+  /* Phase 5: in-thread search */
+  .thread-search-bar {
+    flex-shrink: 0;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8fafc;
+  }
+  .thread-search-bar.open { display: flex; }
+  .thread-search-bar input {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.8125rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    outline: none;
+  }
+  .thread-search-bar input:focus { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+  .msg-enter.search-hit .bubble-mine,
+  .msg-enter.search-hit .bubble-theirs {
+    outline: 2px solid #f59e0b;
+    outline-offset: 2px;
+  }
+  .msg-enter.search-dim { opacity: 0.28; }
+  mark.msg-hl { background: #fde68a; color: inherit; border-radius: 2px; padding: 0 1px; }
+
+  /* Job context card */
+  .job-context-card {
+    display: none;
+    flex-shrink: 0;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: linear-gradient(180deg, #f8faff 0%, #fff 100%);
+  }
+  .job-context-card.open { display: block; }
+  .job-context-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem 1rem;
+  }
+  @media (max-width: 480px) {
+    .job-context-grid { grid-template-columns: 1fr; }
+  }
+  .job-context-item label {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 2px;
+  }
+  .job-context-item p {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.35;
+    margin: 0;
+  }
+
+  /* Safety overflow menu */
+  .chat-overflow { position: relative; }
+  .chat-overflow-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    min-width: 200px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(15,23,42,0.16);
+    z-index: 40;
+    padding: 0.35rem;
+  }
+  .chat-overflow-menu.open { display: block; }
+  .chat-overflow-menu button {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 10px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #334155;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  .chat-overflow-menu button:hover { background: #f1f5f9; }
+  .chat-overflow-menu button.danger { color: #b91c1c; }
+  .chat-overflow-menu button.danger:hover { background: #fef2f2; }
+
+  /* Review prompt */
+  .review-prompt-banner {
+    flex-shrink: 0;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+    border-bottom: 1px solid #fde68a;
+  }
+
+  /* Lightbox polish: zoom + nav */
+  #media-viewer .mv-stage { position: relative; touch-action: pan-y; }
+  #media-viewer .mv-stage img.zoomable {
+    cursor: zoom-in;
+    transition: transform 0.2s ease;
+    transform-origin: center center;
+  }
+  #media-viewer .mv-stage img.zoomable.zoomed {
+    cursor: zoom-out;
+    transform: scale(1.85);
+  }
+  #media-viewer .mv-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.22);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+  }
+  #media-viewer .mv-nav:hover { background: rgba(255,255,255,0.24); }
+  #media-viewer .mv-nav.prev { left: 0.5rem; }
+  #media-viewer .mv-nav.next { right: 0.5rem; }
+  #media-viewer .mv-counter {
+    position: absolute;
+    bottom: 0.65rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.85);
+    background: rgba(0,0,0,0.35);
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+  }
+
+  /* Report modal */
+  #report-modal {
+    position: fixed; inset: 0; z-index: 10050;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(15,23,42,0.55); padding: 1rem;
+  }
+  #report-modal.open { display: flex; }
+  #report-modal .rm-card {
+    width: min(420px, 100%);
+    background: #fff;
+    border-radius: 18px;
+    padding: 1.25rem;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.2);
+  }
 </style>
 {% endblock %}
 
@@ -597,13 +714,16 @@
           </div>
         </div>
 
-        <!-- Right: Escrow + Job info -->
-        <div class="flex items-center gap-2 flex-shrink-0">
+        <!-- Right: Escrow + tools -->
+        <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {% if job %}
-          <div class="escrow-pill hidden sm:flex items-center gap-2 text-white text-xs font-semibold">
+          <button type="button" id="job-context-toggle" onclick="toggleJobContext()"
+            class="escrow-pill hidden sm:flex items-center gap-2 text-white text-xs font-semibold cursor-pointer hover:bg-white/20 transition"
+            title="Job details" aria-expanded="false" aria-controls="job-context-card">
             <svg class="w-3.5 h-3.5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             <span>Job #{{ job.id }}</span>
-          </div>
+            <svg class="w-3 h-3 opacity-70" id="job-context-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+          </button>
           {% if escrow %}
           {% set e = escrow.status %}
           <div class="escrow-pill flex items-center gap-1.5 text-xs font-bold
@@ -621,16 +741,136 @@
           </div>
           {% endif %}
           {% endif %}
+
+          <button type="button" onclick="toggleThreadSearch()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition" title="Search messages" aria-label="Search messages" id="thread-search-btn">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </button>
+
+          <div class="chat-overflow">
+            <button type="button" id="chat-overflow-btn" onclick="toggleChatOverflow(event)" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition" title="More options" aria-label="More options" aria-expanded="false" aria-controls="chat-overflow-menu">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+            </button>
+            <div id="chat-overflow-menu" class="chat-overflow-menu" role="menu">
+              {% if job %}
+              <button type="button" role="menuitem" onclick="toggleJobContext(); closeChatOverflow();" class="sm:hidden">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Job details
+              </button>
+              {% endif %}
+              <button type="button" role="menuitem" id="mute-conv-btn" onclick="toggleMuteConversation()">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                <span id="mute-conv-label">{% if conv_muted %}Unmute{% else %}Mute{% endif %} conversation</span>
+              </button>
+              <button type="button" role="menuitem" id="archive-conv-btn" onclick="toggleArchiveConversation()">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                <span id="archive-conv-label">{% if conv_archived %}Unarchive{% else %}Archive{% endif %}</span>
+              </button>
+              <button type="button" role="menuitem" onclick="openReportModal()">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
+                Report user
+              </button>
+              <button type="button" role="menuitem" class="danger" onclick="blockPartner()">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                Block user
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- In-thread search -->
+    <div id="thread-search-bar" class="thread-search-bar" role="search">
+      <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <input type="search" id="thread-search-input" placeholder="Search in conversation…" autocomplete="off" aria-label="Search messages in this conversation" oninput="runThreadSearch(this.value)" />
+      <span id="thread-search-count" class="text-[11px] font-bold text-gray-400 flex-shrink-0 tabular-nums"></span>
+      <button type="button" onclick="clearThreadSearch()" class="text-xs font-bold text-gray-500 hover:text-gray-800 px-1" aria-label="Close search">Close</button>
+    </div>
+
+    <!-- Expandable job context -->
+    {% if job %}
+    <div id="job-context-card" class="job-context-card" role="region" aria-label="Job details">
+      <div class="job-context-grid">
+        <div class="job-context-item">
+          <label>Status</label>
+          <p>{{ job.status | replace('_', ' ') | title }}</p>
+        </div>
+        <div class="job-context-item">
+          <label>Location</label>
+          <p>{{ job_location or '—' }}</p>
+        </div>
+        <div class="job-context-item">
+          <label>Amount</label>
+          <p>
+            {% if escrow and escrow.quoted_amount and escrow.quoted_amount > 0 %}
+              {{ escrow.currency or 'USD' }} {{ escrow.quoted_amount }}
+              <span class="text-gray-400 font-medium text-[11px]">· {{ escrow.status }}</span>
+            {% else %}
+              Quote pending
+            {% endif %}
+          </p>
+        </div>
+        <div class="job-context-item">
+          <label>Schedule</label>
+          <p>
+            {% if job.started_at %}
+              Started {{ job.started_at.strftime('%b %d, %Y %H:%M') }}
+            {% elif job.created_at %}
+              Booked {{ job.created_at.strftime('%b %d, %Y') }}
+            {% else %}
+              —
+            {% endif %}
+            {% if job.completed_at %}<br/><span class="text-gray-500 font-medium text-[11px]">Completed {{ job.completed_at.strftime('%b %d, %Y') }}</span>{% endif %}
+          </p>
+        </div>
+      </div>
+      {% if job.description %}
+      <div class="job-context-item mt-2.5 pt-2.5 border-t border-gray-100">
+        <label>Description</label>
+        <p class="font-medium text-gray-600 whitespace-pre-wrap">{{ job.description[:280] }}{% if job.description|length > 280 %}…{% endif %}</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Post-job review prompt -->
+    {% if job and job.status == 'completed' and current_user.id == job.customer_id and not has_review %}
+    <div class="review-prompt-banner" id="review-prompt-banner">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="min-w-0">
+          <p class="text-sm font-extrabold text-amber-900">How was your experience?</p>
+          <p class="text-xs text-amber-800/80">Leave a quick review for {{ partner.full_name.split()[0] }} — it helps other customers.</p>
+        </div>
+        <button type="button" onclick="document.getElementById('review-inline-form').classList.toggle('hidden')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-sm">
+          Rate job
+        </button>
+      </div>
+      <form id="review-inline-form" method="POST" action="/jobs/{{ job.id }}/review" class="hidden mt-3 space-y-2">
+        <div class="flex items-center gap-1" id="review-stars">
+          {% for n in range(1, 6) %}
+          <label class="cursor-pointer">
+            <input type="radio" name="rating" value="{{ n }}" class="sr-only" {% if n == 5 %}checked{% endif %} required />
+            <span class="text-xl text-amber-400 hover:scale-110 inline-block transition star-btn" data-star="{{ n }}">★</span>
+          </label>
+          {% endfor %}
+        </div>
+        <textarea name="comment" rows="2" placeholder="Optional comment…" class="w-full text-sm border border-amber-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400/30 bg-white"></textarea>
+        <div class="flex gap-2">
+          <button type="submit" class="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">Submit review</button>
+          <button type="button" onclick="document.getElementById('review-inline-form').classList.add('hidden')" class="px-3 py-1.5 rounded-xl text-xs font-bold text-amber-900/70 hover:bg-amber-100">Cancel</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
 
     <!-- ====== JOB QUICK ACTIONS BAR ====== -->
     {% if job %}
     <div class="flex-shrink-0 px-3 sm:px-5 py-2 border-b border-gray-100/80" style="background: linear-gradient(to right, rgba(248,250,255,0.95), rgba(245,248,255,0.95));">
       {% set e_status = escrow.status if escrow else 'none' %}
       <div class="flex flex-wrap items-center gap-2">
-        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Job #{{ job.id }}</span>
+        <button type="button" onclick="toggleJobContext()" class="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline sm:pointer-events-none sm:no-underline sm:text-gray-400">
+          Job #{{ job.id }}
+        </button>
         <span class="w-px h-4 bg-gray-200"></span>
 
         {% if current_user.id == job.customer_id %}
@@ -769,7 +1009,7 @@
                </button>
                {% endif %}
              {% endif %}
-             {% if message.content %}<p class="whitespace-pre-wrap">{{ message.content }}</p>{% endif %}
+             {% if message.content %}<p class="whitespace-pre-wrap msg-text">{{ message.content }}</p>{% endif %}
              <span class="msg-time">{{ message.timestamp.strftime('%H:%M') }}{% if is_mine %}<span class="receipt-icon" data-receipt-icon>{% if receipt == 'read' %}<span class="text-cyan-200 ml-0.5">✓✓</span>{% else %}<span class="opacity-85 ml-0.5">✓✓</span>{% endif %}</span>{% endif %}</span>
            </div>
         </div>
@@ -866,6 +1106,10 @@
     <div class="mv-toolbar">
       <p class="mv-title" id="mv-title">Media</p>
       <div class="mv-actions">
+        <button type="button" id="mv-zoom-btn" class="mv-btn hidden" onclick="toggleMediaZoom()" aria-label="Toggle zoom">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"/></svg>
+          Zoom
+        </button>
         <a id="mv-download" class="mv-btn" href="#" download target="_blank" rel="noopener">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
           Download
@@ -880,6 +1124,28 @@
       </div>
     </div>
     <div class="mv-stage" id="mv-stage"></div>
+  </div>
+</div>
+
+<!-- Report modal -->
+<div id="report-modal" role="dialog" aria-modal="true" aria-labelledby="report-modal-title" onclick="if(event.target===this) closeReportModal()">
+  <div class="rm-card" onclick="event.stopPropagation()">
+    <h3 id="report-modal-title" class="text-base font-extrabold text-gray-900 mb-1">Report {{ partner.full_name.split()[0] }}</h3>
+    <p class="text-xs text-gray-500 mb-3 leading-relaxed">Reports are reviewed by the ServiceSync team. Do not share sensitive personal data.</p>
+    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Reason</label>
+    <select id="report-reason" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500/25">
+      <option value="harassment">Harassment or abuse</option>
+      <option value="spam">Spam</option>
+      <option value="scam">Scam or fraud</option>
+      <option value="unsafe">Unsafe behavior</option>
+      <option value="other">Other</option>
+    </select>
+    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Details (optional)</label>
+    <textarea id="report-details" rows="3" maxlength="2000" placeholder="What happened?" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500/25"></textarea>
+    <div class="flex gap-2 justify-end">
+      <button type="button" onclick="closeReportModal()" class="px-3 py-2 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100">Cancel</button>
+      <button type="button" onclick="submitReport()" class="px-4 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700">Submit report</button>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -1030,14 +1296,50 @@
     liveMessages.appendChild(sep);
   }
 
-  // ====== Media viewer ======
+  // ====== Media viewer (zoom + gallery swipe) ======
+  let mediaGallery = [];
+  let mediaGalleryIndex = 0;
+  let mediaZoomed = false;
+  let mediaTouchStartX = null;
+
+  function collectMediaGallery() {
+    const nodes = document.querySelectorAll(
+      '#message-thread [data-media-type="image"][data-media-url], #message-thread [data-media-type="video"][data-media-url]'
+    );
+    mediaGallery = Array.from(nodes).map(el => ({
+      type: el.dataset.mediaType || 'image',
+      url: el.dataset.mediaUrl,
+      name: el.dataset.mediaName || '',
+    })).filter(m => m.url);
+  }
+
   function openMediaViewer(type, url, name) {
     const viewer = document.getElementById('media-viewer');
+    if (!viewer || !url) return;
+    collectMediaGallery();
+    mediaGalleryIndex = mediaGallery.findIndex(m => m.url === url);
+    if (mediaGalleryIndex < 0) {
+      mediaGallery.push({ type, url, name });
+      mediaGalleryIndex = mediaGallery.length - 1;
+    }
+    renderMediaAt(mediaGalleryIndex);
+    viewer.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function renderMediaAt(index) {
+    if (!mediaGallery.length) return;
+    mediaGalleryIndex = Math.max(0, Math.min(index, mediaGallery.length - 1));
+    const item = mediaGallery[mediaGalleryIndex];
+    const type = item.type;
+    const url = item.url;
+    const name = item.name;
     const stage  = document.getElementById('mv-stage');
     const title  = document.getElementById('mv-title');
     const dl     = document.getElementById('mv-download');
     const openTab= document.getElementById('mv-open-tab');
-    if (!viewer || !url) return;
+    const zoomBtn= document.getElementById('mv-zoom-btn');
+    mediaZoomed = false;
 
     const ext = extFromUrl(url);
     const displayName = fileDisplayName(url, name);
@@ -1048,12 +1350,16 @@
 
     stage.innerHTML = '';
     const t = (type || '').toLowerCase();
+    const isImage = t === 'image' || ['png','jpg','jpeg','gif','webp'].includes(ext);
 
-    if (t === 'image' || ['png','jpg','jpeg','gif','webp'].includes(ext)) {
+    if (isImage) {
       const img = document.createElement('img');
       img.src = url;
       img.alt = displayName;
+      img.className = 'zoomable';
+      img.onclick = () => toggleMediaZoom();
       stage.appendChild(img);
+      if (zoomBtn) zoomBtn.classList.remove('hidden');
     } else if (t === 'video' || ['mp4','mov','webm'].includes(ext)) {
       const vid = document.createElement('video');
       vid.src = url;
@@ -1061,18 +1367,22 @@
       vid.autoplay = true;
       vid.playsInline = true;
       stage.appendChild(vid);
+      if (zoomBtn) zoomBtn.classList.add('hidden');
     } else if (ext === 'pdf') {
       const iframe = document.createElement('iframe');
       iframe.src = url + '#toolbar=1&navpanes=0';
       iframe.title = displayName;
       iframe.setAttribute('type', 'application/pdf');
       stage.appendChild(iframe);
+      if (zoomBtn) zoomBtn.classList.add('hidden');
     } else if (ext === 'txt') {
       const iframe = document.createElement('iframe');
       iframe.src = url;
       iframe.title = displayName;
       stage.appendChild(iframe);
+      if (zoomBtn) zoomBtn.classList.add('hidden');
     } else {
+      if (zoomBtn) zoomBtn.classList.add('hidden');
       const panel = document.createElement('div');
       panel.className = 'mv-file-panel';
       panel.innerHTML = `
@@ -1090,8 +1400,40 @@
       stage.appendChild(panel);
     }
 
-    viewer.classList.add('open');
-    document.body.style.overflow = 'hidden';
+    // Gallery nav + counter for multi-media
+    if (mediaGallery.length > 1) {
+      const prev = document.createElement('button');
+      prev.type = 'button';
+      prev.className = 'mv-nav prev';
+      prev.setAttribute('aria-label', 'Previous media');
+      prev.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>';
+      prev.onclick = (e) => { e.stopPropagation(); stepMedia(-1); };
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'mv-nav next';
+      next.setAttribute('aria-label', 'Next media');
+      next.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>';
+      next.onclick = (e) => { e.stopPropagation(); stepMedia(1); };
+      const counter = document.createElement('div');
+      counter.className = 'mv-counter';
+      counter.textContent = (mediaGalleryIndex + 1) + ' / ' + mediaGallery.length;
+      stage.appendChild(prev);
+      stage.appendChild(next);
+      stage.appendChild(counter);
+    }
+  }
+
+  function stepMedia(delta) {
+    if (mediaGallery.length < 2) return;
+    const next = (mediaGalleryIndex + delta + mediaGallery.length) % mediaGallery.length;
+    renderMediaAt(next);
+  }
+
+  function toggleMediaZoom() {
+    const img = document.querySelector('#mv-stage img.zoomable');
+    if (!img) return;
+    mediaZoomed = !mediaZoomed;
+    img.classList.toggle('zoomed', mediaZoomed);
   }
 
   function closeMediaViewer() {
@@ -1101,14 +1443,41 @@
     stage.querySelectorAll('video').forEach(v => { try { v.pause(); } catch(e){} });
     stage.innerHTML = '';
     viewer.classList.remove('open');
+    document.body.style.overflow = '';
+    mediaZoomed = false;
   }
 
+  // Swipe between images on touch
+  (function bindMediaSwipe() {
+    const stage = document.getElementById('mv-stage');
+    if (!stage) return;
+    stage.addEventListener('touchstart', (e) => {
+      if (!e.touches || !e.touches[0]) return;
+      mediaTouchStartX = e.touches[0].clientX;
+    }, { passive: true });
+    stage.addEventListener('touchend', (e) => {
+      if (mediaTouchStartX == null || !e.changedTouches || !e.changedTouches[0]) return;
+      const dx = e.changedTouches[0].clientX - mediaTouchStartX;
+      mediaTouchStartX = null;
+      if (Math.abs(dx) < 50) return;
+      stepMedia(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  })();
+
   document.addEventListener('keydown', (e) => {
+    const viewer = document.getElementById('media-viewer');
+    const viewerOpen = viewer && viewer.classList.contains('open');
     if (e.key === 'Escape') {
       closeMediaViewer();
+      closeReportModal();
+      closeChatOverflow();
       const picker = document.getElementById('emoji-picker');
       if (picker && !picker.classList.contains('hidden')) toggleEmojiPicker();
+      const searchBar = document.getElementById('thread-search-bar');
+      if (searchBar && searchBar.classList.contains('open')) clearThreadSearch();
     }
+    if (viewerOpen && e.key === 'ArrowLeft') { e.preventDefault(); stepMedia(-1); }
+    if (viewerOpen && e.key === 'ArrowRight') { e.preventDefault(); stepMedia(1); }
   });
 
   // ====== Presence UI (partner online, not own WS) ======
@@ -1589,5 +1958,228 @@
     const noResults = document.getElementById('no-results');
     if (noResults) noResults.classList.toggle('hidden', visible > 0 || !q);
   }
+
+  // ====== Phase 5: search / job card / safety / prefs ======
+  let convMuted = {{ 'true' if conv_muted else 'false' }};
+  let convArchived = {{ 'true' if conv_archived else 'false' }};
+
+  function toggleThreadSearch() {
+    const bar = document.getElementById('thread-search-bar');
+    if (!bar) return;
+    const open = !bar.classList.contains('open');
+    bar.classList.toggle('open', open);
+    if (open) {
+      const input = document.getElementById('thread-search-input');
+      if (input) { input.focus(); runThreadSearch(input.value); }
+    } else {
+      clearThreadSearch(false);
+    }
+  }
+
+  function clearThreadSearch(closeBar) {
+    const bar = document.getElementById('thread-search-bar');
+    const input = document.getElementById('thread-search-input');
+    const count = document.getElementById('thread-search-count');
+    if (input) input.value = '';
+    if (count) count.textContent = '';
+    document.querySelectorAll('#message-thread .msg-enter').forEach(el => {
+      el.classList.remove('search-hit', 'search-dim');
+    });
+    document.querySelectorAll('#message-thread .msg-text').forEach(el => {
+      if (el.dataset.origHtml != null) {
+        el.innerHTML = el.dataset.origHtml;
+        delete el.dataset.origHtml;
+      }
+    });
+    if (closeBar !== false && bar) bar.classList.remove('open');
+  }
+
+  function runThreadSearch(query) {
+    const q = (query || '').trim();
+    const msgs = document.querySelectorAll('#message-thread .msg-enter');
+    const countEl = document.getElementById('thread-search-count');
+    if (!q) {
+      msgs.forEach(el => el.classList.remove('search-hit', 'search-dim'));
+      document.querySelectorAll('#message-thread .msg-text').forEach(el => {
+        if (el.dataset.origHtml != null) {
+          el.innerHTML = el.dataset.origHtml;
+          delete el.dataset.origHtml;
+        }
+      });
+      if (countEl) countEl.textContent = '';
+      return;
+    }
+    const ql = q.toLowerCase();
+    let hits = 0;
+    let firstHit = null;
+    msgs.forEach(el => {
+      const textEl = el.querySelector('.msg-text');
+      const raw = textEl ? (textEl.dataset.origHtml != null
+        ? textEl.dataset.origHtml.replace(/<[^>]+>/g, '')
+        : textEl.textContent) : '';
+      const match = raw.toLowerCase().includes(ql);
+      el.classList.toggle('search-hit', match);
+      el.classList.toggle('search-dim', !match);
+      if (match) {
+        hits++;
+        if (!firstHit) firstHit = el;
+        if (textEl) {
+          if (textEl.dataset.origHtml == null) textEl.dataset.origHtml = textEl.innerHTML;
+          const plain = textEl.dataset.origHtml.replace(/<\/?mark[^>]*>/gi, '');
+          // Highlight via text nodes only for safety
+          const tmp = document.createElement('div');
+          tmp.innerHTML = plain;
+          const walk = (node) => {
+            if (node.nodeType === 3) {
+              const t = node.nodeValue;
+              const idx = t.toLowerCase().indexOf(ql);
+              if (idx === -1) return;
+              const before = document.createTextNode(t.slice(0, idx));
+              const mark = document.createElement('mark');
+              mark.className = 'msg-hl';
+              mark.textContent = t.slice(idx, idx + q.length);
+              const after = document.createTextNode(t.slice(idx + q.length));
+              const parent = node.parentNode;
+              parent.replaceChild(after, node);
+              parent.insertBefore(mark, after);
+              parent.insertBefore(before, mark);
+            } else if (node.nodeType === 1 && node.childNodes) {
+              Array.from(node.childNodes).forEach(walk);
+            }
+          };
+          walk(tmp);
+          textEl.innerHTML = tmp.innerHTML;
+        }
+      } else if (textEl && textEl.dataset.origHtml != null) {
+        textEl.innerHTML = textEl.dataset.origHtml;
+        delete textEl.dataset.origHtml;
+      }
+    });
+    if (countEl) countEl.textContent = hits ? hits + ' found' : 'No matches';
+    if (firstHit) firstHit.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function toggleJobContext() {
+    const card = document.getElementById('job-context-card');
+    const btn = document.getElementById('job-context-toggle');
+    const chev = document.getElementById('job-context-chevron');
+    if (!card) return;
+    const open = !card.classList.contains('open');
+    card.classList.toggle('open', open);
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
+  }
+
+  function toggleChatOverflow(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('chat-overflow-menu');
+    const btn = document.getElementById('chat-overflow-btn');
+    if (!menu) return;
+    const open = !menu.classList.contains('open');
+    menu.classList.toggle('open', open);
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  function closeChatOverflow() {
+    const menu = document.getElementById('chat-overflow-menu');
+    const btn = document.getElementById('chat-overflow-btn');
+    if (menu) menu.classList.remove('open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+  document.addEventListener('click', (e) => {
+    const wrap = document.querySelector('.chat-overflow');
+    if (wrap && !wrap.contains(e.target)) closeChatOverflow();
+  });
+
+  async function patchConvPrefs(body) {
+    const res = await fetch(`/api/v1/chat/conversations/${conversationId}/prefs`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error('prefs failed');
+    return res.json();
+  }
+
+  async function toggleMuteConversation() {
+    closeChatOverflow();
+    try {
+      const data = await patchConvPrefs({ muted: !convMuted });
+      convMuted = !!data.muted;
+      const label = document.getElementById('mute-conv-label');
+      if (label) label.textContent = convMuted ? 'Unmute conversation' : 'Mute conversation';
+      if (typeof showToast === 'function') showToast(convMuted ? 'Conversation muted' : 'Conversation unmuted', 'success');
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not update mute', 'error');
+    }
+  }
+
+  async function toggleArchiveConversation() {
+    closeChatOverflow();
+    try {
+      const data = await patchConvPrefs({ archived: !convArchived });
+      convArchived = !!data.archived;
+      const label = document.getElementById('archive-conv-label');
+      if (label) label.textContent = convArchived ? 'Unarchive' : 'Archive';
+      if (typeof showToast === 'function') showToast(convArchived ? 'Archived' : 'Restored to inbox', 'success');
+      if (convArchived) setTimeout(() => { location.href = '/messages'; }, 600);
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not archive', 'error');
+    }
+  }
+
+  function openReportModal() {
+    closeChatOverflow();
+    const m = document.getElementById('report-modal');
+    if (m) m.classList.add('open');
+  }
+  function closeReportModal() {
+    const m = document.getElementById('report-modal');
+    if (m) m.classList.remove('open');
+  }
+
+  async function submitReport() {
+    const reason = (document.getElementById('report-reason') || {}).value || 'other';
+    const details = (document.getElementById('report-details') || {}).value || '';
+    try {
+      const res = await fetch(`/api/v1/chat/conversations/${conversationId}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ reason, details }),
+      });
+      if (!res.ok) throw new Error('report failed');
+      closeReportModal();
+      if (typeof showToast === 'function') showToast('Report submitted. Thank you.', 'success');
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not submit report', 'error');
+    }
+  }
+
+  async function blockPartner() {
+    closeChatOverflow();
+    if (!confirm('Block this user? Their conversations will be hidden from your inbox.')) return;
+    try {
+      const res = await fetch(`/api/v1/chat/conversations/${conversationId}/block`, {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      if (!res.ok) throw new Error('block failed');
+      if (typeof showToast === 'function') showToast('User blocked', 'success');
+      setTimeout(() => { location.href = '/messages'; }, 500);
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not block user', 'error');
+    }
+  }
+
+  // Star hover polish for review form
+  document.querySelectorAll('#review-stars .star-btn').forEach(star => {
+    star.addEventListener('click', () => {
+      const n = parseInt(star.dataset.star, 10);
+      document.querySelectorAll('#review-stars .star-btn').forEach(s => {
+        s.style.opacity = parseInt(s.dataset.star, 10) <= n ? '1' : '0.35';
+      });
+    });
+  });
 </script>
 {% endblock %}

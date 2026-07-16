@@ -1249,13 +1249,21 @@ async def messages_list(request: Request, current_user: User = Depends(get_curre
         return RedirectResponse(url="/")
 
     from app.services.notification_service import build_conversation_list
-    conversations = await build_conversation_list(db, current_user)
+    show_archived = request.query_params.get("filter") == "archived"
+    conversations = await build_conversation_list(
+        db, current_user, include_archived=show_archived
+    )
+    if show_archived:
+        conversations = [c for c in conversations if c.get("is_archived")]
+    else:
+        conversations = [c for c in conversations if not c.get("is_archived")]
 
     return templates.TemplateResponse(request=request, name="messages.html", context={
         "request": request,
         "current_user": current_user,
         "conversations": conversations,
         "active_conversation_id": None,
+        "inbox_filter": "archived" if show_archived else "active",
     })
 
 
@@ -1343,11 +1351,27 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
         e_result = await db.exec(select(Escrow).where(Escrow.job_id == job.id))
         escrow = e_result.first()
 
-    conversations = await build_conversation_list(db, current_user)
+    # Review status for post-job prompt (customers only)
+    has_review = False
+    if job and job.status == "completed" and current_user.id == conversation.customer_id:
+        rev = (await db.exec(select(Review).where(Review.job_id == job.id))).first()
+        has_review = rev is not None
+
+    is_customer = current_user.id == conversation.customer_id
+    conv_archived = bool(
+        conversation.archived_by_customer if is_customer else conversation.archived_by_contractor
+    )
+    conv_muted = bool(
+        conversation.muted_by_customer if is_customer else conversation.muted_by_contractor
+    )
+
+    conversations = await build_conversation_list(db, current_user, include_archived=True)
     # Active thread was just marked read — zero its unread in the sidebar
     for c in conversations:
         if c["id"] == conversation_id:
             c["unread_count"] = 0
+
+    job_location = format_location(job) if job else "—"
 
     return templates.TemplateResponse(request=request, name="chat.html", context={
         "request": request,
@@ -1361,6 +1385,11 @@ async def chat_page(conversation_id: int, request: Request, current_user: User =
         "escrow": escrow,
         "conversations": conversations,
         "active_conversation_id": conversation_id,
+        "has_review": has_review,
+        "conv_archived": conv_archived,
+        "conv_muted": conv_muted,
+        "job_location": job_location,
+        "format_location": format_location,
     })
 
 
