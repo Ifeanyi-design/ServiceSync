@@ -11,7 +11,7 @@ class UserRole(str, Enum):
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8)
     role: UserRole
     full_name: str
     phone: Optional[str] = None
@@ -80,8 +80,9 @@ class ContractorProfileUpdate(BaseModel):
     working_hours_end: Optional[str] = None
     ai_tone_preference: Optional[str] = None
     ai_autonomy_level: int = 1
-    verification_level: Optional[str] = None
-    reputation_score: Optional[float] = None
+    # NOTE: verification_level / reputation_score are trust signals set ONLY by
+    # admins (verification workflow). They are intentionally excluded here so a
+    # contractor cannot self-grant "Verified Pro" or inflate their rating.
     availability_status: Optional[str] = None
 
 
@@ -104,8 +105,7 @@ class UserProfileUpdate(BaseModel):
     working_hours_end: Optional[str] = None
     ai_tone_preference: Optional[str] = None
     ai_autonomy_level: int = 1
-    verification_level: Optional[str] = None
-    reputation_score: Optional[float] = None
+    # Trust signals (verification_level / reputation_score) are admin-only — excluded.
     availability_status: Optional[str] = None
 
     class Config:

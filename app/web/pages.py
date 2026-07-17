@@ -660,6 +660,49 @@ async def web_fund_escrow(
     return RedirectResponse(url="/dashboard/customer?paid=1", status_code=302)
 
 
+@router.post("/escrow/{job_id}/release", response_class=HTMLResponse)
+async def web_release_escrow(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Customer confirms completion and releases the escrow from the dashboard.
+
+    Mirrors the JSON API but returns an HTML redirect. Guarded by ownership and
+    job-status so a job can only be released once confirmed complete.
+    """
+    if current_user.role != "customer":
+        return RedirectResponse(url="/", status_code=302)
+
+    job = await db.get(Job, job_id)
+    if not job or job.customer_id != current_user.id:
+        return RedirectResponse(url="/dashboard/customer?error=not_found", status_code=302)
+    if job.status != "completed_pending":
+        return RedirectResponse(url="/dashboard/customer?error=not_confirmable", status_code=302)
+
+    result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
+    escrow = result.first()
+    if not escrow:
+        return RedirectResponse(url="/dashboard/customer?error=no_escrow", status_code=302)
+    if escrow.customer_id != current_user.id:
+        return RedirectResponse(url="/dashboard/customer?error=not_yours", status_code=302)
+
+    try:
+        await release_escrow(db, escrow)
+        job.status = "completed"
+        db.add(job)
+        try:
+            from app.services.reputation_service import recalculate_reputation
+            await recalculate_reputation(db, escrow.contractor_id)
+        except Exception:
+            pass
+        await db.commit()
+    except ValueError as e:
+        return RedirectResponse(url=f"/dashboard/customer?error={e}", status_code=302)
+
+    return RedirectResponse(url="/dashboard/customer?released=1", status_code=302)
+
+
 @router.post("/integrations/connect")
 async def connect_integration(
     request: Request,

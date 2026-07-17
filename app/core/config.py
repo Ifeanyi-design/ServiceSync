@@ -1,5 +1,10 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import model_validator
 from typing import Optional
+
+# Default is intentionally a known-bad placeholder; deployments MUST override it.
+_DEFAULT_SECRET_KEY = "supersecretkey_please_change_me_in_production"
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "ServiceSync"
@@ -7,7 +12,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Security
-    SECRET_KEY: str = "supersecretkey_please_change_me_in_production"
+    SECRET_KEY: str = _DEFAULT_SECRET_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
     
@@ -59,6 +64,25 @@ class Settings(BaseSettings):
     # secret-token header to authenticate inbound Telegram callbacks.
     TELEGRAM_WEBHOOK_SECRET: Optional[str] = None
 
+    # Meta (WhatsApp / Messenger) verify token + app secret for webhook
+    # verification and signature validation. Load from env/secret manager —
+    # never hardcode.
+    META_VERIFY_TOKEN: Optional[str] = None
+    META_APP_SECRET: Optional[str] = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
+
+    @model_validator(mode="after")
+    def _check_secret_key(self) -> "Settings":
+        if self.SECRET_KEY == _DEFAULT_SECRET_KEY:
+            # Fail fast: a known placeholder lets anyone forge JWTs.
+            raise RuntimeError(
+                "SECRET_KEY is still the insecure default. Set a strong random "
+                "value (e.g. `python -c \"import secrets;print(secrets.token_urlsafe(32))\"`)."
+            )
+        if len(self.SECRET_KEY.encode()) < 32:
+            raise RuntimeError("SECRET_KEY must be at least 32 bytes long.")
+        return self
+
 
 settings = Settings()

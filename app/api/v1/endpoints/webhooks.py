@@ -17,7 +17,8 @@ from app.services.gemini_service import generate_contractor_reply
 
 router = APIRouter()
 
-META_VERIFY_TOKEN = "your_secure_verify_token" 
+# Meta webhook verify token + app secret now come from environment/config
+# (see app.core.config settings.META_VERIFY_TOKEN / META_APP_SECRET).
 
 
 @router.post("/stripe")
@@ -140,7 +141,7 @@ async def verify_webhook(
     hub_challenge = request.query_params.get("hub.challenge")
     hub_verify_token = request.query_params.get("hub.verify_token")
 
-    if hub_mode == "subscribe" and hub_verify_token == META_VERIFY_TOKEN:
+    if hub_mode == "subscribe" and hub_verify_token == settings.META_VERIFY_TOKEN:
         return Response(content=hub_challenge, media_type="text/plain")
     
     raise HTTPException(status_code=403, detail="Verification failed")
@@ -202,11 +203,27 @@ async def receive_webhook(
         if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != settings.TELEGRAM_WEBHOOK_SECRET:
             raise HTTPException(status_code=403, detail="Invalid Telegram secret token")
 
-    try:
-        payload = await request.json()
-    except Exception:
-        logger.warning("webhook/%s: invalid JSON body", platform)
-        return {"status": "ignored"}
+    # Verify Meta (WhatsApp/Messenger) payload signature when an app secret is set.
+    if platform in ("whatsapp", "messenger") and settings.META_APP_SECRET:
+        import hmac
+        import json as _json
+        from hashlib import sha256
+        raw = await request.body()
+        sig = request.headers.get("X-Hub-Signature-256", "")
+        expected = "sha256=" + hmac.new(settings.META_APP_SECRET.encode(), raw, sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            logger.warning("webhook/%s: invalid Meta signature", platform)
+            raise HTTPException(status_code=403, detail="Invalid signature")
+        try:
+            payload = _json.loads(raw)
+        except Exception:
+            return {"status": "ignored"}
+    else:
+        try:
+            payload = await request.json()
+        except Exception:
+            logger.warning("webhook/%s: invalid JSON body", platform)
+            return {"status": "ignored"}
 
     logger.info("webhook/%s: received payload keys=%s", platform, list(payload.keys()))
 

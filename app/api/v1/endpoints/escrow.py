@@ -85,6 +85,16 @@ async def release_funds(
     if current_user.role == "customer" and escrow.customer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your escrow")
 
+    # Only release once the job has been confirmed complete by the customer
+    # (or when an admin explicitly overrides). Releasing a booked/in-progress
+    # job would bypass the completion lifecycle and pay out prematurely.
+    job = await db.get(Job, job_id)
+    if job and job.status != "completed_pending" and current_user.role != "admin":
+        raise HTTPException(
+            status_code=400,
+            detail="Job must be confirmed complete before releasing escrow",
+        )
+
     try:
         escrow = await release_escrow(db, escrow)
         
@@ -128,10 +138,14 @@ async def cancel_escrow(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Full refund to customer (contractor cancellation/no-show)."""
+    if current_user.role not in ("customer", "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized")
     result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
     escrow = result.first()
     if not escrow:
         raise HTTPException(status_code=404, detail="Escrow not found")
+    if current_user.role == "customer" and escrow.customer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your escrow")
 
     try:
         escrow = await refund_escrow(db, escrow, reason="contractor_cancelled")

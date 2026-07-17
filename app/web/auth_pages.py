@@ -71,6 +71,7 @@ async def login_submit(
         value=token,
         httponly=True,
         samesite="lax",
+        secure=True,
         max_age=60 * 60 * 24 * 7,  # 7 days
     )
     return response
@@ -116,6 +117,16 @@ async def signup_submit(
     if role not in ("customer", "contractor"):
         role = "customer"
 
+    # Password strength policy (mirrors API signup).
+    if len(password) < 8:
+        return templates.TemplateResponse(request=request, name="signup.html", context={
+            "request": request,
+            "current_user": None,
+            "error": "Password must be at least 8 characters.",
+            "next": next,
+            "contractor_id": contractor_id or _contractor_id_from_next(next),
+        }, status_code=400)
+
     # Check duplicate
     result = await db.exec(select(User).where(User.email == email))
     if result.first():
@@ -149,6 +160,7 @@ async def signup_submit(
         value=token,
         httponly=True,
         samesite="lax",
+        secure=True,
         max_age=60 * 60 * 24 * 7,
     )
     return response
@@ -198,7 +210,15 @@ async def register_contractor_submit(
     db: AsyncSession = Depends(get_db),
 ):
     import json
-    
+
+    # Password strength policy.
+    if len(password) < 8:
+        return templates.TemplateResponse(request=request, name="register_contractor.html", context={
+            "request": request,
+            "current_user": None,
+            "error": "Password must be at least 8 characters.",
+        }, status_code=400)
+
     # Parse the JSON string from the frontend hidden input
     try:
         qualifications_dict = json.loads(trade_qualifications)
@@ -248,6 +268,7 @@ async def register_contractor_submit(
         value=token,
         httponly=True,
         samesite="lax",
+        secure=True,
         max_age=60 * 60 * 24 * 7,
     )
     return response
@@ -259,7 +280,7 @@ async def register_contractor_submit(
 @router.get("/logout")
 async def logout():
     response = RedirectResponse(url="/", status_code=302)
-    response.delete_cookie("access_token")
+    response.delete_cookie("access_token", secure=True, httponly=True, samesite="lax")
     return response
 
 
@@ -269,7 +290,11 @@ def _post_auth_redirect_url(user: User, next_url: str, contractor_id: Optional[s
         resolved_contractor_id = contractor_id if contractor_id and contractor_id.isdigit() else _contractor_id_from_next(next_url)
         if resolved_contractor_id:
             return f"/api/v1/jobs/auto-book?contractor_id={resolved_contractor_id}"
-    return next_url if next_url.startswith("/") else _dashboard_url(user)
+    # Only allow same-origin, single-slash paths. Reject protocol-relative
+    # redirects like "//evil.com" which also satisfy startswith("/").
+    if next_url.startswith("/") and not next_url.startswith("//"):
+        return next_url
+    return _dashboard_url(user)
 
 
 def _contractor_id_from_next(next_url: str) -> Optional[str]:

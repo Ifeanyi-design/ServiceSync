@@ -5,10 +5,12 @@ import json
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 
-from app.models.all_models import Escrow, Dispute, Job, User, Receipt
+from app.models.all_models import Escrow, Dispute, Job, User, Receipt, DirectMessage, Conversation
 from app.services.payout_gateway import process_payout, refund_payment
 from app.services.payment_gateway import capture_payment
 from app.services.subscription_service import commission_rate
+from app.services.alert_service import dispatch_alert
+from app.core.config import settings
 
 # Default platform fee percentage (used when a tier-specific rate is unavailable)
 PLATFORM_FEE_PCT = Decimal("0.10")  # 10%
@@ -87,12 +89,24 @@ async def fund_escrow(
         return escrow
 
     if payment_gateway_id:
-        # Real gateway (e.g. Stripe PaymentIntent): payment already captured
-        # client-side, so skip the mock capture and record the reference.
-        from app.services.payment_gateway import payment_gateway
+        # Real gateway (e.g. Stripe PaymentIntent): verify server-side that the
+        # payment actually succeeded before trusting the client-supplied id.
+        # Without this, a caller could mark an escrow "held" with no real capture.
+        if not settings.STRIPE_SECRET_KEY:
+            raise ValueError("Payment gateway is not configured; cannot verify payment")
+        try:
+            import stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            intent = stripe.PaymentIntent.retrieve(payment_gateway_id)
+            if intent.get("status") != "succeeded":
+                raise ValueError(f"Payment not completed (status: {intent.get('status')})")
+        except ValueError:
+            raise
+        except Exception as e:  # network/API error while verifying
+            raise ValueError(f"Could not verify payment with gateway: {e}")
         capture = {
             "mode": "live",
-            "raw": {"payment_intent_id": payment_gateway_id},
+            "raw": {"payment_intent_id": payment_gateway_id, "status": intent.get("status")},
             "reference_id": payment_gateway_id,
         }
     else:
@@ -344,6 +358,35 @@ async def resolve_dispute(
         
         db.add(escrow)
     
+    # Notify BOTH parties and post a system note into the shared conversation so
+    # the resolution is visible to the customer and contractor alike (chat space
+    # stays usable afterwards). Failures here must never break the resolution.
+    try:
+        if escrow:
+            conv = (await db.exec(
+                select(Conversation).where(Conversation.job_id == escrow.job_id)
+            )).first()
+            customer = await db.get(User, escrow.customer_id)
+            contractor = await db.get(User, escrow.contractor_id)
+            summary = (
+                f"[SYSTEM] Dispute on Job #{escrow.job_id} resolved by admin.\n"
+                f"Refund to customer: {refund_amount} {escrow.currency} ({refund_pct:.0f}%)\n"
+                f"Contractor payout: {payout_amount} {escrow.currency}\n"
+                f"Resolution: {resolution}"
+            )
+            if conv:
+                db.add(DirectMessage(
+                    conversation_id=conv.id,
+                    sender_id=admin_id,
+                    content=summary,
+                ))
+            if customer:
+                await dispatch_alert(db, customer.id, summary)
+            if contractor:
+                await dispatch_alert(db, contractor.id, summary)
+    except Exception:
+        pass
+
     db.add(dispute)
     await db.flush()
     return dispute

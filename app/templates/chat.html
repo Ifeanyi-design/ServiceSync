@@ -772,6 +772,12 @@
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
             </button>
             <div id="chat-overflow-menu" class="chat-overflow-menu" role="menu">
+              {% if current_user.role == 'customer' and partner.role == 'contractor' %}
+              <button type="button" role="menuitem" onclick="window.location.href='/api/v1/jobs/auto-book?contractor_id={{ partner.id }}'; closeChatOverflow();">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                New job with {{ partner.full_name.split()[0] }}
+              </button>
+              {% endif %}
               {% if job %}
               <button type="button" role="menuitem" onclick="toggleJobContext(); closeChatOverflow();" class="sm:hidden">
                 <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -1031,6 +1037,9 @@
         <div class="flex-1 border-t border-gray-100"></div>
       </div>
       {% endif %}
+      {% if message.content.startswith('[SYSTEM]') %}
+      <div class="my-2 mx-auto max-w-[92%] text-center text-xs text-gray-600 bg-gray-100 border border-gray-200 rounded-2xl px-3 py-2 whitespace-pre-wrap" data-msg-id="{{ message.id }}">{{ message.content.replace('[SYSTEM]', '') | trim }}</div>
+      {% else %}
       {% set is_mine = message.sender_id == current_user.id %}
       {% set receipt = '' %}
       {% if is_mine %}
@@ -1097,9 +1106,10 @@
              {% endif %}
              {% if message.content %}<p class="whitespace-pre-wrap msg-text">{{ message.content }}</p>{% endif %}
              <span class="msg-time">{{ message.timestamp.strftime('%H:%M') }}{% if is_mine %}<span class="receipt-icon" data-receipt-icon>{% if receipt == 'read' %}<span class="text-cyan-200 ml-0.5">✓✓</span>{% else %}<span class="opacity-85 ml-0.5">✓✓</span>{% endif %}</span>{% endif %}</span>
-           </div>
-        </div>
+            </div>
+         </div>
       </div>
+      {% endif %}
       {% endif %}
       {% endfor %}
 
@@ -1906,6 +1916,17 @@
     const now = when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const receiptStatus = isMine ? (status || 'sent') : null;
     const receipt = isMine ? `<span class="receipt-icon" data-receipt-icon>${getReceiptIcon(receiptStatus)}</span>` : '';
+
+    // System notice (e.g. dispute resolution) — centered pill, not a chat bubble.
+    if (text && text.startsWith('[SYSTEM]')) {
+      const note = document.createElement('div');
+      note.className = 'my-2 mx-auto max-w-[92%] text-center text-xs text-gray-600 bg-gray-100 border border-gray-200 rounded-2xl px-3 py-2 whitespace-pre-wrap';
+      note.textContent = text.replace('[SYSTEM]', '').trim();
+      if (msgId) note.dataset.msgId = msgId;
+      liveMessages.appendChild(note);
+      scrollAnchor.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
 
     const wrapper = document.createElement('div');
     wrapper.className = `flex ${isMine ? 'flex-row-reverse' : ''} items-end gap-2 group py-1 msg-enter`;

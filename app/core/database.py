@@ -6,7 +6,7 @@ from app.core.config import settings
 # Create async engine for Neon PostgreSQL
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=True, # Set to False in production
+    echo=False,  # was True; avoid logging SQL + parameter/PII to stdout in prod
     future=True
 )
 
