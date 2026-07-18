@@ -32,6 +32,27 @@ def _allowed(ext: str, allowlist: set[str]) -> bool:
     return ext.lower() in allowlist
 
 
+def _validate_content(data: bytes, ext: str) -> None:
+    """Reject files whose bytes don't match the type implied by the extension.
+
+    Images are sniffed by magic bytes (cheap, catches most spoofing). Video/doc
+    types are harder to sniff reliably, so we trust the extension allowlist for
+    those (they are served, not executed).
+    """
+    if ext in _IMAGE_EXT:
+        image_sigs = (
+            b"\xff\xd8\xff",  # JPEG
+            b"\x89PNG",      # PNG
+            b"GIF8",         # GIF
+            b"RIFF",         # WEBP (RIFF....WEBP)
+        )
+        if not any(data[: len(sig)] == sig for sig in image_sigs):
+            raise ValueError("File content does not match an image type")
+    # PDFs: require the %PDF header.
+    if ext == ".pdf" and not data[:4] == b"%PDF":
+        raise ValueError("File content does not match a PDF")
+
+
 async def save_upload(
     data: bytes,
     filename: str,
@@ -51,6 +72,10 @@ async def save_upload(
         raise ValueError("Unsupported file type")
     if len(data) > max_bytes:
         raise ValueError(f"File too large (max {max_bytes // (1024 * 1024)}MB)")
+
+    # Basic content sniffing: reject files whose bytes don't match the type
+    # implied by their extension (stops ".png" executables, etc.).
+    _validate_content(data, ext)
 
     name = f"{uuid.uuid4().hex}{ext}"
 

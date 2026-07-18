@@ -8,6 +8,7 @@ from app.api.dependencies import get_db
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.models.all_models import User
 from app.schemas.user import UserCreate, UserResponse, Token
+from app.services.audit_service import log_audit
 
 router = APIRouter()
 
@@ -46,7 +47,10 @@ async def login(
     result = await db.exec(select(User).where(User.email == form_data.username))
     user = result.first()
     if not user or not verify_password(form_data.password, user.hashed_password):
+        await log_audit(db, "login_failed", user_id=getattr(user, "id", None),
+                        status="failure", detail=form_data.username)
         raise HTTPException(status_code=400, detail="Incorrect email or password")
-    
+
     access_token = create_access_token(subject=user.id)
+    await log_audit(db, "login_success", user_id=user.id, status="success")
     return {"access_token": access_token, "token_type": "bearer"}

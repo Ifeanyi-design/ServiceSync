@@ -67,6 +67,50 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Small in-memory per-IP rate limiter for abuse-prone endpoints.
+
+    Shared per-process only — sufficient for a single Render instance. For
+    multi-instance production, back this with Redis. Exempts static assets,
+    health checks, and webhooks (which must remain open for Stripe/Meta).
+    """
+
+    # path -> (max requests, window seconds)
+    PROTECTED = {
+        "/auth/login": (10, 60),
+        "/auth/signup": (5, 60),
+        "/api/v1/auth/login": (10, 60),
+        "/api/v1/auth/signup": (5, 60),
+        "/api/v1/chat/triage": (20, 60),
+    }
+    EXEMPT_PREFIXES = ("/static", "/health", "/api/v1/webhooks")
+
+    _hits: dict = {}
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if any(path.startswith(p) for p in self.EXEMPT_PREFIXES):
+            return await call_next(request)
+        limit = self.PROTECTED.get(path)
+        if not limit:
+            return await call_next(request)
+
+        max_hits, window = limit
+        ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        key = f"{ip}:{path}"
+        dq = self._hits.setdefault(key, [])
+        while dq and dq[0] <= now - window:
+            dq.pop(0)
+        if len(dq) >= max_hits:
+            return Response("Too many requests", status_code=429)
+        dq.append(now)
+        return await call_next(request)
+
+
+app.add_middleware(RateLimitMiddleware)
+
+
 # Mount static files (create the dir so it's always available for uploads)
 static_dir = Path(__file__).resolve().parent / "static"
 (static_dir / "uploads").mkdir(parents=True, exist_ok=True)

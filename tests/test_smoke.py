@@ -134,3 +134,32 @@ async def test_fund_escrow_idempotent_when_held():
     assert result.total_amount == 50
     # No further DB writes should have happened for an already-held escrow.
     assert db.flushed == 0
+
+
+@pytest.mark.asyncio
+async def test_upload_rejects_spoofed_extension(tmp_path, monkeypatch):
+    """A .png file whose bytes are NOT a PNG must be rejected (content sniff)."""
+    import app.services.upload_service as us
+    monkeypatch.setattr(us, "LOCAL_UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr(us, "settings", type("S", (), {
+        "CLOUDINARY_URL": None, "CLOUDINARY_API_KEY": None,
+        "CLOUDINARY_CLOUD_NAME": None, "AWS_S3_BUCKET": None,
+    })())
+    from app.services.upload_service import save_upload
+    with pytest.raises(ValueError):
+        await save_upload(b"\x00\x01\x02\x03not an image", "trap.png",
+                          allowlist={".png"}, max_bytes=1024)
+
+
+@pytest.mark.asyncio
+async def test_upload_accepts_real_png(tmp_path, monkeypatch):
+    import app.services.upload_service as us
+    monkeypatch.setattr(us, "LOCAL_UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr(us, "settings", type("S", (), {
+        "CLOUDINARY_URL": None, "CLOUDINARY_API_KEY": None,
+        "CLOUDINARY_CLOUD_NAME": None, "AWS_S3_BUCKET": None,
+    })())
+    from app.services.upload_service import save_upload
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+    url = await save_upload(png, "ok.png", allowlist={".png"}, max_bytes=1024)
+    assert url.startswith("/static/uploads/")

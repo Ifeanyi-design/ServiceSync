@@ -17,6 +17,7 @@ from app.services.escrow_service import (
 from app.services.subscription_service import commission_rate
 from app.services.alert_service import alert_dispute_opened, alert_escrow_released
 from app.services.reputation_service import recalculate_reputation
+from app.services.audit_service import log_audit
 
 router = APIRouter()
 
@@ -120,6 +121,11 @@ async def release_funds(
                 await alert_escrow_released(db, contractor, job_id, str(escrow.contractor_payout))
         except Exception:
             pass
+
+        await log_audit(
+            db, "escrow_release", user_id=current_user.id, job_id=job_id,
+            contractor_id=escrow.contractor_id, status="success",
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -151,6 +157,10 @@ async def cancel_escrow(
         escrow = await refund_escrow(db, escrow, reason="contractor_cancelled")
         await db.commit()
         await db.refresh(escrow)
+        await log_audit(
+            db, "escrow_cancel", user_id=current_user.id, job_id=job_id,
+            contractor_id=escrow.contractor_id, status="success",
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -275,6 +285,10 @@ async def resolve_escrow_dispute(
         dispute = await resolve_dispute(db, dispute, resolution, refund_pct, current_user.id)
         await db.commit()
         await db.refresh(dispute)
+        await log_audit(
+            db, "dispute_resolve", user_id=current_user.id, job_id=job_id,
+            status="success", detail=f"refund_pct={refund_pct}",
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
