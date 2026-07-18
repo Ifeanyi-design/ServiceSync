@@ -29,6 +29,14 @@ class DirectMessage(SQLModel, table=True):
     conversation: "Conversation" = Relationship(back_populates="messages")
 
 
+class RevokedToken(SQLModel, table=True):
+    """DB-backed JWT revocation (logout / forced expiry). Keyed by token ``jti``."""
+    jti: str = Field(primary_key=True)
+    expires_at: datetime
+    revoked_at: datetime = Field(default_factory=datetime.utcnow)
+    reason: Optional[str] = None
+
+
 class Conversation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     job_id: int = Field(foreign_key="job.id")
@@ -148,6 +156,21 @@ class User(SQLModel, table=True):
 
     # Paid "Boost" placement — contractor ranks at the top of search until this time.
     boosted_until: Optional[datetime] = None
+
+    # Email verification + password reset (optional email backend)
+    email_verified: bool = Field(default=False)
+    email_verify_token: Optional[str] = None
+    email_verify_expiry: Optional[datetime] = None
+    reset_token: Optional[str] = None
+    reset_token_expiry: Optional[datetime] = None
+
+    # Admin 2FA (email-code second step). Null until enabled.
+    twofa_enabled: bool = Field(default=False)
+    twofa_code: Optional[str] = None
+    twofa_expiry: Optional[datetime] = None
+
+    # WhatsApp Cloud API: the user's WhatsApp id/phone for inbound matching.
+    wa_id: Optional[str] = Field(default=None, index=True)
 
     jobs: List[Job] = Relationship(back_populates="customer", sa_relationship_kwargs={"foreign_keys": "[Job.customer_id]"})
     assigned_jobs: List[Job] = Relationship(back_populates="assigned_contractor", sa_relationship_kwargs={"foreign_keys": "[Job.assigned_contractor_id]"})

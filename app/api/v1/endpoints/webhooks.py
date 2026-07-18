@@ -427,3 +427,87 @@ async def _handle_telegram_callback(payload: dict, db: AsyncSession) -> Any:
                 logger.info("telegram callback: dismissed draft %s", draft_id)
 
     return {"status": "ok"}
+
+
+# ─────────────────────────────────────────────
+#  WhatsApp Cloud API webhook
+# ─────────────────────────────────────────────
+def _normalize_phone(value: Optional[str]) -> str:
+    return "".join(ch for ch in (value or "")).lstrip("+").replace(" ", "")
+
+
+@router.get("/whatsapp")
+async def whatsapp_verify(
+    hub_mode: Optional[str] = None,
+    hub_verify_token: Optional[str] = None,
+    hub_challenge: Optional[str] = None,
+):
+    """Meta webhook subscription challenge."""
+    if hub_mode == "subscribe" and hub_verify_token == settings.WHATSAPP_VERIFY_TOKEN:
+        return Response(content=hub_challenge or "", media_type="text/plain")
+    raise HTTPException(status_code=403, detail="Verification failed")
+
+
+@router.post("/whatsapp")
+async def whatsapp_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    """Receive WhatsApp messages. Verifies the Meta signature, then routes any
+    inbound text into the user's existing conversation so it shows up in chat."""
+    import json
+    raw = await request.body()
+    sig = request.headers.get("X-Hub-Signature-256")
+    secret = settings.WHATSAPP_APP_SECRET or settings.META_APP_SECRET
+    if secret:
+        from app.services.whatsapp_service import verify_whatsapp_signature
+        if not verify_whatsapp_signature(raw, sig):
+            raise HTTPException(status_code=401, detail="Invalid signature")
+
+    try:
+        data = json.loads(raw or b"{}")
+    except Exception:
+        return {"status": "ignored"}
+
+    for entry in data.get("entry", []):
+        for change in entry.get("value", {}).get("changes", []):
+            value = change.get("value", {})
+            for msg in value.get("messages", []):
+                if msg.get("type") != "text":
+                    continue
+                wa_id = msg.get("from")
+                text = msg.get("text", {}).get("body", "")
+                if not wa_id or not text:
+                    continue
+                # Match the sender to a local user (WhatsApp id or phone).
+                user = (await db.exec(
+                    select(User).where(User.wa_id == wa_id)
+                )).first()
+                if not user:
+                    norm = _normalize_phone(wa_id)
+                    res = await db.exec(select(User))
+                    for u in res.all():
+                        if u.phone and _normalize_phone(u.phone) == norm:
+                            user = u
+                            user.wa_id = wa_id
+                            db.add(user)
+                            break
+                if not user:
+                    logger.info("whatsapp: no matching user for %s", wa_id)
+                    continue
+                # Append to the most recent active conversation for this user.
+                conv = (await db.exec(
+                    select(Conversation)
+                    .where((Conversation.customer_id == user.id) | (Conversation.contractor_id == user.id))
+                    .where(~Conversation.archived_by_customer)
+                    .where(~Conversation.archived_by_contractor)
+                    .order_by(Conversation.id.desc())
+                )).first()
+                if not conv:
+                    logger.info("whatsapp: no conversation for user %s", user.id)
+                    continue
+                db.add(DirectMessage(
+                    conversation_id=conv.id,
+                    sender_id=user.id,
+                    content=f"[WhatsApp] {text}",
+                ))
+                await db.commit()
+                logger.info("whatsapp: routed message from %s to conv %s", wa_id, conv.id)
+    return {"status": "ok"}

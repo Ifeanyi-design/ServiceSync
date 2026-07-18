@@ -163,3 +163,31 @@ async def test_upload_accepts_real_png(tmp_path, monkeypatch):
     png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
     url = await save_upload(png, "ok.png", allowlist={".png"}, max_bytes=1024)
     assert url.startswith("/static/uploads/")
+
+
+def test_jwt_access_and_refresh_have_jti_and_type():
+    from app.core.security import create_access_token, create_refresh_token
+    from app.services.token_service import decode_token
+    a = create_access_token(subject=7)
+    r = create_refresh_token(subject=7)
+    pa = decode_token(a)
+    pr = decode_token(r)
+    assert pa["type"] == "access" and "jti" in pa
+    assert pr["type"] == "refresh" and "jti" in pr
+    assert pa["jti"] != pr["jti"]
+
+
+def test_2fa_code_verify():
+    from app.models.all_models import User
+    from app.services.account_service import issue_2fa_code, verify_2fa_code
+    u = User(email="a@b.com", hashed_password="x", role="admin", full_name="A")
+    code = issue_2fa_code(u)
+    assert verify_2fa_code(u, code) is True
+    assert verify_2fa_code(u, "000000") is False
+
+
+def test_user_create_requires_long_password():
+    import pytest
+    from app.schemas.user import UserCreate
+    with pytest.raises(Exception):
+        UserCreate(email="a@b.com", password="short", role="customer", full_name="A")

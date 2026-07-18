@@ -9,6 +9,7 @@ from typing import AsyncGenerator, Optional
 from app.core.config import settings
 from app.core.database import async_session_maker
 from app.models.all_models import User
+from app.services.token_service import is_token_revoked
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=False)
 
@@ -32,6 +33,10 @@ async def get_current_user_optional(
         )
         user_id: str = payload.get("sub")
         if user_id is None:
+            return None
+        # Revocation check (logout / forced expiry)
+        jti = payload.get("jti")
+        if jti and await is_token_revoked(db, jti):
             return None
     except InvalidTokenError:
         return None

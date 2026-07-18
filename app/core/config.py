@@ -70,6 +70,29 @@ class Settings(BaseSettings):
     META_VERIFY_TOKEN: Optional[str] = None
     META_APP_SECRET: Optional[str] = None
 
+    # WhatsApp Cloud API (Meta Graph). Optional — leave unset to disable WhatsApp.
+    WHATSAPP_TOKEN: Optional[str] = None
+    WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
+    WHATSAPP_APP_SECRET: Optional[str] = None
+    WHATSAPP_VERIFY_TOKEN: Optional[str] = None
+
+    # Email (SMTP). Optional — when unset, verification/reset emails are skipped
+    # (logged) so the app still runs in demo mode.
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASS: Optional[str] = None
+    SMTP_USE_TLS: bool = True
+    EMAIL_FROM: str = "noreply@servicesync.app"
+    FRONTEND_URL: str = ""  # public base URL used in emailed links, e.g. https://app.onrender.com
+
+    # JWT refresh tokens (DB-backed revocation). Access tokens stay short-lived.
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
+    # Feature gating — keep OFF by default so existing deployments keep working.
+    EMAIL_VERIFICATION_REQUIRED: bool = False
+    ADMIN_2FA_REQUIRED: bool = False
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
 
     @model_validator(mode="after")
