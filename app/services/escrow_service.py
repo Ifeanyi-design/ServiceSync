@@ -76,6 +76,10 @@ async def fund_escrow(
         raise ValueError("Job must be booked before funding escrow")
     if quoted_amount <= 0:
         raise ValueError("Amount must be greater than zero")
+    if quoted_amount < Decimal(str(settings.MIN_PAYMENT_AMOUNT)):
+        raise ValueError(
+            f"Minimum charge is {settings.MIN_PAYMENT_AMOUNT:g} {settings.PAYMENT_CURRENCY}."
+        )
 
     fees = calculate_fees(quoted_amount, rate=commission_rate(contractor))
 

@@ -46,10 +46,10 @@ async def test_upload_local_fallback(tmp_path, monkeypatch):
         "CLOUDINARY_CLOUD_NAME": None, "AWS_S3_BUCKET": None,
     })())
     from app.services.upload_service import save_upload
-    url = await save_upload(b"hello", "doc.pdf", allowlist={".pdf"}, max_bytes=1024)
+    url = await save_upload(b"%PDF-1.4 hello", "doc.pdf", allowlist={".pdf"}, max_bytes=1024)
     assert url.startswith("/static/uploads/")
     name = url.split("/")[-1]
-    assert (tmp_path / name).read_bytes() == b"hello"
+    assert (tmp_path / name).read_bytes() == b"%PDF-1.4 hello"
 
 
 @pytest.mark.asyncio

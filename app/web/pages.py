@@ -501,7 +501,10 @@ async def pay_job_page(request: Request, job_id: int, error: Optional[str] = Non
         "is_funded": escrow is not None and escrow.status == "held",
         "error": error,
         "format_location": format_location,
-        "currency": _detect_currency(current_user),
+        "currency": settings.PAYMENT_CURRENCY,
+        "charge_currency": settings.PAYMENT_CURRENCY,
+        "currency_symbol": CURRENCY_SYMBOLS.get(settings.PAYMENT_CURRENCY, "$"),
+        "min_amount": settings.MIN_PAYMENT_AMOUNT,
         "saved_methods": saved_methods,
         "stripe_live": bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_PUBLISHABLE_KEY),
         "stripe_pk": settings.STRIPE_PUBLISHABLE_KEY or "",
@@ -529,9 +532,18 @@ async def create_job_payment_intent(
     amount = (escrow.quoted_amount if escrow and escrow.quoted_amount
               else Decimal(str((contractor.base_pricing if contractor else None) or 50.00)))
 
+    # Enforce the platform minimum before touching the gateway.
+    if amount < Decimal(str(settings.MIN_PAYMENT_AMOUNT)):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Minimum charge is {settings.MIN_PAYMENT_AMOUNT:g} {settings.PAYMENT_CURRENCY}.",
+        )
+
+    # Charge in the platform currency (consistent with the escrow record), not the
+    # user's detected locale — mixing them produced cross-currency minimum errors.
     from app.services import payment_gateway
     intent = payment_gateway.create_payment_intent(
-        Decimal(str(amount)), currency=_detect_currency(current_user).lower(),
+        Decimal(str(amount)), currency=settings.PAYMENT_CURRENCY.lower(),
         metadata={"job_id": str(job_id), "customer_id": str(current_user.id)},
     )
     return {
@@ -539,6 +551,7 @@ async def create_job_payment_intent(
         "reference_id": intent.get("reference_id"),
         "mode": intent.get("mode"),
         "amount": float(amount),
+        "currency": settings.PAYMENT_CURRENCY,
     }
 
 
@@ -1564,7 +1577,8 @@ async def drafts_page(
 # PAYMENT METHODS
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Currency mapping by country
+# Currency mapping by country (used only for the *display* default; the actual
+# charge currency is settings.PAYMENT_CURRENCY).
 COUNTRY_CURRENCY_MAP = {
     "Nigeria": "NGN", "NG": "NGN",
     "United Kingdom": "GBP", "UK": "GBP", "GB": "GBP",
@@ -1572,12 +1586,31 @@ COUNTRY_CURRENCY_MAP = {
     "Ghana": "GHS", "GH": "GHS",
     "United States": "USD", "US": "USD",
     "Canada": "CAD", "CA": "CAD",
+    "South Africa": "ZAR", "ZA": "ZAR",
+    "India": "INR", "IN": "INR",
+    "Australia": "AUD", "AU": "AUD",
+    "United Arab Emirates": "AED", "AE": "AED",
+    "Germany": "EUR", "DE": "EUR", "France": "EUR", "FR": "EUR",
+    "Spain": "EUR", "ES": "EUR", "Italy": "EUR", "IT": "EUR",
+    "Netherlands": "EUR", "NL": "EUR",
+    "Tanzania": "TZS", "TZ": "TZS",
+    "Uganda": "UGX", "UG": "UGX",
+    "Ireland": "EUR", "IE": "EUR",
+    "Singapore": "SGD", "SG": "SGD",
 }
 
 def _detect_currency(user: User) -> str:
-    """Detect currency from user's country field."""
+    """Detect display currency from user's country field."""
     country = getattr(user, 'country', None) or ''
     return COUNTRY_CURRENCY_MAP.get(country, 'USD')
+
+
+# Symbols for presentation (the platform still charges in PAYMENT_CURRENCY).
+CURRENCY_SYMBOLS = {
+    "USD": "$", "NGN": "₦", "GBP": "£", "KES": "KSh ", "GHS": "GH₵",
+    "CAD": "CA$", "EUR": "€", "ZAR": "R", "INR": "₹", "AUD": "A$",
+    "AED": "د.إ", "TZS": "TSh", "UGX": "USh", "SGD": "S$",
+}
 
 
 @router.get("/payment-methods", response_class=HTMLResponse)

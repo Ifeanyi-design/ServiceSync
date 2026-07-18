@@ -264,16 +264,18 @@
               </div>
             </div>
 
-            <!-- Currency selector -->
+            <!-- Currency selector (display only) -->
             <div class="mt-5">
               <label class="block text-xs font-bold text-gray-600 mb-1.5">Display Currency</label>
               <select name="currency" id="currency-select" onchange="updateCurrencyDisplay(this.value)"
                 class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition">
-                {% for code, name in [('USD','$ USD – US Dollar'), ('NGN','₦ NGN – Nigerian Naira'), ('GBP','£ GBP – British Pound'), ('KES','KSh KES – Kenyan Shilling'), ('GHS','GH₵ GHS – Ghanaian Cedi'), ('CAD','CA$ CAD – Canadian Dollar')] %}
+                {% for code, name in [('USD','$ USD – US Dollar'), ('NGN','₦ NGN – Nigerian Naira'), ('GBP','£ GBP – British Pound'), ('EUR','€ EUR – Euro'), ('KES','KSh KES – Kenyan Shilling'), ('GHS','GH₵ GHS – Ghanaian Cedi'), ('ZAR','R ZAR – South African Rand'), ('INR','₹ INR – Indian Rupee'), ('CAD','CA$ CAD – Canadian Dollar'), ('AUD','A$ AUD – Australian Dollar'), ('AED','د.إ AED – UAE Dirham'), ('TZS','TSh TZS – Tanzanian Shilling'), ('UGX','USh UGX – Ugandan Shilling'), ('SGD','S$ SGD – Singapore Dollar')] %}
                 <option value="{{ code }}" {% if (currency or 'USD') == code %}selected{% endif %}>{{ name }}</option>
                 {% endfor %}
               </select>
-              <p id="currency-note" class="text-xs text-gray-400 mt-1.5"></p>
+              <p id="currency-note" class="text-xs text-gray-400 mt-1.5">
+                You're charged <strong>{{ currency_symbol }}{{ '%.2f' | format(amount | float) }} {{ charge_currency }}</strong>. The selector above only changes how the total is displayed.
+              </p>
             </div>
 
             <!-- Terms checkbox -->
@@ -302,7 +304,7 @@
             <button type="submit" id="pay-btn"
               class="mt-5 w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-base transition shadow-xl shadow-blue-200 active:scale-[.98] flex items-center justify-center gap-2">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-              Pay &amp; Secure Escrow — ${{ '%.2f' | format(amount | float) }}
+               Pay &amp; Secure Escrow — {{ currency_symbol }}{{ '%.2f' | format(amount | float) }}
             </button>
           </form>
 
@@ -339,26 +341,26 @@
           <div class="space-y-2.5 text-sm">
             <div class="flex justify-between">
               <span class="text-gray-600">Quoted amount</span>
-              <span class="font-semibold text-gray-900">${{ '%.2f' | format(amount | float) }}</span>
+              <span class="font-semibold text-gray-900">{{ currency_symbol }}{{ '%.2f' | format(amount | float) }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-500 flex items-center gap-1">
                 Platform fee
                 <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               </span>
-              <span class="font-semibold text-gray-500">${{ '%.2f' | format(platform_fee | float) }}</span>
+              <span class="font-semibold text-gray-500">{{ currency_symbol }}{{ '%.2f' | format(platform_fee | float) }}</span>
             </div>
             <div class="border-t border-dashed border-gray-150 pt-2.5">
               <div class="flex justify-between">
                 <span class="text-gray-600">Contractor receives</span>
-                <span class="font-bold text-emerald-600">${{ '%.2f' | format(contractor_payout | float) }}</span>
+                <span class="font-bold text-emerald-600">{{ currency_symbol }}{{ '%.2f' | format(contractor_payout | float) }}</span>
               </div>
               <p class="text-[10px] text-gray-400 mt-0.5">After job is confirmed complete</p>
             </div>
             <div class="border-t border-gray-100 pt-2.5">
               <div class="flex justify-between text-base">
                 <span class="font-black text-gray-900">Total you pay</span>
-                <span class="font-black text-blue-600">${{ '%.2f' | format(amount | float) }}</span>
+                <span class="font-black text-blue-600">{{ currency_symbol }}{{ '%.2f' | format(amount | float) }}</span>
               </div>
             </div>
           </div>
@@ -479,21 +481,23 @@
     else { icon.textContent='CARD'; icon.className='card-brand-icon'; hidden.value=''; }
   }
 
-  // Currency display
-  const rates = { USD:1, NGN:1600, GBP:0.79, KES:130, GHS:15, CAD:1.36 };
-  const symbols = { USD:'$', NGN:'₦', GBP:'£', KES:'KSh ', GHS:'GH₵', CAD:'CA$' };
+  // Currency display — static indicative rates for display only (charge stays in PAYMENT_CURRENCY).
+  const rates = { USD:1, NGN:1600, GBP:0.79, EUR:0.92, KES:130, GHS:15, ZAR:18, INR:83, CAD:1.36, AUD:1.52, AED:3.67, TZS:2600, UGX:3700, SGD:1.34 };
+  const symbols = { USD:'$', NGN:'₦', GBP:'£', EUR:'€', KES:'KSh ', GHS:'GH₵', ZAR:'R', INR:'₹', CAD:'CA$', AUD:'A$', AED:'د.إ', TZS:'TSh', UGX:'USh', SGD:'S$' };
   const baseAmount = {{ amount | float }};
+  const CHARGE_CURRENCY = "{{ charge_currency }}";
+  const CHARGE_SYMBOL = "{{ currency_symbol }}";
 
   function updateCurrencyDisplay(currency) {
     const rate = rates[currency] || 1;
     const sym  = symbols[currency] || '$';
     const converted = (baseAmount * rate).toFixed(2);
     const note = document.getElementById('currency-note');
-    if (currency !== 'USD') {
-      note.textContent = `≈ ${sym}${Number(converted).toLocaleString()} ${currency} (indicative rate)`;
-    } else {
-      note.textContent = '';
+    let msg = `You're charged ${CHARGE_SYMBOL}${Number(baseAmount).toLocaleString()} ${CHARGE_CURRENCY}.`;
+    if (currency !== CHARGE_CURRENCY) {
+      msg += `  ≈ ${sym}${Number(converted).toLocaleString()} ${currency} (indicative).`;
     }
+    note.textContent = msg;
   }
 
   // Init currency display

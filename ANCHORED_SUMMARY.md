@@ -3,28 +3,34 @@
 _Last updated: 2026-07-18_
 
 ## Project at a glance
-ServiceSync is a FastAPI platform for home-service job matching with escrow payments, WhatsApp triage, contractor marketplaces, and admin tooling. Backend: FastAPI + SQLAlchemy (Alembic migrations) + JWT auth. Frontend: server-rendered Starlette/HTMX pages under `app/web`. Tests: pytest (`tests/`, `pytest.ini`).
+ServiceSync is an AI contractor marketplace: FastAPI + SQLModel + Neon (Postgres), server-rendered HTMX frontend under `app/web`, deployed on Render. Payments via Stripe escrow (always USD), triage via Gemini, WhatsApp Cloud API inbound. Philosophy: demo-first, graceful degradation when integrations (SMTP/WhatsApp) are unconfigured.
 
-## Recently completed (merged in)
-- **Rate limiting middleware** (`app/main.py`): `RateLimitMiddleware`, per-IP in-memory limiter. Protects `/auth/login`, `/auth/signup`, `/api/v1/auth/login`, `/api/v1/auth/signup`, `/api/v1/chat/triage`. Exempts `/static`, `/health`, `/api/v1/webhooks`.
-- **Upload content validation** (`app/services/upload_service.py`): `_validate_content` does magic-byte sniff for images + `%PDF` header check; rejects spoofed extensions.
-- **Broader audit trail** (`app/services/audit_service.py`): new `log_audit` reusing the existing `AIOperationsAuditLog` table (no migration needed). Wired into `app/api/v1/endpoints/escrow.py` (release, cancel, dispute_resolve) and `app/api/v1/endpoints/auth.py` (login_success, login_failed).
-- **Tests** (`tests/test_smoke.py`): `test_upload_rejects_spoofed_extension`, `test_upload_accepts_real_png`. All compile clean.
+## Deploy status: LIVE ✅
+- User set a valid `SECRET_KEY`; app running on Render.
+- Gemini triage works; login works.
+- **Payment failure (Stripe `amount_too_small`) FIXED.** Root cause: live PaymentIntent was created in the detected locale currency (NGN ₦50 ≈ $0.04) while escrow records are always USD → cross-currency minimum error.
+  - Fix: charge currency is now `settings.PAYMENT_CURRENCY` (default USD), consistent everywhere.
+  - Platform minimum `MIN_PAYMENT_AMOUNT` (default 1.0) enforced before any gateway call in both `create_job_payment_intent` and `fund_escrow`.
+  - Pay UI no longer hardcodes `$` (uses charge-currency symbol); currency selector is display-only with a "you're charged in X" note.
+  - Currencies expanded: USD, NGN, GBP, EUR, KES, GHS, ZAR, INR, CAD, AUD, AED, TZS, UGX, SGD (`COUNTRY_CURRENCY_MAP`, `CURRENCY_SYMBOLS`, template options + JS rates/symbols).
 
-## Blocked
-- **Deploy blocker — SECRET_KEY < 32 bytes (fail-fast validator).** `app/core/config.py:83-84` raises `RuntimeError("SECRET_KEY must be at least 32 bytes long.")`. Render env must be fixed (set a real ≥32-byte SECRET_KEY) before deploy succeeds. Status: **Blocked**.
+## All four approved backlog features — IMPLEMENTED ✅
+(Code complete, compiles, 14 smoke tests pass)
+1. **JWT refresh + revocation** — `security.py` adds `jti`+`type` to tokens and `create_refresh_token`; `token_service.py` (DB-backed `RevokedToken` revocation, decode, new_code); `get_current_user_optional` checks revocation by `jti`; `auth.py` has `/login` (access+refresh cookie, admin 2FA branch), `/2fa/verify`, `/verify-email`, `/forgot-password`, `/reset-password`, `/refresh` (rotates), `/logout` (revokes).
+2. **Email service** — `app/services/email_service.py` (SMTP via stdlib, graceful when unconfigured) + `account_service.py` (verify/reset/2FA shared logic) + wired into API signup and web signup/login.
+3. **Admin 2FA** — email-code second step on both web (`/auth/2fa`) and API, gated by `ADMIN_2FA_REQUIRED` or per-user `twofa_enabled`.
+4. **WhatsApp Cloud API** — `app/services/whatsapp_service.py` (send + signature verify) + `/api/v1/webhooks/whatsapp` (GET verify, POST signed inbound routed into existing conversation).
 
-## Active (remaining approved backlog)
-- Email verification + password-reset (SMTP)
-- Admin 2FA / provisioning
-- JWT revocation / refresh tokens
-- Full pytest suite (partially started)
-- WhatsApp Cloud API integration
+## Previously done (still true)
+Rate limiting middleware, upload content/MIME validation, broader audit trail (`log_audit` in escrow+auth), Field/time import fixes, `SecurityHeadersMiddleware`, META sig verify, escrow auth checks, privileged-field strip, secure cookies, open-redirect fix, `/escrow/{id}/release` route, chat `[SYSTEM]` pill + repeat-job action.
 
-## Next Move
-User must set `SECRET_KEY` in Render (≥32 bytes) to unblock deploy. Then continue the backlog — ask the user to prioritize the larger remaining features (each needs a config/product decision):
-1. Email verification + password-reset (SMTP) — needs SMTP provider/credentials decision.
-2. Admin 2FA / provisioning — needs 2FA method decision (TOTP vs SMS).
-3. JWT revocation / refresh tokens — needs token store decision (DB vs Redis).
-4. Full pytest suite — expand `tests/` coverage.
-5. WhatsApp Cloud API integration — needs business account / webhook config.
+## New env vars (added to SETUP.md)
+`SMTP_HOST/PORT/USER/PASS/USE_TLS`, `EMAIL_FROM`, `FRONTEND_URL`, `EMAIL_VERIFICATION_REQUIRED`, `ADMIN_2FA_REQUIRED`, `REFRESH_TOKEN_EXPIRE_DAYS`, `WHATSAPP_TOKEN/PHONE_NUMBER_ID/APP_SECRET/VERIFY_TOKEN`, `META_VERIFY_TOKEN/META_APP_SECRET`, `PAYMENT_CURRENCY`, `MIN_PAYMENT_AMOUNT`.
+
+## Migration
+New alembic migration `p1q2r3s4t5u6_auth_hardening.py` adds `User` columns (`email_verified`, `email_verify_token/expiry`, `reset_token/expiry`, `twofa_enabled/code/expiry`, `wa_id` + index) and `RevokedToken` table. Applied via `alembic upgrade head` on deploy (Render does this).
+
+## Next Move / status
+Deploy should now succeed and payments should work (USD). User can optionally set `SMTP_*`, `WHATSAPP_*`, `ADMIN_2FA_REQUIRED` to enable those features. No remaining blockers. All requested items are done.
+
+(End of file)

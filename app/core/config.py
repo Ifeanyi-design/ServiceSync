@@ -43,6 +43,16 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     STRIPE_TEST_MODE: bool = True
 
+    # Currency the platform actually charges in. This MUST be a currency enabled
+    # on your Stripe account (default USD). All escrow records use this currency;
+    # the per-user "display currency" in the UI is presentation-only and does not
+    # change what Stripe charges. Keep this consistent everywhere to avoid
+    # Stripe "amount_too_small" errors from cross-currency minimums.
+    PAYMENT_CURRENCY: str = "USD"
+    # Platform-enforced minimum charge (in PAYMENT_CURRENCY) so we never send a
+    # sub-minimum amount to the gateway. Stripe's own minimum is ~$0.50.
+    MIN_PAYMENT_AMOUNT: float = 1.0
+
     # Uploads — pick ONE optional backend. Leave all unset to store locally in
     # app/static/uploads (served via /static). Cloudinary and S3 URLs survive
     # server restarts, so they are recommended for hosted deployments.

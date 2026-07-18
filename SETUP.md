@@ -45,6 +45,16 @@ All are **optional**. `app/core/config.py` reads them from `.env` (or real env).
 | `AWS_S3_BUCKET` (+ `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) | Optional | AWS S3 | Alternative persistent storage for uploads. Used only if set and Cloudinary is not. |
 | `REDIS_URL` | Optional (multi-instance only) | Render → Redis instance, or any `redis://` URL | Cross-instance WebSocket broadcast via pub/sub. If unset, chat works in-process (fine for a single instance / demo). |
 | `PREMIUM_*` / `CLEARING_DAYS` | Optional | n/a (configured in code) | Commission %, trial length, payout clearing window. Safe defaults provided. |
+| `PAYMENT_CURRENCY` | Optional | `USD` (default) | The currency Stripe actually **charges** in. Must be enabled on your Stripe account. All escrow records use this. The per-user "Display Currency" picker in the UI is presentation-only. |
+| `MIN_PAYMENT_AMOUNT` | Optional | `1.0` (default) | Platform-enforced minimum charge (in `PAYMENT_CURRENCY`). Prevents sending a sub-minimum amount to Stripe (avoids `amount_too_small` errors). |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_USE_TLS` | Optional | Your email provider (e.g. Mailgun, SendGrid, Gmail) | Enables email verification + password-reset emails. If unset, those emails are skipped (logged) and the app still runs. |
+| `EMAIL_FROM` | Optional | `noreply@servicesync.app` (default) | From-address for outbound email. |
+| `FRONTEND_URL` | Optional | your public URL | Base URL baked into emailed verification/reset links. |
+| `EMAIL_VERIFICATION_REQUIRED` | Optional | `false` (default) | If `true`, new accounts must verify email before sensitive actions. |
+| `ADMIN_2FA_REQUIRED` | Optional | `false` (default) | If `true`, admin logins require a one-time email code (2FA). |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Optional | `30` (default) | Lifetime of refresh tokens (DB-backed revocation on logout). |
+| `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_APP_SECRET` / `WHATSAPP_VERIFY_TOKEN` | Optional | Meta App Dashboard → WhatsApp | Enables the WhatsApp Cloud API webhook + sender. If unset, WhatsApp is disabled. |
+| `META_VERIFY_TOKEN` / `META_APP_SECRET` | Optional | Meta App Dashboard | Verify/validate Meta (WhatsApp/Messenger) webhooks. |
 
 **Minimal `.env` for local dev:**
 ```ini
@@ -54,6 +64,8 @@ SECRET_KEY=change-me-to-a-random-string
 # STRIPE_SECRET_KEY=...     (optional — only for live payments)
 # STRIPE_PUBLISHABLE_KEY=... (optional)
 # REDIS_URL=...             (optional)
+# SMTP_HOST=...             (optional — email verify/reset)
+# WHATSAPP_TOKEN=...        (optional — WhatsApp)
 ```
 
 ---
@@ -78,6 +90,14 @@ SECRET_KEY=change-me-to-a-random-string
 > Remember: test keys only move test money. Use `4242 4242 4242 4242` even in live-UI
 > mode when `STRIPE_TEST_MODE=true`.
 
+> **Currency:** the platform charges in `PAYMENT_CURRENCY` (default `USD`). The
+> "Display Currency" selector on the pay screen only changes how the total is
+> shown — it never changes what Stripe charges. Charging a non-account currency
+> (e.g. NGN on a USD Stripe account) triggers Stripe's `amount_too_small` error,
+> which is why a platform minimum (`MIN_PAYMENT_AMOUNT`) is enforced before any
+> gateway call. To accept other currencies natively, enable them on your Stripe
+> account and set `PAYMENT_CURRENCY` accordingly (and add a per-currency minimum).
+
 ---
 
 ## 3. External services summary
@@ -99,14 +119,16 @@ SECRET_KEY=change-me-to-a-random-string
 ```powershell
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt      # includes pytest, pytest-asyncio
-pytest                              # 9 smoke tests: import, /health, routes,
-                                    # upload helper, Redis fallback, escrow rules
+pytest                              # 14 smoke tests: import, /health, routes,
+                                     # upload helper + content sniffing, Redis fallback,
+                                     # escrow rules, JWT jti/type, 2FA, password policy
 ```
 These need **no live DB/keys** — they use mocks. They verify: app builds, `/health`
 responds, key routes are registered, the upload helper falls back to local storage
-and rejects bad types, the broadcast hub works without Redis, and the core escrow
-state-machine rules (no double-funding, disputed escrows can't be force-released,
-penalty split allowed from disputed).
+and rejects bad types + spoofed extensions, the broadcast hub works without Redis,
+the core escrow state-machine rules (no double-funding, disputed escrows can't be
+force-released, penalty split allowed from disputed), JWT access/refresh carry a
+`jti` + `type`, admin 2FA code verify, and the password length policy.
 
 ### 4.2 Manual end-to-end (demo mode)
 1. `uvicorn app.main:app --reload`
