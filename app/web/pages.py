@@ -616,6 +616,16 @@ async def web_fund_escrow(
     if current_user.role != "customer":
         return RedirectResponse(url="/")
 
+    # In live mode every funded escrow must come from a real Stripe PaymentIntent.
+    # Reject any submission missing one (stale demo bank/mobile forms) so we never
+    # mark an escrow "held" without an actual capture.
+    if settings.STRIPE_SECRET_KEY and not payment_intent_id:
+        from urllib.parse import quote
+        return RedirectResponse(
+            url=f"/jobs/{job_id}/pay?error={quote('A real card payment is required to fund this escrow.')}",
+            status_code=302,
+        )
+
     job = await db.get(Job, job_id)
     if not job or job.customer_id != current_user.id:
         return RedirectResponse(url="/dashboard/customer?error=job_not_found", status_code=302)
@@ -674,7 +684,8 @@ async def web_fund_escrow(
             payment_gateway_id=payment_intent_id,
         )
     except ValueError as e:
-        return RedirectResponse(url=f"/jobs/{job_id}/pay?error={e}", status_code=302)
+        from urllib.parse import quote
+        return RedirectResponse(url=f"/jobs/{job_id}/pay?error={quote(str(e))}", status_code=302)
 
     await db.commit()
     # Prefer chat thread so customer sees funded status + next job actions

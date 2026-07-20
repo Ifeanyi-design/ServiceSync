@@ -1,6 +1,9 @@
 import asyncio
+import logging
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
+
+logger = logging.getLogger("services.escrow")
 from typing import Optional
 import json
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -102,13 +105,39 @@ async def fund_escrow(
         try:
             import stripe
             stripe.api_key = settings.STRIPE_SECRET_KEY
-            intent = await asyncio.to_thread(stripe.PaymentIntent.retrieve, payment_gateway_id)
+            intent = None
+            last_err: Exception | None = None
+            # Transient network blips (DNS/TLS) are common on cold starts; retry
+            # before giving up so a momentary failure doesn't lose a real payment.
+            for attempt in range(3):
+                try:
+                    intent = await asyncio.to_thread(
+                        stripe.PaymentIntent.retrieve, payment_gateway_id
+                    )
+                    break
+                except Exception as exc:  # noqa: BLE001 - retry on any transient error
+                    last_err = exc
+                    logger.warning(
+                        "Stripe retrieve attempt %d failed for %s: %s",
+                        attempt + 1, payment_gateway_id, exc,
+                    )
+                    await asyncio.sleep(0.4 * (attempt + 1))
+            if intent is None:
+                # Verification failed but the client may already have been charged.
+                # Don't silently drop it — surface a clear, non-technical message.
+                logger.error(
+                    "Stripe retrieve failed after retries for %s: %s",
+                    payment_gateway_id, last_err,
+                )
+                raise ValueError(
+                    "We couldn't confirm the payment with our provider. "
+                    "If your card was charged, you have NOT been double-charged — "
+                    "please contact support and we'll reconcile it."
+                )
             if intent.get("status") != "succeeded":
                 raise ValueError(f"Payment not completed (status: {intent.get('status')})")
         except ValueError:
             raise
-        except Exception as e:  # network/API error while verifying
-            raise ValueError(f"Could not verify payment with gateway: {e}")
         capture = {
             "mode": "live",
             "raw": {"payment_intent_id": payment_gateway_id, "status": intent.get("status")},

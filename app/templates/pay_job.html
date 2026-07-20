@@ -124,6 +124,7 @@
                 class="pay-tab active flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5">
                 {{ icon('credit-card','w-4 h-4 mr-1.5') }} Card
               </button>
+              {% if not stripe_live %}
               <button type="button" onclick="switchTab('bank')" id="tab-bank"
                 class="pay-tab flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 flex items-center justify-center gap-1.5">
                 {{ icon('bank','w-4 h-4 mr-1.5') }} Bank Transfer
@@ -132,6 +133,7 @@
                 class="pay-tab flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 flex items-center justify-center gap-1.5">
                 {{ icon('phone','w-4 h-4 mr-1.5') }} Mobile Money
               </button>
+              {% endif %}
             </div>
           </div>
 
@@ -144,8 +146,8 @@
 
             <!-- ====== CARD TAB ====== -->
             <div id="panel-card">
-              <!-- Saved methods -->
-              {% if saved_methods %}
+              <!-- Saved methods (demo mode only; live mode uses Stripe Elements) -->
+              {% if saved_methods and not stripe_live %}
               <div class="mb-4">
                 <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Saved methods</label>
                 {% for m in saved_methods %}
@@ -211,7 +213,8 @@
               </div>
             </div>
 
-            <!-- ====== BANK TRANSFER TAB ====== -->
+            <!-- ====== BANK TRANSFER TAB (demo mode only) ====== -->
+            {% if not stripe_live %}
             <div id="panel-bank" class="hidden space-y-4">
               <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
                 <p class="font-bold mb-1">Bank Transfer Instructions</p>
@@ -233,8 +236,10 @@
                   class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
               </div>
             </div>
+            {% endif %}
 
-            <!-- ====== MOBILE MONEY TAB ====== -->
+            <!-- ====== MOBILE MONEY TAB (demo mode only) ====== -->
+            {% if not stripe_live %}
             <div id="panel-mobile" class="hidden space-y-4">
               <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2">Select Provider</label>
@@ -263,6 +268,7 @@
                   class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
               </div>
             </div>
+            {% endif %}
 
             <!-- Currency selector (display only) -->
             <div class="mt-5">
@@ -438,8 +444,10 @@
   const tabs   = ['card','bank','mobile'];
   function switchTab(tab) {
     tabs.forEach(t => {
-      document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
-      document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+      const tabEl = document.getElementById(`tab-${t}`);
+      const panelEl = document.getElementById(`panel-${t}`);
+      if (tabEl) tabEl.classList.toggle('active', t === tab);
+      if (panelEl) panelEl.classList.toggle('hidden', t !== tab);
     });
     document.getElementById('payment_type_val').value = tab;
   }
