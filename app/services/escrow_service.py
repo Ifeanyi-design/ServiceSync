@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 from typing import Optional
@@ -101,7 +102,7 @@ async def fund_escrow(
         try:
             import stripe
             stripe.api_key = settings.STRIPE_SECRET_KEY
-            intent = stripe.PaymentIntent.retrieve(payment_gateway_id)
+            intent = await asyncio.to_thread(stripe.PaymentIntent.retrieve, payment_gateway_id)
             if intent.get("status") != "succeeded":
                 raise ValueError(f"Payment not completed (status: {intent.get('status')})")
         except ValueError:
@@ -114,7 +115,8 @@ async def fund_escrow(
             "reference_id": payment_gateway_id,
         }
     else:
-        capture = capture_payment(
+        capture = await asyncio.to_thread(
+            capture_payment,
             quoted_amount, "usd", card_brand, card_last4,
             metadata={"job_id": str(job.id), "customer_id": str(customer.id)},
         )
@@ -172,7 +174,8 @@ async def release_escrow(db: AsyncSession, escrow: Escrow) -> Escrow:
     from app.services.payment_gateway import payout_to_contractor
     contractor = await db.get(User, escrow.contractor_id)
     connected = contractor.stripe_account_id if contractor else None
-    payout = payout_to_contractor(
+    payout = await asyncio.to_thread(
+        payout_to_contractor,
         escrow.contractor_id, escrow.contractor_payout, escrow.currency, connected,
         metadata={"job_id": str(escrow.job_id), "escrow_id": str(escrow.id)},
     )

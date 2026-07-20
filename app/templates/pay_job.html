@@ -532,8 +532,18 @@
       const btn = document.getElementById('pay-btn');
       btn.disabled = true;
       btn.textContent = 'Securing payment…';
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
       try {
-        const resp = await fetch(`/jobs/${JOB_ID}/create-intent`, { method: 'POST' });
+        const resp = await fetch(`/jobs/${JOB_ID}/create-intent`, {
+          method: 'POST',
+          signal: controller.signal,
+        });
+        if (!resp.ok) {
+          let msg = 'Could not start payment. Please try again.';
+          try { const j = await resp.json(); if (j && j.detail) msg = j.detail; } catch (e) {}
+          throw new Error(msg);
+        }
         const data = await resp.json();
         if (!data.client_secret) throw new Error('Could not start payment');
         const result = await stripe.confirmCardPayment(data.client_secret, {
@@ -544,10 +554,16 @@
         document.getElementById('processing-overlay').classList.remove('hidden');
         document.getElementById('pay-form').submit();
       } catch (err) {
+        clearTimeout(timeout);
         btn.disabled = false;
         btn.textContent = 'Pay & Secure Escrow';
         const note = document.getElementById('currency-note');
-        if (note) { note.textContent = err.message; note.className = 'text-xs text-red-500 mt-1.5'; }
+        if (note) {
+          note.textContent = (err && err.name === 'AbortError')
+            ? 'Payment is taking too long. Please check your connection and try again.'
+            : (err && err.message ? err.message : 'Payment failed. Please try again.');
+          note.className = 'text-xs text-red-500 mt-1.5';
+        }
       }
       return;
     }

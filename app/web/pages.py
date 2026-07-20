@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Request, Depends, HTTPException, Form, status, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -542,10 +544,19 @@ async def create_job_payment_intent(
     # Charge in the platform currency (consistent with the escrow record), not the
     # user's detected locale — mixing them produced cross-currency minimum errors.
     from app.services import payment_gateway
-    intent = payment_gateway.create_payment_intent(
-        Decimal(str(amount)), currency=settings.PAYMENT_CURRENCY.lower(),
-        metadata={"job_id": str(job_id), "customer_id": str(current_user.id)},
-    )
+    # Run the blocking Stripe SDK call off the event loop, with a timeout so a slow
+    # or hung gateway can't leave the client spinner running forever.
+    try:
+        intent = await asyncio.wait_for(
+            asyncio.to_thread(
+                payment_gateway.create_payment_intent,
+                Decimal(str(amount)), currency=settings.PAYMENT_CURRENCY.lower(),
+                metadata={"job_id": str(job_id), "customer_id": str(current_user.id)},
+            ),
+            timeout=25,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Payment provider timed out. Please try again.")
     return {
         "client_secret": intent.get("client_secret"),
         "reference_id": intent.get("reference_id"),
