@@ -80,7 +80,9 @@ async def auto_book_contractor(
 ) -> Any:
     """
     Auto-book endpoint for seamless contractor selection from search page.
-    Creates a job and conversation, then redirects to chat.
+    Creates a job, conversation and escrow, then redirects straight to the
+    escrow payment screen so the customer can fund the new job immediately
+    (instead of landing back on a previous completed conversation).
     """
     if current_user.role != "customer":
         raise HTTPException(status_code=403, detail="Only customers can book jobs")
@@ -123,7 +125,7 @@ async def auto_book_contractor(
     except Exception:
         pass
 
-    return RedirectResponse(url=f"/chat/{new_job.id}", status_code=303)
+    return RedirectResponse(url=f"/jobs/{new_job.id}/pay", status_code=303)
 
 @router.post("/{job_id}/cancel", response_model=JobResponse)
 async def cancel_job(

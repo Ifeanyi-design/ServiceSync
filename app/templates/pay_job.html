@@ -4,10 +4,10 @@
 
 {% set stripe_live = stripe_live if stripe_live is defined else false %}
 {% set stripe_pk = stripe_pk if stripe_pk is defined else "" %}
-{% if stripe_live %}<script src="https://js.stripe.com/v3/"></script>{% endif %}
 {% block meta_description %}Securely fund escrow for your service job. Funds held until work is complete.{% endblock %}
 
 {% block extra_head %}
+{% if stripe_live %}<script src="https://js.stripe.com/v3/"></script>{% endif %}
 <style>
   .pay-tab { transition: all 0.2s ease; }
   .pay-tab.active {
@@ -452,6 +452,16 @@
     cardEl = elements.create('card', { style: { base: { fontSize: '15px', color: '#1f2937' } } });
     const mount = document.getElementById('stripe-card-mount');
     if (mount) cardEl.mount(mount);
+  } else if (STRIPE_LIVE && !window.Stripe) {
+    // Stripe.js failed to load (network/CSP). Surface a clear message instead of
+    // crashing on stripe.confirmCardPayment later.
+    window.addEventListener('load', function () {
+      const note = document.getElementById('currency-note');
+      if (note) {
+        note.textContent = 'Payment gateway failed to load. Please refresh the page to retry.';
+        note.className = 'text-xs text-red-500 mt-1.5';
+      }
+    });
   }
 
   // Card number formatting (adds spaces every 4 digits)
@@ -511,6 +521,14 @@
     // Live Stripe flow: create intent, confirm card, then submit form
     if (STRIPE_LIVE) {
       e.preventDefault();
+      if (!stripe || !cardEl) {
+        const note = document.getElementById('currency-note');
+        if (note) {
+          note.textContent = 'Payment gateway is not ready. Please refresh the page and try again.';
+          note.className = 'text-xs text-red-500 mt-1.5';
+        }
+        return;
+      }
       const btn = document.getElementById('pay-btn');
       btn.disabled = true;
       btn.textContent = 'Securing payment…';
