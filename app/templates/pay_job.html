@@ -177,25 +177,11 @@
 
               <!-- Card fields -->
               <div class="space-y-4">
-                {% if paystack_live %}
-                <!-- Paystack inline checkout (live mode, NG/Africa) -->
-                <div class="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-                  <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-1.5">Email for receipt</label>
-                    <input type="email" id="paystack-email" value="{{ paystack_email }}" placeholder="you@example.com"
-                      class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
-                  </div>
-                  <button type="button" id="paystack-btn" onclick="payWithPaystack()"
-                    class="w-full py-4 rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-extrabold text-base transition shadow-xl shadow-green-200 active:scale-[.98] flex items-center justify-center gap-2">
-                    Pay with Paystack
-                  </button>
-                  <p class="text-xs text-gray-400 text-center">Secured by Paystack — cards, bank transfer &amp; mobile money (M-Pesa, Opay, MTN).</p>
-                </div>
-                {% elif stripe_live %}
-                <!-- Real Stripe Element (live mode only) -->
+                {% if stripe_live %}
+                <!-- Stripe Elements (primary card entry) -->
                 <div id="stripe-card-mount" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm"></div>
-                {% else %}
-
+                {% elif not paystack_live %}
+                <!-- Demo card fields (no live processor configured) -->
                 <div>
                   <label class="block text-xs font-bold text-gray-600 mb-1.5">Name on Card</label>
                   <input type="text" name="card_name" id="card_name" placeholder="John Doe" autocomplete="cc-name"
@@ -222,6 +208,25 @@
                     <label class="block text-xs font-bold text-gray-600 mb-1.5">CVC</label>
                     <input type="text" name="card_cvc" id="card_cvc" placeholder="123" maxlength="4" autocomplete="cc-csc"
                       class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+                  </div>
+                </div>
+                {% endif %}
+
+                {% if paystack_live %}
+                <!-- Paystack inline checkout (alternative, available for NG/Africa) -->
+                <div class="{% if stripe_live %}mt-6 pt-6 border-t border-gray-100{% endif %}">
+                  {% if stripe_live %}<div class="text-center text-xs text-gray-400 font-semibold mb-4 uppercase tracking-wider">or pay with Paystack</div>{% endif %}
+                  <div class="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                    <div>
+                      <label class="block text-xs font-bold text-gray-600 mb-1.5">Email for receipt</label>
+                      <input type="email" id="paystack-email" value="{{ paystack_email }}" placeholder="you@example.com"
+                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+                    </div>
+                    <button type="button" id="paystack-btn" onclick="payWithPaystack()"
+                      class="w-full py-4 rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-extrabold text-base transition shadow-xl shadow-green-200 active:scale-[.98] flex items-center justify-center gap-2">
+                      Pay with Paystack
+                    </button>
+                    <p class="text-xs text-gray-400 text-center">Secured by Paystack — cards, bank transfer &amp; mobile money (M-Pesa, Opay, MTN).</p>
                   </div>
                 </div>
                 {% endif %}
@@ -309,13 +314,13 @@
             </div>
 
             <!-- Demo notice -->
-            {% if paystack_live %}
+            {% if stripe_live %}
             <div class="mt-4 flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-100 rounded-xl text-xs text-green-700">
-              {{ icon('lock','w-4 h-4 inline mr-1') }} <strong>Live payments:</strong> Secured by Paystack. You'll be redirected to complete payment.
+              {{ icon('lock','w-4 h-4 inline mr-1') }} <strong>Live payments:</strong> Secured by Stripe. Enter card details above to fund escrow.
             </div>
-            {% elif stripe_live %}
+            {% elif paystack_live %}
             <div class="mt-4 flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-100 rounded-xl text-xs text-green-700">
-              {{ icon('lock','w-4 h-4 inline mr-1') }} <strong>Live payments:</strong> Secured by Stripe. Enter your real card below to fund escrow.
+              {{ icon('lock','w-4 h-4 inline mr-1') }} <strong>Live payments:</strong> Secured by Paystack. Click the Paystack button to pay.
             </div>
             {% else %}
             <div class="mt-4 flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700">
@@ -326,14 +331,12 @@
             <input type="hidden" name="payment_intent_id" id="payment_intent_id" value="" />
             <input type="hidden" name="paystack_reference" id="paystack_reference_val" value="" />
 
-            {% if not paystack_live %}
-            <!-- Submit button -->
+            <!-- Submit button (always shown; Stripe flow uses this, Paystack flow submits via JS callback) -->
             <button type="submit" id="pay-btn"
               class="mt-5 w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-base transition shadow-xl shadow-blue-200 active:scale-[.98] flex items-center justify-center gap-2">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                Pay &amp; Secure Escrow — {{ currency_symbol }}{{ '%.2f' | format(amount | float) }}
             </button>
-            {% endif %}
           </form>
 
         </div>
@@ -553,6 +556,14 @@
   async function handleSubmit(e) {
     const checked = document.getElementById('terms-check').checked;
     if (!checked) { e.preventDefault(); return; }
+
+    // If Paystack reference is already set (from Paystack popup callback),
+    // skip the Stripe flow and submit directly.
+    if (document.getElementById('paystack_reference_val').value) {
+      document.getElementById('processing-overlay').classList.remove('hidden');
+      document.getElementById('pay-btn').disabled = true;
+      return;
+    }
 
     // Live Stripe flow: create intent, confirm card, then submit form
     if (STRIPE_LIVE) {

@@ -525,7 +525,7 @@ async def pay_job_page(request: Request, job_id: int, error: Optional[str] = Non
         "min_amount": settings.MIN_PAYMENT_AMOUNT,
         "saved_methods": saved_methods,
         "processor": processor,
-        "paystack_live": is_paystack,
+        "paystack_live": settings.paystack_live,
         "paystack_pk": settings.PAYSTACK_PUBLIC_KEY or "",
         "paystack_email": current_user.email or "",
         "paystack_init_url": f"/jobs/{job_id}/paystack-init",
