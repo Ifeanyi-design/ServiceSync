@@ -71,11 +71,11 @@ class Settings(BaseSettings):
         return bool(self.PAYSTACK_SECRET_KEY and self.PAYSTACK_PUBLIC_KEY)
 
     def active_processor(self) -> str:
-        """paystack > stripe > demo. Paystack is preferred for NG/Africa coverage."""
-        if self.paystack_live:
-            return "paystack"
+        """stripe > paystack > demo. Stripe is primary; Paystack is the NG/Africa fallback."""
         if self.STRIPE_SECRET_KEY and self.STRIPE_PUBLISHABLE_KEY:
             return "stripe"
+        if self.paystack_live:
+            return "paystack"
         return "demo"
 
     @property

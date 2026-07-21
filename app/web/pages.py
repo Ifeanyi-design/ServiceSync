@@ -486,6 +486,8 @@ async def pay_job_page(request: Request, job_id: int, error: Optional[str] = Non
 
     # Pick the active processor and derive the charge amount/currency to display.
     processor = settings.active_processor()
+    # Both processors can be configured; only the "active" one is used for
+    # charging, but the template passes both flags for UI flexibility.
     is_paystack = processor == "paystack"
     if is_paystack:
         charge_currency = settings.PAYSTACK_CURRENCY
@@ -527,8 +529,7 @@ async def pay_job_page(request: Request, job_id: int, error: Optional[str] = Non
         "paystack_pk": settings.PAYSTACK_PUBLIC_KEY or "",
         "paystack_email": current_user.email or "",
         "paystack_init_url": f"/jobs/{job_id}/paystack-init",
-        # Stripe remains a fallback only when Paystack is not configured.
-        "stripe_live": (not is_paystack) and bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_PUBLISHABLE_KEY),
+        "stripe_live": bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_PUBLISHABLE_KEY),
         "stripe_pk": settings.STRIPE_PUBLISHABLE_KEY or "",
     })
 
