@@ -43,15 +43,44 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     STRIPE_TEST_MODE: bool = True
 
+    # Payments (Paystack) — primary processor for NG/Africa (cards, bank
+    # transfer, mobile money: M-Pesa, Opay, MTN MoMo, etc.). When both keys are
+    # present the app uses Paystack as the live processor; otherwise it falls
+    # back to Stripe (card only) if those keys exist, else demo mode.
+    PAYSTACK_SECRET_KEY: Optional[str] = None
+    PAYSTACK_PUBLIC_KEY: Optional[str] = None
+    PAYSTACK_WEBHOOK_SECRET: Optional[str] = None
+
     # Currency the platform actually charges in. This MUST be a currency enabled
     # on your Stripe account (default USD). All escrow records use this currency;
     # the per-user "display currency" in the UI is presentation-only and does not
-    # change what Stripe charges. Keep this consistent everywhere to avoid
+    # change what is charged. Keep this consistent everywhere to avoid
     # Stripe "amount_too_small" errors from cross-currency minimums.
     PAYMENT_CURRENCY: str = "USD"
+    # Currency used when Paystack is the active processor (NGN for Nigeria).
+    PAYSTACK_CURRENCY: str = "NGN"
+    # Indicative USD->NGN rate used to derive the Paystack charge amount from the
+    # job's USD quote. Replace with a real FX feed for production accuracy.
+    USD_NGN_RATE: float = 1600.0
     # Platform-enforced minimum charge (in PAYMENT_CURRENCY) so we never send a
     # sub-minimum amount to the gateway. Stripe's own minimum is ~$0.50.
     MIN_PAYMENT_AMOUNT: float = 1.0
+
+    @property
+    def paystack_live(self) -> bool:
+        return bool(self.PAYSTACK_SECRET_KEY and self.PAYSTACK_PUBLIC_KEY)
+
+    def active_processor(self) -> str:
+        """paystack > stripe > demo. Paystack is preferred for NG/Africa coverage."""
+        if self.paystack_live:
+            return "paystack"
+        if self.STRIPE_SECRET_KEY and self.STRIPE_PUBLISHABLE_KEY:
+            return "stripe"
+        return "demo"
+
+    @property
+    def charge_currency(self) -> str:
+        return self.PAYSTACK_CURRENCY if self.active_processor() == "paystack" else self.PAYMENT_CURRENCY
 
     # Uploads — pick ONE optional backend. Leave all unset to store locally in
     # app/static/uploads (served via /static). Cloudinary and S3 URLs survive

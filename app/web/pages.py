@@ -478,13 +478,26 @@ async def pay_job_page(request: Request, job_id: int, error: Optional[str] = Non
     result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
     escrow = result.first()
 
-    # Determine the amount to show (quote if present, else contractor base pricing)
-    amount = (escrow.quoted_amount if escrow and escrow.quoted_amount else Decimal(str(contractor.base_pricing or 50.00))) if (escrow or contractor) else Decimal("50.00")
+    # Determine the USD quote (quote if present, else contractor base pricing)
+    usd_amount = float((escrow.quoted_amount if escrow and escrow.quoted_amount else Decimal(str(contractor.base_pricing or 50.00))) if (escrow or contractor) else Decimal("50.00"))
     if escrow and escrow.status == "held":
         # Already funded
         return RedirectResponse(url=f"/dashboard/customer", status_code=302)
 
-    fees = calculate_fees(Decimal(str(amount)), rate=commission_rate(contractor))
+    # Pick the active processor and derive the charge amount/currency to display.
+    processor = settings.active_processor()
+    is_paystack = processor == "paystack"
+    if is_paystack:
+        charge_currency = settings.PAYSTACK_CURRENCY
+        charge_symbol = CURRENCY_SYMBOLS.get(charge_currency, "₦")
+        charge_amount = round(usd_amount * settings.USD_NGN_RATE, 2)
+    else:
+        charge_currency = settings.PAYMENT_CURRENCY
+        charge_symbol = CURRENCY_SYMBOLS.get(charge_currency, "$")
+        charge_amount = usd_amount
+    charge_kobo = int(round(charge_amount * 100))
+
+    fees = calculate_fees(Decimal(str(charge_amount)), rate=commission_rate(contractor))
     from app.models.all_models import PaymentMethod
     pm_result = await db.exec(
         select(PaymentMethod)
@@ -497,18 +510,25 @@ async def pay_job_page(request: Request, job_id: int, error: Optional[str] = Non
         "current_user": current_user,
         "job": job,
         "contractor": contractor,
-        "amount": float(amount),
+        "amount": float(charge_amount),
         "platform_fee": float(fees["platform_fee"]),
         "contractor_payout": float(fees["contractor_payout"]),
         "is_funded": escrow is not None and escrow.status == "held",
         "error": error,
         "format_location": format_location,
-        "currency": settings.PAYMENT_CURRENCY,
-        "charge_currency": settings.PAYMENT_CURRENCY,
-        "currency_symbol": CURRENCY_SYMBOLS.get(settings.PAYMENT_CURRENCY, "$"),
+        "currency": charge_currency,
+        "charge_currency": charge_currency,
+        "currency_symbol": charge_symbol,
+        "charge_kobo": charge_kobo,
         "min_amount": settings.MIN_PAYMENT_AMOUNT,
         "saved_methods": saved_methods,
-        "stripe_live": bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_PUBLISHABLE_KEY),
+        "processor": processor,
+        "paystack_live": is_paystack,
+        "paystack_pk": settings.PAYSTACK_PUBLIC_KEY or "",
+        "paystack_email": current_user.email or "",
+        "paystack_init_url": f"/jobs/{job_id}/paystack-init",
+        # Stripe remains a fallback only when Paystack is not configured.
+        "stripe_live": (not is_paystack) and bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_PUBLISHABLE_KEY),
         "stripe_pk": settings.STRIPE_PUBLISHABLE_KEY or "",
     })
 
@@ -566,6 +586,56 @@ async def create_job_payment_intent(
     }
 
 
+@router.post("/jobs/{job_id}/paystack-init")
+async def create_paystack_transaction_endpoint(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Initialize a Paystack transaction for the pay screen (live mode). Returns the
+    reference + access_code the client uses to open the Paystack inline popup. The
+    amount is derived server-side from the job quote (USD -> NGN) and never trusted
+    from the client."""
+    if not settings.paystack_live:
+        raise HTTPException(status_code=400, detail="Paystack is not configured")
+    if current_user.role != "customer":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    job = await db.get(Job, job_id)
+    if not job or job.customer_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    contractor = await db.get(User, job.assigned_contractor_id) if job.assigned_contractor_id else None
+    result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
+    escrow = result.first()
+    usd_amount = float((escrow.quoted_amount if escrow and escrow.quoted_amount
+                        else Decimal(str((contractor.base_pricing if contractor else None) or 50.00))))
+    kobo = int(round(usd_amount * settings.USD_NGN_RATE * 100))
+    if kobo < 100:
+        raise HTTPException(status_code=400, detail="Amount is below the minimum charge.")
+
+    from app.services import payment_gateway
+    try:
+        tx = await asyncio.wait_for(
+            asyncio.to_thread(
+                payment_gateway.create_paystack_transaction,
+                kobo, current_user.email or "customer@example.com",
+                {"job_id": str(job_id), "customer_id": str(current_user.id)},
+                settings.PAYSTACK_CURRENCY,
+            ),
+            timeout=25,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Payment provider timed out. Please try again.")
+    if not tx.get("success"):
+        raise HTTPException(status_code=502, detail=f"Could not start payment: {tx.get('error', 'unknown error')}")
+    return {
+        "reference": tx.get("reference"),
+        "access_code": tx.get("access_code"),
+        "authorization_url": tx.get("authorization_url"),
+        "mode": "paystack",
+    }
+
+
 @router.get("/jobs/{job_id}/receipt", response_class=HTMLResponse)
 async def job_receipt_page(request: Request, job_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Customer payment receipt / invoice (also visible to the contractor)."""
@@ -609,6 +679,7 @@ async def web_fund_escrow(
     saved_method_id: Optional[str] = Form(default=None),
     currency: str = Form(default="USD"),
     payment_intent_id: Optional[str] = Form(default=None),
+    paystack_reference: Optional[str] = Form(default=None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -616,13 +687,14 @@ async def web_fund_escrow(
     if current_user.role != "customer":
         return RedirectResponse(url="/")
 
-    # In live mode every funded escrow must come from a real Stripe PaymentIntent.
-    # Reject any submission missing one (stale demo bank/mobile forms) so we never
-    # mark an escrow "held" without an actual capture.
-    if settings.STRIPE_SECRET_KEY and not payment_intent_id:
-        from urllib.parse import quote
+    from urllib.parse import quote
+
+    # In live mode (Stripe OR Paystack) every funded escrow must come from a real
+    # gateway charge. Reject stale demo bank/mobile submissions that carry neither.
+    live = bool(settings.STRIPE_SECRET_KEY or settings.PAYSTACK_SECRET_KEY)
+    if live and not payment_intent_id and not paystack_reference:
         return RedirectResponse(
-            url=f"/jobs/{job_id}/pay?error={quote('A real card payment is required to fund this escrow.')}",
+            url=f"/jobs/{job_id}/pay?error={quote('A real payment is required to fund this escrow.')}",
             status_code=302,
         )
 
@@ -678,11 +750,33 @@ async def web_fund_escrow(
 
     try:
         from app.services.escrow_service import fund_escrow
-        await fund_escrow(
-            db, job, current_user, contractor,
-            Decimal(str(quoted_amount)), final_brand, final_last4,
-            payment_gateway_id=payment_intent_id,
-        )
+        # Paystack path: verify the transaction server-side before trusting it.
+        if paystack_reference and settings.paystack_live:
+            from app.services import payment_gateway as pgw
+            v = await asyncio.wait_for(
+                asyncio.to_thread(pgw.verify_paystack_transaction, paystack_reference),
+                timeout=25,
+            )
+            if not v.get("success") or v.get("status") != "success":
+                return RedirectResponse(
+                    url=f"/jobs/{job_id}/pay?error={quote('Payment could not be verified with Paystack. Please try again.')}",
+                    status_code=302,
+                )
+            verified_amount = float((v.get("amount") or 0)) / 100.0
+            auth = v.get("authorization") or {}
+            final_brand = auth.get("card_type") or "Paystack"
+            final_last4 = auth.get("last4") or ""
+            await fund_escrow(
+                db, job, current_user, contractor,
+                Decimal(str(verified_amount)), final_brand, final_last4,
+                paystack_reference=paystack_reference,
+            )
+        else:
+            await fund_escrow(
+                db, job, current_user, contractor,
+                Decimal(str(quoted_amount)), final_brand, final_last4,
+                payment_gateway_id=payment_intent_id,
+            )
     except ValueError as e:
         from urllib.parse import quote
         return RedirectResponse(url=f"/jobs/{job_id}/pay?error={quote(str(e))}", status_code=302)

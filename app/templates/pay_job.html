@@ -8,6 +8,7 @@
 
 {% block extra_head %}
 {% if stripe_live %}<script src="https://js.stripe.com/v3/"></script>{% endif %}
+{% if paystack_live %}<script src="https://js.paystack.co/v1/inline.js"></script>{% endif %}
 <style>
   .pay-tab { transition: all 0.2s ease; }
   .pay-tab.active {
@@ -124,7 +125,7 @@
                 class="pay-tab active flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5">
                 {{ icon('credit-card','w-4 h-4 mr-1.5') }} Card
               </button>
-              {% if not stripe_live %}
+              {% if not stripe_live and not paystack_live %}
               <button type="button" onclick="switchTab('bank')" id="tab-bank"
                 class="pay-tab flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 flex items-center justify-center gap-1.5">
                 {{ icon('bank','w-4 h-4 mr-1.5') }} Bank Transfer
@@ -147,7 +148,7 @@
             <!-- ====== CARD TAB ====== -->
             <div id="panel-card">
               <!-- Saved methods (demo mode only; live mode uses Stripe Elements) -->
-              {% if saved_methods and not stripe_live %}
+              {% if saved_methods and not stripe_live and not paystack_live %}
               <div class="mb-4">
                 <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Saved methods</label>
                 {% for m in saved_methods %}
@@ -176,7 +177,21 @@
 
               <!-- Card fields -->
               <div class="space-y-4">
-                {% if stripe_live %}
+                {% if paystack_live %}
+                <!-- Paystack inline checkout (live mode, NG/Africa) -->
+                <div class="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                  <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1.5">Email for receipt</label>
+                    <input type="email" id="paystack-email" value="{{ paystack_email }}" placeholder="you@example.com"
+                      class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
+                  </div>
+                  <button type="button" id="paystack-btn" onclick="payWithPaystack()"
+                    class="w-full py-4 rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-extrabold text-base transition shadow-xl shadow-green-200 active:scale-[.98] flex items-center justify-center gap-2">
+                    Pay with Paystack
+                  </button>
+                  <p class="text-xs text-gray-400 text-center">Secured by Paystack — cards, bank transfer &amp; mobile money (M-Pesa, Opay, MTN).</p>
+                </div>
+                {% elif stripe_live %}
                 <!-- Real Stripe Element (live mode only) -->
                 <div id="stripe-card-mount" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm"></div>
                 {% else %}
@@ -214,7 +229,7 @@
             </div>
 
             <!-- ====== BANK TRANSFER TAB (demo mode only) ====== -->
-            {% if not stripe_live %}
+            {% if not stripe_live and not paystack_live %}
             <div id="panel-bank" class="hidden space-y-4">
               <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
                 <p class="font-bold mb-1">Bank Transfer Instructions</p>
@@ -239,7 +254,7 @@
             {% endif %}
 
             <!-- ====== MOBILE MONEY TAB (demo mode only) ====== -->
-            {% if not stripe_live %}
+            {% if not stripe_live and not paystack_live %}
             <div id="panel-mobile" class="hidden space-y-4">
               <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2">Select Provider</label>
@@ -294,7 +309,11 @@
             </div>
 
             <!-- Demo notice -->
-            {% if stripe_live %}
+            {% if paystack_live %}
+            <div class="mt-4 flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-100 rounded-xl text-xs text-green-700">
+              {{ icon('lock','w-4 h-4 inline mr-1') }} <strong>Live payments:</strong> Secured by Paystack. You'll be redirected to complete payment.
+            </div>
+            {% elif stripe_live %}
             <div class="mt-4 flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-100 rounded-xl text-xs text-green-700">
               {{ icon('lock','w-4 h-4 inline mr-1') }} <strong>Live payments:</strong> Secured by Stripe. Enter your real card below to fund escrow.
             </div>
@@ -305,13 +324,16 @@
             {% endif %}
 
             <input type="hidden" name="payment_intent_id" id="payment_intent_id" value="" />
+            <input type="hidden" name="paystack_reference" id="paystack_reference_val" value="" />
 
+            {% if not paystack_live %}
             <!-- Submit button -->
             <button type="submit" id="pay-btn"
               class="mt-5 w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-base transition shadow-xl shadow-blue-200 active:scale-[.98] flex items-center justify-center gap-2">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                Pay &amp; Secure Escrow — {{ currency_symbol }}{{ '%.2f' | format(amount | float) }}
             </button>
+            {% endif %}
           </form>
 
         </div>
@@ -439,6 +461,12 @@
   const STRIPE_LIVE = {{ 'true' if stripe_live else 'false' }};
   const STRIPE_PK   = "{{ stripe_pk }}";
   const JOB_ID      = {{ job.id }};
+  const PAYSTACK_LIVE  = {{ 'true' if paystack_live else 'false' }};
+  const PAYSTACK_PK    = "{{ paystack_pk }}";
+  const PAYSTACK_EMAIL = "{{ paystack_email }}";
+  const PAYSTACK_INIT_URL = "/jobs/" + JOB_ID + "/paystack-init";
+  const CHARGE_KOBO     = {{ charge_kobo }};
+  const CHARGE_CURRENCY = "{{ charge_currency }}";
 
   // Tab switching
   const tabs   = ['card','bank','mobile'];
@@ -578,6 +606,58 @@
 
     document.getElementById('processing-overlay').classList.remove('hidden');
     document.getElementById('pay-btn').disabled = true;
+  }
+
+  // ---- Paystack inline checkout (live mode, NG/Africa) ----
+  async function payWithPaystack() {
+    if (!PAYSTACK_LIVE) return;
+    const checked = document.getElementById('terms-check').checked;
+    if (!checked) {
+      const note = document.getElementById('currency-note');
+      if (note) { note.textContent = 'Please accept the terms to continue.'; note.className = 'text-xs text-red-500 mt-1.5'; }
+      return;
+    }
+    if (typeof PaystackPop === 'undefined') {
+      const note = document.getElementById('currency-note');
+      if (note) { note.textContent = 'Paystack failed to load. Please refresh and try again.'; note.className = 'text-xs text-red-500 mt-1.5'; }
+      return;
+    }
+    const btn = document.getElementById('paystack-btn');
+    btn.disabled = true;
+    btn.textContent = 'Starting…';
+    try {
+      const resp = await fetch(PAYSTACK_INIT_URL, { method: 'POST' });
+      const data = await resp.json();
+      if (!data.reference) throw new Error(data.detail || 'Could not start payment');
+      const handler = PaystackPop.setup({
+        key: PAYSTACK_PK,
+        email: (document.getElementById('paystack-email').value || PAYSTACK_EMAIL),
+        amount: CHARGE_KOBO,
+        currency: CHARGE_CURRENCY,
+        ref: data.reference,
+        metadata: { reference: data.reference },
+        callback: function (response) {
+          document.getElementById('paystack_reference_val').value = response.reference;
+          document.getElementById('processing-overlay').classList.remove('hidden');
+          document.getElementById('pay-form').submit();
+        },
+        onClose: function () {
+          btn.disabled = false;
+          btn.textContent = 'Pay with Paystack';
+          const note = document.getElementById('currency-note');
+          if (note) { note.textContent = 'Payment cancelled.'; note.className = 'text-xs text-red-500 mt-1.5'; }
+        }
+      });
+      handler.openIframe();
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Pay with Paystack';
+      const note = document.getElementById('currency-note');
+      if (note) {
+        note.textContent = (err && err.message) ? err.message : 'Payment failed. Please try again.';
+        note.className = 'text-xs text-red-500 mt-1.5';
+      }
+    }
   }
 </script>
 {% endblock %}

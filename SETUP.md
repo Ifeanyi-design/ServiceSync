@@ -41,6 +41,9 @@ All are **optional**. `app/core/config.py` reads them from `.env` (or real env).
 | `STRIPE_PUBLISHABLE_KEY` | Optional | Stripe Dashboard → Developers → API keys → **Publishable** key (`pk_test_…`) | Client-side Stripe.js. Must be set together with `STRIPE_SECRET_KEY` to go live. |
 | `STRIPE_WEBHOOK_SECRET` | Optional (live only) | `stripe listen --forward-to localhost:8000/api/v1/webhooks/stripe` prints `whsec_…` | Verifies webhook signatures so Stripe events (payment succeeded/refunded) update escrow status. |
 | `STRIPE_TEST_MODE` | Optional | `true` (default) | Keep `true` while using test keys. |
+| `PAYSTACK_SECRET_KEY` | Optional (for live payments in NG/Africa) | Paystack Dashboard → Settings → API Keys → **Secret** key (`sk_live_…` / `sk_test_…`) | **Primary** live processor when both Paystack keys are set. Handles cards, bank transfer, USSD and mobile money (M‑Pesa, Opay, MTN MoMo). Charges in `PAYSTACK_CURRENCY` (default `NGN`). Overrides Stripe as the live processor. |
+| `PAYSTACK_PUBLIC_KEY` | Optional | Paystack Dashboard → API Keys → **Public** key (`pk_live_…` / `pk_test_…`) | Client-side Paystack inline checkout. Must be set together with `PAYSTACK_SECRET_KEY` to go live. |
+| `PAYSTACK_WEBHOOK_SECRET` | Optional (live only) | Paystack Dashboard → Settings → Webhooks → signing secret | Verifies the `charge.success` webhook (`POST /api/v1/webhooks/paystack`) so escrow is marked held reliably. |
 | `CLOUDINARY_URL` (or `CLOUDINARY_CLOUD_NAME`+`API_KEY`+`API_SECRET`) | Optional | Cloudinary console → Dashboard | Persists chat/avatar uploads to Cloudinary CDN (survives server restarts). If unset, uploads stay local. |
 | `AWS_S3_BUCKET` (+ `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) | Optional | AWS S3 | Alternative persistent storage for uploads. Used only if set and Cloudinary is not. |
 | `REDIS_URL` | Optional (multi-instance only) | Render → Redis instance, or any `redis://` URL | Cross-instance WebSocket broadcast via pub/sub. If unset, chat works in-process (fine for a single instance / demo). |
@@ -97,6 +100,23 @@ SECRET_KEY=change-me-to-a-random-string
 > which is why a platform minimum (`MIN_PAYMENT_AMOUNT`) is enforced before any
 > gateway call. To accept other currencies natively, enable them on your Stripe
 > account and set `PAYMENT_CURRENCY` accordingly (and add a per-currency minimum).
+
+### Going live with Paystack (recommended for NG/Africa)
+
+Paystack is the **preferred live processor** for this market — it natively handles
+cards, bank transfer, USSD and mobile money (M‑Pesa, Opay, MTN MoMo). When both
+`PAYSTACK_SECRET_KEY` and `PAYSTACK_PUBLIC_KEY` are set, the pay screen switches to
+the Paystack inline checkout and the platform charges in `PAYSTACK_CURRENCY`
+(default `NGN`). The job's USD quote is converted to NGN at `USD_NGN_RATE`
+(default `1600`; swap for a real FX feed in production).
+
+1. Create a Paystack account, grab **test** keys (Dashboard → Settings → API Keys).
+2. Put `PAYSTACK_SECRET_KEY` + `PAYSTACK_PUBLIC_KEY` in `.env`.
+3. Register a webhook in the Paystack Dashboard pointing at
+   `https://<your-domain>/api/v1/webhooks/paystack` (event: `charge.success`). Copy the
+   signing secret into `PAYSTACK_WEBHOOK_SECRET`. This is the authoritative source of
+   truth that marks the escrow `held` (idempotent), so payments land even if the
+   browser redirect is lost. Use test card `5123 4567 8901 2346` (or any test bank/mobile).
 
 ---
 

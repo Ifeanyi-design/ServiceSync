@@ -16,6 +16,10 @@ from decimal import Decimal
 from datetime import datetime
 from typing import Optional
 
+import json
+import urllib.request
+import urllib.error
+
 from app.core.config import settings
 
 
@@ -194,3 +198,82 @@ def payout_to_contractor(
         "contractor_id": contractor_id,
         "processed_at": datetime.utcnow().isoformat(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Paystack — primary processor for NG/Africa (cards, bank transfer, mobile money)
+# ---------------------------------------------------------------------------
+def paystack_available() -> bool:
+    return bool(settings.PAYSTACK_SECRET_KEY and settings.PAYSTACK_PUBLIC_KEY)
+
+
+def _paystack_request(method: str, path: str, body: Optional[dict] = None, timeout: int = 25):
+    url = f"https://api.paystack.co{path}"
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method)
+    req.add_header("Authorization", f"Bearer {settings.PAYSTACK_SECRET_KEY}")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Cache-Control", "no-cache")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
+def create_paystack_transaction(
+    amount_kobo: int,
+    email: str,
+    metadata: Optional[dict] = None,
+    currency: str = "NGN",
+) -> dict:
+    """Initialize a Paystack transaction. Returns {success, mode, reference,
+    access_code, authorization_url}. In demo mode returns a fake reference."""
+    if not paystack_available():
+        return {"success": False, "mode": "mock", "error": "Paystack not configured"}
+    try:
+        resp = _paystack_request(
+            "POST",
+            "/transaction/initialize",
+            {
+                "amount": int(amount_kobo),
+                "email": email,
+                "currency": currency,
+                "metadata": metadata or {},
+                "channels": ["card", "bank", "ussd", "qr", "mobile_money", "bank_transfer", "eft"],
+            },
+        )
+        if resp.get("status"):
+            data = resp["data"]
+            return {
+                "success": True,
+                "mode": "paystack",
+                "reference": data["reference"],
+                "access_code": data.get("access_code"),
+                "authorization_url": data.get("authorization_url"),
+            }
+        return {"success": False, "mode": "paystack", "error": resp.get("message", "initialize failed")}
+    except Exception as e:  # pragma: no cover - network path
+        return {"success": False, "mode": "paystack", "error": str(e)}
+
+
+def verify_paystack_transaction(reference: str) -> dict:
+    """Verify a Paystack transaction by reference. Returns {success, mode,
+    status, reference, amount (kobo), currency, ...}."""
+    if not paystack_available():
+        return {"success": False, "mode": "mock", "error": "Paystack not configured"}
+    try:
+        resp = _paystack_request("GET", f"/transaction/verify/{reference}")
+        if resp.get("status"):
+            data = resp["data"]
+            return {
+                "success": True,
+                "mode": "paystack",
+                "status": data.get("status"),
+                "reference": data.get("reference"),
+                "amount": data.get("amount"),
+                "currency": data.get("currency"),
+                "paid_at": data.get("paid_at"),
+                "customer_email": (data.get("customer") or {}).get("email"),
+                "authorization": data.get("authorization"),
+            }
+        return {"success": False, "mode": "paystack", "error": resp.get("message", "verify failed")}
+    except Exception as e:  # pragma: no cover - network path
+        return {"success": False, "mode": "paystack", "error": str(e)}

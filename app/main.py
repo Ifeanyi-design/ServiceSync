@@ -54,9 +54,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "media-src 'self' https:; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://js.stripe.com https://*.stripe.com; "
-            "connect-src 'self' https://*.stripe.com https://api.stripe.com https://generativelanguage.googleapis.com https://*.cloudinary.com https://api.twilio.com https://graph.facebook.com; "
-            "frame-src 'self' https://*.stripe.com;",
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://js.stripe.com https://*.stripe.com https://js.paystack.co https://*.paystack.co https://*.paystack.com; "
+            "connect-src 'self' https://*.stripe.com https://api.stripe.com https://api.paystack.co https://generativelanguage.googleapis.com https://*.cloudinary.com https://api.twilio.com https://graph.facebook.com; "
+            "frame-src 'self' https://*.stripe.com https://*.paystack.co https://*.paystack.com https://checkout.paystack.com;",
         )
         # HSTS only makes sense behind TLS; Render terminates HTTPS at the edge.
         if request.url.scheme == "https":

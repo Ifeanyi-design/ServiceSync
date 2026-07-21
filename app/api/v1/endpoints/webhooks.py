@@ -2,6 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, Backgr
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import Any, Optional
+import hmac
+import hashlib
+import json
+from decimal import Decimal
 import httpx
 
 from app.api.dependencies import get_db
@@ -125,6 +129,54 @@ async def _handle_stripe_event(db: AsyncSession, event_type: str, event: dict) -
             escrow.refunded_at = datetime.utcnow()
             db.add(escrow)
             await db.commit()
+
+
+@router.post("/paystack")
+async def paystack_webhook(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
+    """Paystack webhook. Verifies the HMAC-SHA512 signature (when a webhook
+    secret is configured) and fulfils escrow on ``charge.success`` — the
+    authoritative, idempotent source of truth for funding."""
+    raw = await request.body()
+    sig = request.headers.get("x-paystack-signature")
+    if settings.PAYSTACK_WEBHOOK_SECRET:
+        if not sig:
+            raise HTTPException(status_code=400, detail="Missing Paystack signature")
+        expected = hmac.new(settings.PAYSTACK_WEBHOOK_SECRET.encode(), raw, hashlib.sha512).hexdigest()
+        if not hmac.compare_digest(expected, sig):
+            raise HTTPException(status_code=400, detail="Invalid Paystack signature")
+
+    try:
+        payload = json.loads(raw or b"{}")
+    except Exception:
+        return {"status": "ignored"}
+
+    event_type = payload.get("event")
+    data = payload.get("data") or {}
+    if event_type != "charge.success":
+        return {"status": "received", "event": event_type}
+
+    reference = data.get("reference")
+    if not reference:
+        return {"status": "ignored"}
+    amount = Decimal(str(data.get("amount") or 0)) / Decimal("100")
+    currency = data.get("currency")
+    auth = data.get("authorization") or {}
+    metadata = data.get("metadata") or {}
+
+    from app.services.escrow_service import mark_escrow_paid_by_reference
+    try:
+        await mark_escrow_paid_by_reference(
+            db, reference,
+            amount=amount, currency=currency,
+            card_brand=auth.get("card_type") or "Paystack",
+            card_last4=auth.get("last4") or "",
+            metadata=metadata,
+        )
+    except Exception as e:  # pragma: no cover - defensive
+        logger.exception("paystack webhook handling failed: %s", e)
+        return {"status": "error", "detail": str(e)}
+    return {"status": "received", "event": event_type}
+
 
 @router.get("/{platform}")
 async def verify_webhook(

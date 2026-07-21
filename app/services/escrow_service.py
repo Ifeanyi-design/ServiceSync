@@ -70,6 +70,7 @@ async def fund_escrow(
     card_brand: str,
     card_last4: str,
     payment_gateway_id: Optional[str] = None,
+    paystack_reference: Optional[str] = None,
 ) -> Escrow:
     """Capture the customer's payment and move the escrow to ``held``.
 
@@ -96,7 +97,16 @@ async def fund_escrow(
         # captured amount or re-issue a receipt.
         return escrow
 
-    if payment_gateway_id:
+    if paystack_reference:
+        # Paystack charge already verified by the caller (web_fund_escrow or the
+        # charge.success webhook). Trust the supplied reference; the amount/currency
+        # were server-derived, so we never rely on client-provided values here.
+        capture = {
+            "mode": "paystack",
+            "raw": {"reference": paystack_reference},
+            "reference_id": paystack_reference,
+        }
+    elif payment_gateway_id:
         # Real gateway (e.g. Stripe PaymentIntent): verify server-side that the
         # payment actually succeeded before trusting the client-supplied id.
         # Without this, a caller could mark an escrow "held" with no real capture.
@@ -158,7 +168,7 @@ async def fund_escrow(
     escrow.funded_at = datetime.utcnow()
     escrow.card_brand = card_brand
     escrow.card_last4 = card_last4
-    escrow.currency = "USD"
+    escrow.currency = settings.PAYSTACK_CURRENCY if paystack_reference else "USD"
     escrow.payment_gateway_id = capture["reference_id"]
     db.add(escrow)
     await db.flush()
@@ -179,6 +189,69 @@ async def fund_escrow(
         payment_reference=escrow.payment_gateway_id,
     )
     db.add(receipt)
+    return escrow
+
+
+async def mark_escrow_paid_by_reference(
+    db: AsyncSession,
+    reference: str,
+    amount: Optional[Decimal] = None,
+    currency: Optional[str] = None,
+    card_brand: str = "Paystack",
+    card_last4: str = "",
+    metadata: Optional[dict] = None,
+) -> Optional[Escrow]:
+    """Idempotently mark an escrow held from a verified Paystack reference.
+
+    Driven by the Paystack ``charge.success`` webhook so the escrow is funded
+    reliably even if the browser redirect never reaches us. Safe to call more
+    than once.
+    """
+    job_id = None
+    if metadata and str(metadata.get("job_id", "")).isdigit():
+        job_id = int(metadata["job_id"])
+
+    escrow = None
+    if job_id:
+        res = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
+        escrow = res.first()
+    if escrow is None:
+        res = await db.exec(select(Escrow).where(Escrow.payment_gateway_id == reference))
+        escrow = res.first()
+    if escrow is None:
+        return None
+    if escrow.status == "held":
+        return escrow  # already processed — idempotent
+
+    escrow.status = "held"
+    escrow.funded_at = datetime.utcnow()
+    escrow.payment_gateway_id = reference
+    if amount is not None:
+        escrow.quoted_amount = amount
+        escrow.total_amount = amount
+    if currency:
+        escrow.currency = currency
+    escrow.card_brand = card_brand
+    escrow.card_last4 = card_last4
+    db.add(escrow)
+    await db.flush()
+
+    receipt = Receipt(
+        receipt_number=f"RCPT-{escrow.job_id}-{escrow.id}",
+        job_id=escrow.job_id,
+        escrow_id=escrow.id,
+        customer_id=escrow.customer_id,
+        contractor_id=escrow.contractor_id,
+        amount=escrow.total_amount,
+        platform_fee=escrow.platform_fee,
+        contractor_payout=escrow.contractor_payout,
+        currency=escrow.currency,
+        card_brand=escrow.card_brand,
+        card_last4=escrow.card_last4,
+        payment_reference=reference,
+    )
+    db.add(receipt)
+    await db.commit()
     return escrow
 
 
