@@ -147,41 +147,23 @@
 
             <!-- ====== CARD TAB ====== -->
             <div id="panel-card">
-              <!-- Saved methods (demo mode only; live mode uses Stripe Elements) -->
-              {% if saved_methods and not stripe_live and not paystack_live %}
-              <div class="mb-4">
-                <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Saved methods</label>
-                {% for m in saved_methods %}
-                <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl mb-2 cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition">
-                  <input type="radio" name="saved_method_id" value="{{ m.id }}" class="accent-blue-600"
-                    {% if m.is_default or loop.first %}checked{% endif %} />
-                  <div class="w-10 h-7 rounded bg-gray-100 flex items-center justify-center text-xs font-black text-gray-600">
-                    {% if m.type == 'mobile_money' %}MM{% elif m.type == 'bank_transfer' %}BANK{% else %}{{ m.brand or 'CARD' }}{% endif %}
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-gray-800 truncate">{{ m.display_name }}</p>
-                    {% if m.expiry %}<p class="text-xs text-gray-400">Expires {{ m.expiry }}</p>
-                    {% elif m.type == 'mobile_money' %}<p class="text-xs text-gray-400">{{ m.provider | title if m.provider else 'Mobile money' }}</p>
-                    {% elif m.type == 'bank_transfer' %}<p class="text-xs text-gray-400">{{ m.bank_name or 'Bank transfer' }}</p>
-                    {% endif %}
-                  </div>
-                  {% if m.is_default %}<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">Default</span>{% endif %}
-                </label>
-                {% endfor %}
-                <label class="flex items-center gap-3 p-3 border border-dashed border-gray-200 rounded-xl mb-2 cursor-pointer hover:border-blue-300 transition">
-                  <input type="radio" name="saved_method_id" value="" class="accent-blue-600" id="use-new-method" />
-                  <span class="text-sm font-semibold text-gray-600">Use a new card / method below</span>
-                </label>
-              </div>
-              {% endif %}
-
-              <!-- Card fields -->
               <div class="space-y-4">
+
+                <!-- Stripe Elements (live card entry) -->
                 {% if stripe_live %}
-                <!-- Stripe Elements (primary card entry) -->
-                <div id="stripe-card-mount" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm"></div>
-                {% elif not paystack_live %}
-                <!-- Demo card fields (no live processor configured) -->
+                <div>
+                  <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Card Details</label>
+                  <div id="stripe-card-mount" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm"></div>
+                </div>
+                {% endif %}
+
+                <!-- Demo card fields (always show when Stripe is NOT live) -->
+                {% if not stripe_live %}
+                <div>
+                  <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">
+                    {% if paystack_live %}Pay by Card{% else %}Card Details{% endif %}
+                  </label>
+                </div>
                 <div>
                   <label class="block text-xs font-bold text-gray-600 mb-1.5">Name on Card</label>
                   <input type="text" name="card_name" id="card_name" placeholder="John Doe" autocomplete="cc-name"
@@ -212,26 +194,28 @@
                 </div>
                 {% endif %}
 
-                {% if paystack_live %}
-                <!-- Paystack inline checkout (alternative, available for NG/Africa) -->
-                <div class="{% if stripe_live %}mt-6 pt-6 border-t border-gray-100{% endif %}">
-                  {% if stripe_live %}<div class="text-center text-xs text-gray-400 font-semibold mb-4 uppercase tracking-wider">or pay with Paystack</div>{% endif %}
-                  <div class="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-                    <div>
-                      <label class="block text-xs font-bold text-gray-600 mb-1.5">Email for receipt</label>
-                      <input type="email" id="paystack-email" value="{{ paystack_email }}" placeholder="you@example.com"
-                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-300 transition" />
-                    </div>
-                    <button type="button" id="paystack-btn" onclick="payWithPaystack()"
-                      class="w-full py-4 rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-extrabold text-base transition shadow-xl shadow-green-200 active:scale-[.98] flex items-center justify-center gap-2">
-                      Pay with Paystack
-                    </button>
-                    <p class="text-xs text-gray-400 text-center">Secured by Paystack — cards, bank transfer &amp; mobile money (M-Pesa, Opay, MTN).</p>
-                  </div>
-                </div>
-                {% endif %}
               </div>
             </div>
+
+            <!-- ====== PAYSTACK SECTION (alternative payment) ====== -->
+            {% if paystack_live %}
+            <div class="mt-6 pt-6 border-t border-gray-100">
+              <div class="text-center text-xs text-gray-400 font-semibold mb-3 uppercase tracking-wider">or pay with Paystack</div>
+              <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                <div>
+                  <label class="block text-xs font-bold text-gray-600 mb-1.5">Email for receipt</label>
+                  <input type="email" id="paystack-email" value="{{ paystack_email }}" placeholder="you@example.com"
+                    class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/25 focus:border-green-300 transition" />
+                </div>
+                <button type="button" id="paystack-btn" onclick="payWithPaystack()"
+                  class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-extrabold text-sm transition shadow-lg shadow-green-200 active:scale-[.98] flex items-center justify-center gap-2">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                  Pay with Paystack
+                </button>
+                <p class="text-[11px] text-gray-400 text-center">Cards, bank transfer &amp; mobile money (M-Pesa, Opay, MTN).</p>
+              </div>
+            </div>
+            {% endif %}
 
             <!-- ====== BANK TRANSFER TAB (demo mode only) ====== -->
             {% if not stripe_live and not paystack_live %}
