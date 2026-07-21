@@ -1929,6 +1929,59 @@ async def delete_account(
     return resp
 
 
+@router.post("/settings/payout", response_class=HTMLResponse)
+async def update_payout_method(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    account_name: str = Form(default=""),
+    account_number: str = Form(default=""),
+    bank_code: str = Form(default=""),
+    bank_name: str = Form(default=""),
+):
+    """Contractor sets their bank details for Paystack payouts.
+
+    Creates a Paystack transfer recipient and stores the recipient code on
+    the user so future escrow releases can pay out via Paystack Transfer.
+    """
+    if current_user.role != "contractor":
+        return RedirectResponse(url="/settings?error=Only+contractors+can+set+payout+details", status_code=302)
+    if not account_name or not account_number or not bank_code:
+        return RedirectResponse(url="/settings?error=Account+name,+number+and+bank+code+are+required", status_code=302)
+    if len(account_number) < 10:
+        return RedirectResponse(url="/settings?error=Invalid+account+number", status_code=302)
+
+    from urllib.parse import quote
+    if settings.paystack_live:
+        from app.services import payment_gateway as pgw
+        import asyncio
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(pgw.create_paystack_recipient, account_name, account_number, bank_code),
+                timeout=15,
+            )
+        except asyncio.TimeoutError:
+            return RedirectResponse(url="/settings?error=Paystack+timed+out.+Please+try+again.", status_code=302)
+
+        if not result.get("success"):
+            return RedirectResponse(
+                url=f"/settings?error=Failed+to+create+payout+recipient:+{quote(result.get('error', 'unknown error'))}",
+                status_code=302,
+            )
+        current_user.paystack_recipient_code = result.get("recipient_code")
+    else:
+        current_user.paystack_recipient_code = None
+
+    current_user.payout_bank_name = bank_name
+    current_user.payout_bank_code = bank_code
+    current_user.payout_account_number = account_number
+    current_user.payout_account_name = account_name
+    db.add(current_user)
+    await db.commit()
+    msg = "Payout+method+saved." if not settings.paystack_live else "Payout+method+saved+and+verified+with+Paystack."
+    return RedirectResponse(url=f"/settings?success={quote(msg)}", status_code=302)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # STRIPE CONNECT ONBOARDING (contractor payouts)
 # ─────────────────────────────────────────────────────────────────────────────

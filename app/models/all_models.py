@@ -154,6 +154,14 @@ class User(SQLModel, table=True):
     # Stripe Connect (payments). Null = demo/mock mode.
     stripe_account_id: Optional[str] = None
 
+    # Paystack payout (primary in NG/Africa mode). Populated by the contractor from
+    # their payout-settings page. Null = no real payout; falls back to wallet credit.
+    paystack_recipient_code: Optional[str] = None
+    payout_bank_name: Optional[str] = None
+    payout_bank_code: Optional[str] = None
+    payout_account_number: Optional[str] = None
+    payout_account_name: Optional[str] = None
+
     # Paid "Boost" placement — contractor ranks at the top of search until this time.
     boosted_until: Optional[datetime] = None
 

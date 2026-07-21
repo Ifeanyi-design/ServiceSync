@@ -277,3 +277,111 @@ def verify_paystack_transaction(reference: str) -> dict:
         return {"success": False, "mode": "paystack", "error": resp.get("message", "verify failed")}
     except Exception as e:  # pragma: no cover - network path
         return {"success": False, "mode": "paystack", "error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Paystack Transfers — contractor payouts (released escrow)
+# ---------------------------------------------------------------------------
+def create_paystack_recipient(
+    account_name: str,
+    account_number: str,
+    bank_code: str,
+    currency: str = "NGN",
+) -> dict:
+    """Create a Paystack transfer recipient (NUBAN bank account).
+
+    Returns {success, mode, recipient_code, recipient_id} on success, or
+    ``{success=False, …}`` on error / in mock mode.
+    """
+    if not paystack_available():
+        return {"success": False, "mode": "mock", "error": "Paystack not configured"}
+    try:
+        resp = _paystack_request(
+            "POST",
+            "/transferrecipient",
+            {
+                "type": "nuban",
+                "name": account_name,
+                "account_number": account_number,
+                "bank_code": bank_code,
+                "currency": currency,
+            },
+        )
+        if resp.get("status"):
+            data = resp["data"]
+            return {
+                "success": True,
+                "mode": "paystack",
+                "recipient_code": data.get("recipient_code"),
+                "recipient_id": data.get("id"),
+            }
+        return {"success": False, "mode": "paystack", "error": resp.get("message", "create recipient failed")}
+    except Exception as e:  # pragma: no cover - network path
+        return {"success": False, "mode": "paystack", "error": str(e)}
+
+
+def paystack_transfer(
+    amount_kobo: int,
+    recipient_code: str,
+    reason: str = "Escrow release",
+    currency: str = "NGN",
+) -> dict:
+    """Initiate a Paystack transfer to a previously created recipient.
+
+    Returns {success, mode, reference_id, status, amount, transferred_at}
+    on success, or ``{success=False, …}`` on error.
+    """
+    if not paystack_available():
+        return {"success": False, "mode": "mock", "error": "Paystack not configured"}
+    try:
+        resp = _paystack_request(
+            "POST",
+            "/transfer",
+            {
+                "source": "balance",
+                "amount": int(amount_kobo),
+                "recipient": recipient_code,
+                "reason": reason,
+                "currency": currency,
+            },
+        )
+        if resp.get("status"):
+            data = resp["data"]
+            return {
+                "success": True,
+                "mode": "paystack",
+                "reference_id": data.get("reference"),
+                "status": data.get("status"),
+                "amount": data.get("amount"),
+                "currency": data.get("currency"),
+                "transferred_at": data.get("createdAt") or data.get("updatedAt"),
+            }
+        return {"success": False, "mode": "paystack", "error": resp.get("message", "transfer failed")}
+    except Exception as e:  # pragma: no cover - network path
+        return {"success": False, "mode": "paystack", "error": str(e)}
+
+
+def verify_paystack_transfer(reference: str) -> dict:
+    """Verify the status of a Paystack transfer by reference.
+
+    Returns {success, mode, status, reference, amount, …} on success.
+    """
+    if not paystack_available():
+        return {"success": False, "mode": "mock", "error": "Paystack not configured"}
+    try:
+        resp = _paystack_request("GET", f"/transfer/verify/{reference}")
+        if resp.get("status"):
+            data = resp["data"]
+            return {
+                "success": True,
+                "mode": "paystack",
+                "status": data.get("status"),
+                "reference": data.get("reference"),
+                "amount": data.get("amount"),
+                "currency": data.get("currency"),
+                "transferred_at": data.get("createdAt"),
+                "failures": data.get("failures"),
+            }
+        return {"success": False, "mode": "paystack", "error": resp.get("message", "verify transfer failed")}
+    except Exception as e:  # pragma: no cover - network path
+        return {"success": False, "mode": "paystack", "error": str(e)}
