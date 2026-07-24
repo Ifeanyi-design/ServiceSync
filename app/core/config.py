@@ -58,13 +58,41 @@ class Settings(BaseSettings):
     # Stripe "amount_too_small" errors from cross-currency minimums.
     PAYMENT_CURRENCY: str = "USD"
     # Currency used when Paystack is the active processor (NGN for Nigeria).
+    # This is the *charge* currency Paystack expects per their docs, not just a
+    # display value.
     PAYSTACK_CURRENCY: str = "NGN"
     # Indicative USD->NGN rate used to derive the Paystack charge amount from the
     # job's USD quote. Replace with a real FX feed for production accuracy.
     USD_NGN_RATE: float = 1600.0
-    # Platform-enforced minimum charge (in PAYMENT_CURRENCY) so we never send a
-    # sub-minimum amount to the gateway. Stripe's own minimum is ~$0.50.
-    MIN_PAYMENT_AMOUNT: float = 1.0
+    # Platform-enforced minimum charge (in the active charge currency). We never
+    # send a sub-minimum amount to the gateway. The map below covers the
+    # payment gateway minimums (Stripe's USD floor is ~$0.50; Paystack's NGN
+    # floor is ₦100, etc.) plus a small safety buffer to avoid edge cases.
+    MIN_PAYMENT_AMOUNT: float = 1.0  # legacy USD value; superseded by MIN_PAYMENT_BY_CURRENCY
+    # Authoritative, per-charge-currency minimums. Used by ``payment_gateway.min_for``
+    # and enforced server-side before any gateway call. Values here are safe
+    # floors: a little above the gateway minimums so a partial-penny rounding
+    # issue can never push a charge below the processor's hard limit.
+    MIN_PAYMENT_BY_CURRENCY: dict = {
+        "USD": 1.00,
+        "EUR": 1.00,
+        "GBP": 1.00,
+        "CAD": 1.50,
+        "AUD": 1.50,
+        "SGD": 1.50,
+        "AED": 5.00,    # Paystack AED floor is high
+        "INR": 100.00,  # Paystack INR floor is ₹100
+        "ZAR": 20.00,
+        # Paystack African markets
+        "NGN": 100.00,  # Paystack floor is ₦100 via standard channels
+        "KES": 150.00,
+        "GHS": 10.00,
+        "TZS": 25000.00,
+        "UGX": 5000.00,
+    }
+    # Stripe hard minimum (USD). We never charge Stripe below this even if the
+    # per-currency floor is lower; left here for reference and tests.
+    STRIPE_MIN_USD: float = 0.50
 
     @property
     def paystack_live(self) -> bool:
@@ -81,6 +109,21 @@ class Settings(BaseSettings):
     @property
     def charge_currency(self) -> str:
         return self.PAYSTACK_CURRENCY if self.active_processor() == "paystack" else self.PAYMENT_CURRENCY
+
+    def min_payment_for(self, currency: Optional[str] = None) -> float:
+        """Minimum charge amount (in the *charge currency*) accepted by the platform.
+
+        Used by the pay screen and the fund endpoints so we never send a
+        sub-minimum amount to the active gateway. Falls back to ``MIN_PAYMENT_AMOUNT``
+        only when no per-currency entry is available — keeping the legacy default
+        backwards-compatible without breaking smaller currencies.
+        """
+        cur = (currency or self.charge_currency or self.PAYMENT_CURRENCY).upper()
+        return float(self.MIN_PAYMENT_BY_CURRENCY.get(cur, self.MIN_PAYMENT_AMOUNT))
+
+    def processor_label(self) -> str:
+        """Human-readable name of the active processor — for UI badges."""
+        return {"stripe": "Stripe", "paystack": "Paystack"}.get(self.active_processor(), "Demo")
 
     # Uploads — pick ONE optional backend. Leave all unset to store locally in
     # app/static/uploads (served via /static). Cloudinary and S3 URLs survive

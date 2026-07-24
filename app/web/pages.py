@@ -555,16 +555,15 @@ async def create_job_payment_intent(
     amount = (escrow.quoted_amount if escrow and escrow.quoted_amount
               else Decimal(str((contractor.base_pricing if contractor else None) or 50.00)))
 
-    # Enforce the platform minimum before touching the gateway.
-    if amount < Decimal(str(settings.MIN_PAYMENT_AMOUNT)):
+    # Enforce the platform minimum before touching the gateway. Use the per-currency
+    # floor so e.g. USD doesn't get clamped at the NGN level (or vice versa).
+    from app.services.payment_gateway import charge_minimum
+    charge_currency = settings.PAYMENT_CURRENCY
+    if amount < charge_minimum(charge_currency):
         raise HTTPException(
             status_code=400,
-            detail=f"Minimum charge is {settings.MIN_PAYMENT_AMOUNT:g} {settings.PAYMENT_CURRENCY}.",
+            detail=f"Minimum charge is {settings.min_payment_for(charge_currency):g} {charge_currency}.",
         )
-
-    # Charge in the platform currency (consistent with the escrow record), not the
-    # user's detected locale — mixing them produced cross-currency minimum errors.
-    from app.services import payment_gateway
     # Run the blocking Stripe SDK call off the event loop, with a timeout so a slow
     # or hung gateway can't leave the client spinner running forever.
     try:
@@ -611,8 +610,16 @@ async def create_paystack_transaction_endpoint(
     usd_amount = float((escrow.quoted_amount if escrow and escrow.quoted_amount
                         else Decimal(str((contractor.base_pricing if contractor else None) or 50.00))))
     kobo = int(round(usd_amount * settings.USD_NGN_RATE * 100))
-    if kobo < 100:
-        raise HTTPException(status_code=400, detail="Amount is below the minimum charge.")
+    # Paystack NGN floor is ₦100 (= 10,000 kobo). Enforce server-side via the
+    # same per-currency helper used elsewhere so the error matches the rest of
+    # the pay flow.
+    from app.services.payment_gateway import charge_minimum
+    min_ngn = float(charge_minimum(settings.PAYSTACK_CURRENCY))  # Decimal -> float
+    if kobo < int(round(min_ngn * 100)):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Minimum charge is \u20a6{min_ngn:,.2f} {settings.PAYSTACK_CURRENCY}.",
+        )
 
     from app.services import payment_gateway
     try:

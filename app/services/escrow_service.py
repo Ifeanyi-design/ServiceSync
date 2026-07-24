@@ -81,9 +81,13 @@ async def fund_escrow(
         raise ValueError("Job must be booked before funding escrow")
     if quoted_amount <= 0:
         raise ValueError("Amount must be greater than zero")
-    if quoted_amount < Decimal(str(settings.MIN_PAYMENT_AMOUNT)):
+    # Per-charge-currency floor (Paystack NGN floor ≠ Stripe USD floor).
+    from app.services.payment_gateway import charge_minimum
+    cur_currency = settings.PAYSTACK_CURRENCY if paystack_reference else settings.PAYMENT_CURRENCY
+    min_charge = charge_minimum(cur_currency)
+    if quoted_amount < min_charge:
         raise ValueError(
-            f"Minimum charge is {settings.MIN_PAYMENT_AMOUNT:g} {settings.PAYMENT_CURRENCY}."
+            f"Minimum charge is {settings.min_payment_for(cur_currency):g} {cur_currency}."
         )
 
     fees = calculate_fees(quoted_amount, rate=commission_rate(contractor))
@@ -272,16 +276,33 @@ async def release_escrow(db: AsyncSession, escrow: Escrow) -> Escrow:
     escrow.released_at = datetime.utcnow()
     escrow.payout_reference_id = f"pay_{escrow.job_id}_{escrow.contractor_id}"
 
-    # Payout to contractor (Stripe Connect when configured, else mock)
-    from app.services.payment_gateway import payout_to_contractor
-    contractor = await db.get(User, escrow.contractor_id)
-    connected = contractor.stripe_account_id if contractor else None
-    payout = await asyncio.to_thread(
+    # Payout to contractor — Paystack (NG/Africa) when the contractor has a
+    # verified recipient code; else Stripe Connect when configured; else mock.
+    from app.services.payment_gateway import (
         payout_to_contractor,
-        escrow.contractor_id, escrow.contractor_payout, escrow.currency, connected,
-        metadata={"job_id": str(escrow.job_id), "escrow_id": str(escrow.id)},
+        payout_to_contractor_via_paystack,
     )
-    escrow.payout_reference_id = payout["reference_id"]
+    contractor = await db.get(User, escrow.contractor_id)
+    recipient = getattr(contractor, "paystack_recipient_code", None) if contractor else None
+
+    if recipient and settings.paystack_live and (escrow.currency or "").upper() in (
+        "NGN", "GHS", "KES", "ZAR", "USD"
+    ):
+        # Paystack uses kobo (NGN) / pesewas (GHS) / cents (KES/ZAR/USD).
+        kobo = int(round(float(escrow.contractor_payout) * 100))
+        payout = await asyncio.to_thread(
+            payout_to_contractor_via_paystack,
+            escrow.contractor_id, kobo, recipient, escrow.currency,
+            reason=f"Escrow release job #{escrow.job_id}",
+        )
+    else:
+        connected = contractor.stripe_account_id if contractor else None
+        payout = await asyncio.to_thread(
+            payout_to_contractor,
+            escrow.contractor_id, escrow.contractor_payout, escrow.currency, connected,
+            metadata={"job_id": str(escrow.job_id), "escrow_id": str(escrow.id)},
+        )
+    escrow.payout_reference_id = payout.get("reference_id", escrow.payout_reference_id)
 
     # Credit contractor wallet (pending → clears later)
     from app.services.wallet_service import credit_pending
@@ -331,9 +352,31 @@ async def penalty_split_escrow(db: AsyncSession, escrow: Escrow, late_cancellati
     escrow.customer_refund = customer_refund
     escrow.released_at = datetime.utcnow()
     escrow.refunded_at = datetime.utcnow()
-    
-    # Mock payout + refund
-    await process_payout(escrow.contractor_id, contractor_compensation, escrow.currency)
+
+    # Pay the contractor's compensation slice through the same path as a normal
+    # release (Paystack when set up; Stripe Connect otherwise; mock fallback).
+    from app.services.payment_gateway import (
+        payout_to_contractor,
+        payout_to_contractor_via_paystack,
+    )
+    contractor = await db.get(User, escrow.contractor_id)
+    recipient = getattr(contractor, "paystack_recipient_code", None) if contractor else None
+    if recipient and settings.paystack_live and (escrow.currency or "").upper() in (
+        "NGN", "GHS", "KES", "ZAR", "USD"
+    ):
+        kobo = int(round(float(contractor_compensation) * 100))
+        await asyncio.to_thread(
+            payout_to_contractor_via_paystack,
+            escrow.contractor_id, kobo, recipient, escrow.currency,
+            reason=f"Late-cancel compensation job #{escrow.job_id}",
+        )
+    else:
+        connected = contractor.stripe_account_id if contractor else None
+        await asyncio.to_thread(
+            payout_to_contractor,
+            escrow.contractor_id, contractor_compensation, escrow.currency, connected,
+            metadata={"job_id": str(escrow.job_id), "kind": "late_cancel_compensation"},
+        )
     await refund_payment(escrow.customer_id, customer_refund, escrow.currency)
 
     # Credit contractor compensation to wallet (pending → clears later)
@@ -436,7 +479,30 @@ async def resolve_dispute(
             escrow.status = "released"
             escrow.released_at = datetime.utcnow()
             # Credit contractor payout to wallet (pending -> clears later),
-            # consistent with the normal release path.
+            # consistent with the normal release path. Also fire a real payout
+            # when the contractor has payout details configured.
+            contractor = await db.get(User, escrow.contractor_id)
+            from app.services.payment_gateway import (
+                payout_to_contractor,
+                payout_to_contractor_via_paystack,
+            )
+            recipient = getattr(contractor, "paystack_recipient_code", None) if contractor else None
+            if recipient and settings.paystack_live and (escrow.currency or "").upper() in (
+                "NGN", "GHS", "KES", "ZAR", "USD"
+            ):
+                kobo = int(round(float(payout_amount) * 100))
+                await asyncio.to_thread(
+                    payout_to_contractor_via_paystack,
+                    escrow.contractor_id, kobo, recipient, escrow.currency,
+                    reason=f"Dispute resolved job #{escrow.job_id}",
+                )
+            else:
+                connected = contractor.stripe_account_id if contractor else None
+                await asyncio.to_thread(
+                    payout_to_contractor,
+                    escrow.contractor_id, payout_amount, escrow.currency, connected,
+                    metadata={"job_id": str(escrow.job_id), "kind": "dispute_release"},
+                )
             from app.services.wallet_service import credit_pending
             await credit_pending(
                 db, escrow.contractor_id, payout_amount,
@@ -447,6 +513,28 @@ async def resolve_dispute(
             escrow.status = "penalty_split"
             escrow.released_at = datetime.utcnow()
             escrow.refunded_at = datetime.utcnow()
+            contractor = await db.get(User, escrow.contractor_id)
+            from app.services.payment_gateway import (
+                payout_to_contractor,
+                payout_to_contractor_via_paystack,
+            )
+            recipient = getattr(contractor, "paystack_recipient_code", None) if contractor else None
+            if recipient and settings.paystack_live and (escrow.currency or "").upper() in (
+                "NGN", "GHS", "KES", "ZAR", "USD"
+            ):
+                kobo = int(round(float(payout_amount) * 100))
+                await asyncio.to_thread(
+                    payout_to_contractor_via_paystack,
+                    escrow.contractor_id, kobo, recipient, escrow.currency,
+                    reason=f"Dispute split payout job #{escrow.job_id}",
+                )
+            else:
+                connected = contractor.stripe_account_id if contractor else None
+                await asyncio.to_thread(
+                    payout_to_contractor,
+                    escrow.contractor_id, payout_amount, escrow.currency, connected,
+                    metadata={"job_id": str(escrow.job_id), "kind": "dispute_split"},
+                )
             from app.services.wallet_service import credit_pending
             await credit_pending(
                 db, escrow.contractor_id, payout_amount,

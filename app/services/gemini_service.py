@@ -325,7 +325,6 @@ def _fallback_triage() -> Dict[str, Any]:
         "profession_required": None,
         "urgency": None,
         "is_emergency": False,
-        "zip_code": None,
         "country": None,
         "state_or_province": None,
         "city": None,

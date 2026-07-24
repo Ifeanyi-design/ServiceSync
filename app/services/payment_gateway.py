@@ -200,6 +200,75 @@ def payout_to_contractor(
     }
 
 
+def payout_to_contractor_via_paystack(
+    contractor_id: int,
+    amount_kobo: int,
+    recipient_code: str,
+    currency: str = "NGN",
+    reason: str = "Escrow release",
+) -> dict:
+    """Paystack counterpart of ``payout_to_contractor``.
+
+    Pays the released share out to the contractor via a Paystack Transfer
+    when they have a verified recipient code (set in /settings → Payout).
+    Falls back to a no-op record when Paystack isn't configured or the
+    contractor has no recipient code.
+    """
+    ref = f"po_paystack_mock_{contractor_id}_{int(datetime.utcnow().timestamp())}"
+    if not paystack_available() or not recipient_code:
+        return {
+            "success": True,
+            "mode": "mock",
+            "reference_id": ref,
+            "amount_kobo": int(amount_kobo),
+            "currency": currency,
+            "contractor_id": contractor_id,
+            "processed_at": datetime.utcnow().isoformat(),
+        }
+    try:
+        resp = _paystack_request(
+            "POST",
+            "/transfer",
+            {
+                "source": "balance",
+                "amount": int(amount_kobo),
+                "recipient": recipient_code,
+                "reason": reason,
+                "currency": currency,
+            },
+        )
+        if resp.get("status"):
+            data = resp["data"]
+            return {
+                "success": True,
+                "mode": "paystack",
+                "reference_id": data.get("reference"),
+                "amount_kobo": int(amount_kobo),
+                "currency": currency,
+                "contractor_id": contractor_id,
+                "processed_at": datetime.utcnow().isoformat(),
+            }
+        return {
+            "success": False,
+            "mode": "paystack",
+            "error": resp.get("message", "transfer failed"),
+        }
+    except Exception as exc:
+        return {"success": False, "mode": "paystack", "error": str(exc)}
+
+
+def charge_minimum(currency: Optional[str] = None) -> Decimal:
+    """Safe per-currency charge minimum as Decimal — use this everywhere instead
+    of hardcoding ``MIN_PAYMENT_AMOUNT``. Falls back to backwards-compatible
+    USD legacy only if no per-currency entry exists.
+    """
+    cur = (currency or settings.PAYMENT_CURRENCY or "USD").upper()
+    val = settings.MIN_PAYMENT_BY_CURRENCY.get(cur)
+    if val is None:
+        return Decimal(str(settings.MIN_PAYMENT_AMOUNT))
+    return Decimal(str(val))
+
+
 # ---------------------------------------------------------------------------
 # Paystack — primary processor for NG/Africa (cards, bank transfer, mobile money)
 # ---------------------------------------------------------------------------
@@ -229,6 +298,10 @@ def create_paystack_transaction(
     if not paystack_available():
         return {"success": False, "mode": "mock", "error": "Paystack not configured"}
     try:
+        # Paystack currency determines the available channels; for African
+        # currencies (NGN/GHS/KES/ZAR) we surface card + bank + USSD + mobile
+        # money. Other currencies default to card only to avoid an invalid
+        # channel name error from the API.
         resp = _paystack_request(
             "POST",
             "/transaction/initialize",
@@ -237,7 +310,11 @@ def create_paystack_transaction(
                 "email": email,
                 "currency": currency,
                 "metadata": metadata or {},
-                "channels": ["card", "bank", "ussd", "qr", "mobile_money", "bank_transfer", "eft"],
+                "channels": (
+                    ["card", "bank", "ussd", "qr", "mobile_money"]
+                    if currency in ("NGN", "GHS", "KES", "ZAR")
+                    else ["card"]
+                ),
             },
         )
         if resp.get("status"):
