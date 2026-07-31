@@ -626,6 +626,7 @@ async def create_job_payment_intent(
         )
     # Run the blocking Stripe SDK call off the event loop, with a timeout so a slow
     # or hung gateway can't leave the client spinner running forever.
+    from app.services import payment_gateway
     try:
         intent = await asyncio.wait_for(
             asyncio.to_thread(

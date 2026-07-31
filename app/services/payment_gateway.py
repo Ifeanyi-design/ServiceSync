@@ -283,8 +283,21 @@ def _paystack_request(method: str, path: str, body: Optional[dict] = None, timeo
     req.add_header("Authorization", f"Bearer {settings.PAYSTACK_SECRET_KEY}")
     req.add_header("Content-Type", "application/json")
     req.add_header("Cache-Control", "no-cache")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode())
+    req.add_header("User-Agent", "ServiceSync/1.0 (urllib)")
+    
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        # Paystack returns 4xx/5xx with JSON explaining the error.
+        # urllib throws an exception for these status codes. We must read the body.
+        try:
+            error_body = e.read().decode("utf-8")
+            error_json = json.loads(error_body)
+            # Make it look like a normal paystack error response so the caller handles it
+            return error_json
+        except Exception:
+            return {"status": False, "message": f"HTTP {e.code}: {e.reason}"}
 
 
 def create_paystack_transaction(
