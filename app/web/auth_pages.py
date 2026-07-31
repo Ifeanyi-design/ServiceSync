@@ -177,12 +177,16 @@ async def signup_submit(
     await db.commit()
     await db.refresh(user)
 
-    # Best-effort verification email (no-op if SMTP unconfigured).
-    try:
-        vtoken = await issue_email_verification(db, user)
-        await send_verification_email(user.email, vtoken)
-    except Exception:
-        pass
+    if settings.DEMO_MODE:
+        user.email_verified = True
+        await db.commit()
+    else:
+        # Best-effort verification email (no-op if SMTP unconfigured).
+        try:
+            vtoken = await issue_email_verification(db, user)
+            await send_verification_email(user.email, vtoken)
+        except Exception:
+            pass
 
     token = create_access_token(subject=user.id)
     redirect_url = _post_auth_redirect_url(user, next, contractor_id)

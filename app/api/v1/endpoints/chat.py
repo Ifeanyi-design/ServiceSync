@@ -142,6 +142,7 @@ class TriageResponse(BaseModel):
     bot_reply: str
     ready_for_match: bool
     matched_contractors: list = []
+    ai_reasoning: Optional[Dict[str, Any]] = None
 
 @router.post("/triage", response_model=TriageResponse)
 async def chat_triage(
@@ -219,7 +220,13 @@ async def chat_triage(
     return TriageResponse(
         bot_reply=bot_reply,
         ready_for_match=ready,
-        matched_contractors=matched_list
+        matched_contractors=matched_list,
+        ai_reasoning={
+            "detected_issue": triage_data.get("summary", "Unknown issue"),
+            "urgency": triage_data.get("urgency", "Normal"),
+            "required_professional": triage_data.get("profession_required", "General"),
+            "matches_found": len(matched_list)
+        } if ready else None
     )
 
 

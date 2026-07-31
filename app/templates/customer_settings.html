@@ -180,25 +180,7 @@
       </form>
     </div>
 
-    <!-- ====== SECTION 3: Payment Methods ====== -->
-    <div class="settings-section bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <div class="px-6 py-5 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="section-icon bg-emerald-100">
-            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-          </div>
-          <div>
-            <h2 class="font-extrabold text-gray-900">Payment Methods</h2>
-            <p class="text-xs text-gray-400 mt-0.5">Manage saved cards, bank accounts, and mobile money</p>
-          </div>
-        </div>
-        <a href="/payment-methods"
-          class="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition">
-          Manage
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        </a>
-      </div>
-    </div>
+
 
     <!-- ====== SECTION 3B: Payout Method (contractor only) ====== -->
     {% if current_user.role == 'contractor' %}

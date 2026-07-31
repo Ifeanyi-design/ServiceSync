@@ -175,6 +175,7 @@ async def build_conversation_list(
             "job_id": conv.job_id,
             "partner": partner,
             "job_status": job.status if job else None,
+            "job_description": job.description if job else "General inquiry",
             "latest_message": preview,
             "latest_message_time": (
                 latest_msg.timestamp.strftime("%b %d, %H:%M")

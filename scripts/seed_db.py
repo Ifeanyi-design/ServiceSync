@@ -8,7 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from app.core.database import async_session_maker
 from app.core.security import get_password_hash
-from app.models.all_models import User
+from app.models.all_models import User, Job, Review, Conversation
 
 async def seed_db():
     print("Starting database seeding...")
@@ -312,6 +312,51 @@ async def seed_db():
             print(f"Successfully seeded {added} users!")
         else:
             print("Database already seeded with these users.")
+
+        # --- Seed Jobs and Reviews for Demo ---
+        from datetime import datetime, timedelta
+        
+        c_mike = await db.exec(select(User).where(User.email == "mike@plumbingpros.com"))
+        mike = c_mike.first()
+        c_sarah = await db.exec(select(User).where(User.email == "sarah@sparkyelectric.com"))
+        sarah = c_sarah.first()
+        c_joe = await db.exec(select(User).where(User.email == "joe@hvacmasters.com"))
+        joe = c_joe.first()
+        
+        c_john = await db.exec(select(User).where(User.email == "john.doe@example.com"))
+        john = c_john.first()
+        
+        if john and mike and sarah and joe:
+            # Check if jobs exist
+            existing_jobs = await db.exec(select(Job).where(Job.customer_id == john.id))
+            if not existing_jobs.first():
+                print("Seeding Demo Jobs and Reviews...")
+                
+                j1 = Job(customer_id=john.id, assigned_contractor_id=mike.id, description="Kitchen sink is leaking under the cabinet", status="completed", urgency="medium", created_at=datetime.utcnow() - timedelta(days=2))
+                j2 = Job(customer_id=john.id, assigned_contractor_id=sarah.id, description="Power outlet in living room is sparking", status="completed", urgency="high", created_at=datetime.utcnow() - timedelta(days=5))
+                j3 = Job(customer_id=john.id, assigned_contractor_id=joe.id, description="AC is blowing warm air", status="in_progress", urgency="high", created_at=datetime.utcnow())
+                db.add_all([j1, j2, j3])
+                await db.commit()
+                await db.refresh(j1)
+                await db.refresh(j2)
+                await db.refresh(j3)
+                
+                # Conversations
+                conv1 = Conversation(job_id=j1.id, customer_id=john.id, contractor_id=mike.id)
+                conv2 = Conversation(job_id=j2.id, customer_id=john.id, contractor_id=sarah.id)
+                conv3 = Conversation(job_id=j3.id, customer_id=john.id, contractor_id=joe.id)
+                db.add_all([conv1, conv2, conv3])
+                
+                # Reviews
+                r1 = Review(job_id=j1.id, contractor_id=mike.id, rating=5, comment="Mike was super fast and fixed the leak in 10 minutes. Highly recommend!", created_at=datetime.utcnow() - timedelta(days=1))
+                r2 = Review(job_id=j2.id, contractor_id=sarah.id, rating=5, comment="Sarah is amazing. Very safe and professional.", created_at=datetime.utcnow() - timedelta(days=4))
+                db.add_all([r1, r2])
+                await db.commit()
+                print("Successfully seeded Jobs, Conversations, and Reviews.")
+            else:
+                print("Jobs already exist for John.")
+        else:
+            print(f"Users missing! John={john} Mike={mike} Sarah={sarah} Joe={joe}")
 
 if __name__ == "__main__":
     asyncio.run(seed_db())

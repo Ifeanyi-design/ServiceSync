@@ -341,7 +341,12 @@
                   <button type="submit" class="text-xs text-gray-400 hover:text-blue-600 transition px-1" title="Cycle availability">{{ icon('refresh','w-4 h-4') }}</button>
                 </form>
               </div>
-              {% else %}—{% endif %}
+              {% else %}
+              <div class="flex items-center gap-1"></div>
+              {% endif %}
+              <button onclick="toggleBan({{ user.id }}, {{ 'true' if user.is_active else 'false' }})" class="ml-2 text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-lg transition {{ 'bg-red-50 text-red-600 hover:bg-red-100' if user.is_active else 'bg-green-50 text-green-600 hover:bg-green-100' }}">
+                {{ 'Ban' if user.is_active else 'Unban' }}
+              </button>
             </td>
           </tr>
           {% else %}
@@ -830,6 +835,18 @@
       }
       if (show) visible++;
     });
+    async function toggleBan(userId, isActive) {
+      if (!confirm(`Are you sure you want to ${isActive ? 'ban' : 'unban'} this user?`)) return;
+      const endpoint = `/api/v1/users/${userId}/${isActive ? 'ban' : 'unban'}`;
+      try {
+        const res = await fetch(endpoint, { method: 'POST' });
+        if (res.ok) window.location.reload();
+        else alert('Failed to toggle user ban status.');
+      } catch (e) {
+        console.error(e);
+        alert('An error occurred.');
+      }
+    }
     const empty = document.getElementById(tableId + '-empty');
     if (empty) empty.classList.toggle('hidden', visible > 0 || !q && roleFilter === 'all');
     // If table has real data rows but all filtered out, show empty

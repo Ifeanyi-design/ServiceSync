@@ -887,7 +887,7 @@
           Rate job
         </button>
       </div>
-      <form id="review-inline-form" method="POST" action="/jobs/{{ job.id }}/review" class="hidden mt-3 space-y-2">
+      <form id="review-inline-form" class="hidden mt-3 space-y-2">
         <div class="flex items-center gap-1" id="review-stars">
           {% for n in range(1, 6) %}
           <label class="cursor-pointer">
@@ -898,7 +898,7 @@
         </div>
         <textarea name="comment" rows="2" placeholder="Optional comment…" class="w-full text-sm border border-amber-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400/30 bg-white"></textarea>
         <div class="flex gap-2">
-          <button type="submit" class="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">Submit review</button>
+          <button type="button" onclick="submitReview({{ job.id }})" class="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">Submit review</button>
           <button type="button" onclick="document.getElementById('review-inline-form').classList.add('hidden')" class="px-3 py-1.5 rounded-xl text-xs font-bold text-amber-900/70 hover:bg-amber-100">Cancel</button>
         </div>
       </form>
@@ -1845,6 +1845,27 @@
     if (['mp4','mov','webm'].includes(ext)) return 'video';
     return 'file';
   }
+
+  async function submitReview(jobId) {
+    const form = document.getElementById('review-inline-form');
+    const ratingInput = form.querySelector('input[name="rating"]:checked');
+    const commentInput = form.querySelector('textarea[name="comment"]');
+    if (!ratingInput) return;
+    try {
+      const res = await fetch(`/api/v1/jobs/${jobId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: parseInt(ratingInput.value), comment: commentInput.value })
+      });
+      if (res.ok) window.location.reload();
+      else showToast('Failed to submit review.', 'error');
+    } catch (e) {
+      showToast('An error occurred.', 'error');
+    }
+  }
+
+  /* File Attachment Handling */
+  const attachBtn = document.getElementById('attach-btn');
 
   function renderPendingPreview() {
     const bar = document.getElementById('attachment-preview');

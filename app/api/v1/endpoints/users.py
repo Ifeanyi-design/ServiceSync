@@ -105,3 +105,35 @@ async def update_contractor_profile(
     await db.commit()
     await db.refresh(current_user)
     return current_user
+
+@router.post("/{user_id}/ban")
+async def ban_user(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    target.is_active = False
+    await db.commit()
+    return {"ok": True, "message": f"{target.email} has been banned."}
+
+@router.post("/{user_id}/unban")
+async def unban_user(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    target.is_active = True
+    await db.commit()
+    return {"ok": True, "message": f"{target.email} has been unbanned."}

@@ -5,9 +5,10 @@ from sqlmodel import select
 from typing import Any
 from datetime import datetime
 from decimal import Decimal
+from pydantic import BaseModel
 
 from app.api.dependencies import get_db, get_current_user
-from app.models.all_models import Job, User, Conversation, Escrow
+from app.models.all_models import Job, User, Conversation, Escrow, Review
 from app.models.audit_log import AIOperationsAuditLog
 from app.schemas.job import JobResponse, BookJobRequest
 from app.services.matching_engine import find_matches
@@ -237,6 +238,45 @@ async def cancel_job(
 
     raise HTTPException(status_code=400, detail="This job can no longer be cancelled")
 
+class ReviewCreate(BaseModel):
+    rating: int
+    comment: str
+
+@router.post("/{job_id}/review")
+async def create_job_review(
+    job_id: int,
+    payload: ReviewCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    job = await db.get(Job, job_id)
+    if not job or job.customer_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "completed":
+        raise HTTPException(status_code=400, detail="Job not completed")
+    
+    # Check if review already exists
+    existing = await db.exec(select(Review).where(Review.job_id == job_id))
+    if existing.first():
+        raise HTTPException(status_code=400, detail="Review already submitted")
+        
+    review = Review(
+        job_id=job_id,
+        contractor_id=job.assigned_contractor_id,
+        rating=payload.rating,
+        comment=payload.comment
+    )
+    db.add(review)
+    
+    # Update contractor's reputation score (simple average approximation)
+    contractor = await db.get(User, job.assigned_contractor_id)
+    if contractor:
+        old_score = contractor.reputation_score or 5.0
+        contractor.reputation_score = round((old_score * 4 + payload.rating) / 5, 1)
+        db.add(contractor)
+        
+    await db.commit()
+    return {"ok": True}
 
 @router.post("/{job_id}/action", response_model=JobResponse)
 async def job_action(

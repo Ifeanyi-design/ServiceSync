@@ -73,14 +73,14 @@
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between gap-2">
-            <p class="text-sm font-bold text-gray-900 dark:text-slate-100 truncate {{ 'text-blue-900 dark:text-blue-300' if unread > 0 else '' }}">
-              {{ conv.partner.full_name if conv.partner else 'Unknown' }}
+            <p class="text-sm font-bold text-gray-900 dark:text-slate-100 truncate {{ 'text-blue-900 dark:text-blue-300' if unread > 0 else '' }}" title="{{ conv.job_description }}">
+              💼 {{ conv.job_description | truncate(24, true, '…') }}
               {% if is_muted %}<span class="ml-1 text-[10px] font-semibold text-gray-400" title="Muted">🔇</span>{% endif %}
             </p>
             <span class="text-[10px] text-gray-400 flex-shrink-0">{{ conv.latest_message_time }}</span>
           </div>
-          <div class="flex items-center gap-1.5 mt-0.5">
-            <span class="text-[10px] text-gray-400">Job #{{ conv.job_id }}</span>
+          <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <span class="text-[11px] font-medium text-gray-600 dark:text-slate-300 truncate max-w-[100px]">{{ conv.partner.full_name if conv.partner else 'Unknown' }}</span>
             {% if conv.job_status %}
             <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full
               {% if conv.job_status == 'booked' %}bg-green-50 text-green-700 dark:bg-green-900/40 dark:text-green-300

@@ -79,6 +79,13 @@
           </div>
         </div>
 
+        <!-- Demo Prompts -->
+        <div class="px-3 pb-2 flex gap-2 overflow-x-auto hide-scrollbar text-[11px]">
+          <button type="button" onclick="document.getElementById('chat-input').value='My sink is leaking under the cabinet'; document.getElementById('send-btn').click()" class="whitespace-nowrap px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition border border-blue-100 font-semibold shadow-sm">💧 My sink is leaking</button>
+          <button type="button" onclick="document.getElementById('chat-input').value='My AC stopped blowing cold air and it is very hot'; document.getElementById('send-btn').click()" class="whitespace-nowrap px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition border border-blue-100 font-semibold shadow-sm">❄️ AC stopped working</button>
+          <button type="button" onclick="document.getElementById('chat-input').value='I have half the power out in my kitchen, need an electrician'; document.getElementById('send-btn').click()" class="whitespace-nowrap px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition border border-blue-100 font-semibold shadow-sm">⚡ Need an electrician</button>
+        </div>
+
         <!-- Chat Input -->
         <div class="flex-shrink-0 p-3 border-t border-gray-100 bg-white">
           <form id="chat-form" class="flex items-center gap-2" onsubmit="sendMessage(event)">
@@ -320,6 +327,29 @@
       if (data.bot_reply) {
         chatHistory.push({ role: 'bot', content: data.bot_reply });
         appendBubble('bot', data.bot_reply);
+      }
+
+      if (data.ai_reasoning) {
+        const r = data.ai_reasoning;
+        const html = `
+          <div class="mt-2 text-[11px] bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-indigo-900 shadow-sm animate-fade-in">
+            <p class="font-bold mb-1 flex items-center gap-1">
+              <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              Gemini Analysis
+            </p>
+            <ul class="space-y-1 ml-1 text-indigo-800/90">
+              <li><span class="text-indigo-500 mr-1 font-bold">✓</span> Detected: <strong>${escHtml(r.detected_issue)}</strong></li>
+              <li><span class="text-indigo-500 mr-1 font-bold">✓</span> Urgency: <strong>${escHtml(r.urgency)}</strong></li>
+              <li><span class="text-indigo-500 mr-1 font-bold">✓</span> Required professional: <strong>${escHtml(r.required_professional)}</strong></li>
+              <li><span class="text-indigo-500 mr-1 font-bold">✓</span> Nearby matches: <strong>${r.matches_found}</strong></li>
+            </ul>
+          </div>
+        `;
+        const wrap = document.createElement('div');
+        wrap.className = 'pl-8 pr-12 pb-2 -mt-1';
+        wrap.innerHTML = html;
+        messagesContainer.appendChild(wrap);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
 
       if (data.ready_for_match && data.matched_contractors && data.matched_contractors.length > 0) {
