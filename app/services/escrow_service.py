@@ -148,13 +148,13 @@ async def fund_escrow(
                     "If your card was charged, you have NOT been double-charged — "
                     "please contact support and we'll reconcile it."
                 )
-            if intent.get("status") != "succeeded":
-                raise ValueError(f"Payment not completed (status: {intent.get('status')})")
+            if getattr(intent, "status", None) != "succeeded":
+                raise ValueError(f"Payment not completed (status: {getattr(intent, 'status', 'unknown')})")
         except ValueError:
             raise
         capture = {
             "mode": "live",
-            "raw": {"payment_intent_id": payment_gateway_id, "status": intent.get("status")},
+            "raw": {"payment_intent_id": payment_gateway_id, "status": getattr(intent, "status", None)},
             "reference_id": payment_gateway_id,
         }
     else:

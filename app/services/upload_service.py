@@ -24,7 +24,7 @@ LOCAL_UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "static" / "u
 
 # Extension -> broad category, used to pick a Cloudinary resource_type.
 _IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
-_VIDEO_EXT = {".mp4", ".mov", ".webm"}
+_VIDEO_EXT = {".mp4", ".mov", ".webm", ".ogg"}
 _DOC_EXT = {".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".csv", ".zip"}
 
 
