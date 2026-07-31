@@ -249,7 +249,7 @@
           </div>
         </div>
         {% endif %}
-        <form method="POST" action="/verification/submit" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form method="POST" action="/verification/submit" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="sm:col-span-2">
             <label class="block text-xs font-semibold text-gray-500 mb-1">Requested Tier</label>
             <select name="requested_level" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
@@ -260,16 +260,16 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-500 mb-1">ID Document (link)</label>
-            <input type="text" name="id_document_url" placeholder="https://…" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2" />
+            <label class="block text-xs font-semibold text-gray-500 mb-1">ID Document</label>
+            <input type="file" name="id_document" accept=".pdf,image/*" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white" />
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-500 mb-1">Trade License (link)</label>
-            <input type="text" name="license_document_url" placeholder="https://…" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2" />
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Trade License</label>
+            <input type="file" name="license_document" accept=".pdf,image/*" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white" />
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-500 mb-1">Insurance (link)</label>
-            <input type="text" name="insurance_document_url" placeholder="https://…" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2" />
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Insurance</label>
+            <input type="file" name="insurance_document" accept=".pdf,image/*" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white" />
           </div>
           <div>
             <label class="block text-xs font-semibold text-gray-500 mb-1">Notes</label>

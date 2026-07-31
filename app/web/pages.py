@@ -14,7 +14,7 @@ from app.api.dependencies import get_current_user_optional, get_current_user, ge
 from app.models.all_models import User, Job, Conversation, DirectMessage, OmnichannelIntegration, Review, Escrow, Dispute, AIDraft, VerificationRequest, WalletTransaction, Receipt
 from app.core.config import settings
 from app.services import subscription_service
-from app.services import wallet_service
+from app.services import wallet_service, upload_service
 from app.services.escrow_service import calculate_fees, fund_escrow
 from app.services.subscription_service import commission_rate
 from app.core.security import verify_password, get_password_hash
@@ -293,9 +293,9 @@ async def save_autonomy(
 @router.post("/verification/submit")
 async def submit_verification(
     requested_level: str = Form(...),
-    id_document_url: str = Form(default=""),
-    license_document_url: str = Form(default=""),
-    insurance_document_url: str = Form(default=""),
+    id_document: Optional[UploadFile] = File(None),
+    license_document: Optional[UploadFile] = File(None),
+    insurance_document: Optional[UploadFile] = File(None),
     notes: str = Form(default=""),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -318,12 +318,43 @@ async def submit_verification(
     if existing.first():
         return RedirectResponse(url="/dashboard/contractor?verify=pending", status_code=302)
 
+    from urllib.parse import quote
+    doc_allowlist = upload_service._IMAGE_EXT | upload_service._DOC_EXT
+    id_url = license_url = insurance_url = None
+
+    try:
+        if id_document and id_document.filename:
+            data = await id_document.read()
+            if data:
+                id_url = await upload_service.save_upload(
+                    data, id_document.filename,
+                    allowlist=doc_allowlist, max_bytes=10*1024*1024, folder="verifications"
+                )
+
+        if license_document and license_document.filename:
+            data = await license_document.read()
+            if data:
+                license_url = await upload_service.save_upload(
+                    data, license_document.filename,
+                    allowlist=doc_allowlist, max_bytes=10*1024*1024, folder="verifications"
+                )
+
+        if insurance_document and insurance_document.filename:
+            data = await insurance_document.read()
+            if data:
+                insurance_url = await upload_service.save_upload(
+                    data, insurance_document.filename,
+                    allowlist=doc_allowlist, max_bytes=10*1024*1024, folder="verifications"
+                )
+    except ValueError as e:
+        return RedirectResponse(url=f"/dashboard/contractor?error={quote(str(e))}", status_code=302)
+
     req = VerificationRequest(
         contractor_id=current_user.id,
         requested_level=requested_level,
-        id_document_url=id_document_url.strip() or None,
-        license_document_url=license_document_url.strip() or None,
-        insurance_document_url=insurance_document_url.strip() or None,
+        id_document_url=id_url,
+        license_document_url=license_url,
+        insurance_document_url=insurance_url,
         notes=notes.strip() or None,
         status="pending",
     )
