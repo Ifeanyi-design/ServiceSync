@@ -15,7 +15,7 @@ from app.core.config import settings
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.utcnow()
 
 
 def _token() -> str:
