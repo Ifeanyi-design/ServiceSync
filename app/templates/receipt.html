@@ -76,13 +76,28 @@
       <div class="mt-6 flex items-center gap-4">
         <div>
           <p class="text-blue-200 text-xs uppercase tracking-wider font-bold mb-0.5">Total Paid</p>
-          <p class="text-4xl font-black">${{ '%.2f' | format(receipt.amount) }} <span class="text-lg font-semibold text-blue-200">{{ receipt.currency or 'USD' }}</span></p>
+          <p class="text-4xl font-black">{{ currency_symbol }}{{ '%.2f' | format(receipt.amount) }} <span class="text-lg font-semibold text-blue-200">{{ receipt.currency or 'USD' }}</span></p>
         </div>
         <div class="flex-1"></div>
-        <!-- Status badge -->
-        <span class="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl text-white font-bold text-sm border border-white/30">
-          {{ icon('lock','w-4 h-4 inline mr-1.5') }} Escrow Held
+        <!-- Status badge — reflects actual escrow state -->
+        {% set es = escrow.status if escrow else 'held' %}
+        {% if es == 'released' %}
+        <span class="px-4 py-2 bg-emerald-500/30 backdrop-blur-sm rounded-xl text-white font-bold text-sm border border-white/30">
+          ✓ Funds Released
         </span>
+        {% elif es == 'disputed' %}
+        <span class="px-4 py-2 bg-red-500/30 backdrop-blur-sm rounded-xl text-white font-bold text-sm border border-white/30">
+          ⚠ Disputed
+        </span>
+        {% elif es in ['refunded', 'penalty_split'] %}
+        <span class="px-4 py-2 bg-amber-500/30 backdrop-blur-sm rounded-xl text-white font-bold text-sm border border-white/30">
+          ↩ {{ 'Refunded' if es == 'refunded' else 'Split Resolved' }}
+        </span>
+        {% else %}
+        <span class="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl text-white font-bold text-sm border border-white/30">
+          🔒 Escrow Held
+        </span>
+        {% endif %}
       </div>
     </div>
 
@@ -183,21 +198,32 @@
       <div class="border-t border-gray-100 pt-5 space-y-3 mb-6">
         <div class="flex justify-between text-sm">
           <span class="text-gray-600">Job total (customer pays)</span>
-          <span class="font-bold text-gray-900">${{ '%.2f' | format(receipt.amount) }}</span>
+          <span class="font-bold text-gray-900">{{ currency_symbol }}{{ '%.2f' | format(receipt.amount) }}</span>
         </div>
         <div class="flex justify-between text-sm">
           <span class="text-gray-500 flex items-center gap-1.5">
             Platform fee
             <span class="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">ServiceSync</span>
           </span>
-          <span class="font-semibold text-gray-500">${{ '%.2f' | format(receipt.platform_fee) }}</span>
+          <span class="font-semibold text-gray-500">{{ currency_symbol }}{{ '%.2f' | format(receipt.platform_fee) }}</span>
         </div>
+        {% if escrow and escrow.status == 'refunded' %}
+        <div class="flex justify-between text-sm text-amber-700">
+          <span class="flex items-center gap-1.5">Refund issued to customer</span>
+          <span class="font-bold">{{ currency_symbol }}{{ '%.2f' | format(receipt.amount) }}</span>
+        </div>
+        {% elif escrow and escrow.status == 'penalty_split' %}
+        <div class="flex justify-between text-sm text-amber-700">
+          <span class="flex items-center gap-1.5">Split resolution (penalty applied)</span>
+          <span class="font-bold">—</span>
+        </div>
+        {% endif %}
         <div class="border-t border-dashed border-gray-150 pt-3">
           <div class="flex justify-between text-sm">
             <span class="text-gray-600 flex items-center gap-1.5">
               Contractor receives <span class="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">after job confirmed</span>
             </span>
-            <span class="font-bold text-emerald-600">${{ '%.2f' | format(receipt.contractor_payout) }}</span>
+            <span class="font-bold text-emerald-600">{{ currency_symbol }}{{ '%.2f' | format(receipt.contractor_payout) }}</span>
           </div>
         </div>
       </div>
@@ -216,16 +242,41 @@
         </div>
       </div>
 
-      <!-- Escrow protection note -->
+      <!-- Escrow protection / resolution note -->
+      {% set es = escrow.status if escrow else 'held' %}
+      {% if es == 'released' %}
       <div class="flex items-start gap-3 px-4 py-4 bg-emerald-50 border border-emerald-100 rounded-xl">
-        <svg class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-        </svg>
+        <svg class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <div>
-          <p class="text-sm font-bold text-emerald-700 mb-0.5">Escrow Protection Active</p>
-          <p class="text-xs text-emerald-600 leading-relaxed">Your funds are held securely. The contractor receives payment only after you confirm the job is complete to your satisfaction. You can open a dispute if needed.</p>
+          <p class="text-sm font-bold text-emerald-700 mb-0.5">Payment Complete</p>
+          <p class="text-xs text-emerald-600 leading-relaxed">Funds have been released to the contractor. Job closed successfully.</p>
         </div>
       </div>
+      {% elif es == 'disputed' %}
+      <div class="flex items-start gap-3 px-4 py-4 bg-red-50 border border-red-100 rounded-xl">
+        <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <div>
+          <p class="text-sm font-bold text-red-700 mb-0.5">Dispute In Progress</p>
+          <p class="text-xs text-red-600 leading-relaxed">Funds are frozen while our AI + team reviews the case. You'll be notified of the outcome.</p>
+        </div>
+      </div>
+      {% elif es in ['refunded', 'penalty_split'] %}
+      <div class="flex items-start gap-3 px-4 py-4 bg-amber-50 border border-amber-100 rounded-xl">
+        <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div>
+          <p class="text-sm font-bold text-amber-700 mb-0.5">Dispute Resolved</p>
+          <p class="text-xs text-amber-600 leading-relaxed">{% if es == 'refunded' %}A full refund was issued to the customer.{% else %}A penalty split was applied. Funds distributed according to the AI + admin decision.{% endif %}</p>
+        </div>
+      </div>
+      {% else %}
+      <div class="flex items-start gap-3 px-4 py-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+        <svg class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <div>
+          <p class="text-sm font-bold text-emerald-700 mb-0.5">Escrow Protection Active</p>
+          <p class="text-xs text-emerald-600 leading-relaxed">Your funds are held securely. The contractor receives payment only after you confirm the job is complete. You can open a dispute if needed.</p>
+        </div>
+      </div>
+      {% endif %}
 
       <!-- Chat link -->
       {% if conversation_id %}

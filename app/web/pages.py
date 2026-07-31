@@ -722,6 +722,22 @@ async def job_receipt_page(request: Request, job_id: int, current_user: User = D
 
     contractor = await db.get(User, receipt.contractor_id)
     customer = await db.get(User, receipt.customer_id)
+
+    # Escrow for timeline + status-aware header
+    escrow_result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
+    escrow = escrow_result.first()
+
+    # Currency symbol from receipt or current processor
+    currency_code = (receipt.currency or "USD").upper()
+    currency_sym = CURRENCY_SYMBOLS.get(currency_code, "$")
+
+    # Linked conversation for chat button
+    from app.models.all_models import Conversation
+    conv_result = await db.exec(
+        select(Conversation).where(Conversation.job_id == job_id)
+    )
+    conv = conv_result.first()
+
     return templates.TemplateResponse(request=request, name="receipt.html", context={
         "request": request,
         "current_user": current_user,
@@ -729,6 +745,9 @@ async def job_receipt_page(request: Request, job_id: int, current_user: User = D
         "job": job,
         "contractor": contractor,
         "customer": customer,
+        "escrow": escrow,
+        "currency_symbol": currency_sym,
+        "conversation_id": conv.id if conv else None,
         "format_location": format_location,
     })
 
@@ -1857,6 +1876,7 @@ async def customer_settings_page(
         "request": request,
         "current_user": current_user,
         "flash": flash,
+        "paystack_live": settings.paystack_live,
     })
 
 

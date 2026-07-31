@@ -110,7 +110,7 @@
           <div class="mb-5 flex items-center gap-2 text-xs">
             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full font-semibold">
               {{ icon('lock','w-3.5 h-3.5') }}
-              Processor: {{ settings.processor_label() }}
+              Processor: {{ processor | upper }}
             </span>
             {% if stripe_live %}
               <span class="text-green-700 font-medium">Stripe live mode</span>
@@ -198,7 +198,7 @@
             <div class="mt-5">
               <p id="currency-note" class="text-xs text-gray-400">
                 You're charged <strong>{{ currency_symbol }}{{ '%.2f' | format(amount | float) }} {{ charge_currency }}</strong>.
-                {% if charge_currency != 'USD' %}This is the amount your processor ({{ settings.processor_label() }}) will charge.{% endif %}
+                {% if charge_currency != 'USD' %}This is the amount your processor ({{ processor | upper }}) will charge.{% endif %}
               </p>
             </div>
 

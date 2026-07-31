@@ -1020,6 +1020,8 @@
         panel.classList.remove('hidden');
         if (btn) btn.setAttribute('aria-expanded', 'true');
         loadNotifications();
+        // Mark all as read after a short delay so badge clears
+        setTimeout(markAllNotifsRead, 900);
       } else {
         closeNotifPanel();
       }
@@ -1118,6 +1120,43 @@
         }
       }
     }
+
+    // Mark all notifications as read (clears badge)
+    async function markAllNotifsRead() {
+      try {
+        await fetch('/api/v1/users/me/notifications/read-all', {
+          method: 'POST',
+          credentials: 'same-origin',
+        });
+        const dot = document.getElementById('notif-dot');
+        if (dot) { dot.classList.remove('has-unread'); dot.textContent = ''; }
+        // Remove unread dots from list items
+        document.querySelectorAll('#notif-list .w-2.h-2.rounded-full.bg-blue-500').forEach(d => d.remove());
+      } catch (e) { /* silently ignore */ }
+    }
+
+    // Auto-refresh badge count every 60s (badge only — no panel reload)
+    async function refreshNotifBadge() {
+      const dot = document.getElementById('notif-dot');
+      try {
+        const resp = await fetch('/api/v1/users/me/notifications', { credentials: 'same-origin' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const count = data.unread_count || 0;
+        const msgCount = data.messages_unread_count || 0;
+        if (dot) {
+          if (count > 0) { dot.classList.add('has-unread'); dot.textContent = count > 9 ? '9+' : String(count); }
+          else { dot.classList.remove('has-unread'); dot.textContent = ''; }
+        }
+        document.querySelectorAll('[data-msg-badge]').forEach(badge => {
+          if (msgCount > 0) { badge.classList.add('has-unread'); badge.textContent = msgCount > 9 ? '9+' : String(msgCount); }
+          else { badge.classList.remove('has-unread'); badge.textContent = ''; }
+        });
+      } catch (e) { /* ignore */ }
+    }
+    // Initial badge load + interval
+    refreshNotifBadge();
+    setInterval(refreshNotifBadge, 60000);
   </script>
 
   {% block extra_scripts %}{% endblock %}

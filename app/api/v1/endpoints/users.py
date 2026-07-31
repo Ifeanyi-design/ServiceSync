@@ -25,6 +25,41 @@ async def list_my_notifications(
     from app.services.notification_service import build_notifications
     return await build_notifications(db, current_user)
 
+
+@router.post("/me/notifications/read-all")
+async def mark_all_notifications_read(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Advance the read cursor on all conversations so the notification badge clears."""
+    from sqlmodel import select as sql_select
+    from app.models.all_models import ConversationParticipant, Message
+    from sqlalchemy import func
+
+    # Find all participants for this user
+    parts_result = await db.exec(
+        sql_select(ConversationParticipant).where(
+            ConversationParticipant.user_id == current_user.id
+        )
+    )
+    participants = parts_result.all()
+
+    for part in participants:
+        # Get the latest message id in this conversation
+        msg_result = await db.exec(
+            sql_select(func.max(Message.id)).where(
+                Message.conversation_id == part.conversation_id
+            )
+        )
+        latest_id = msg_result.first()
+        if latest_id:
+            part.last_read_message_id = latest_id
+            db.add(part)
+
+    await db.commit()
+    return {"ok": True}
+
+
 @router.get("/me/profile", response_model=UserResponse)
 async def get_user_profile(current_user: User = Depends(get_current_user)) -> Any:
     return current_user
