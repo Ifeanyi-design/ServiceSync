@@ -31,6 +31,45 @@ templates.env.globals["is_premium"] = subscription_service.is_premium
 
 router = APIRouter()
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CURRENCY HELPERS (must be module-level so all route handlers can use them)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Currency mapping by country (display default only; actual charge currency is settings.PAYMENT_CURRENCY).
+COUNTRY_CURRENCY_MAP = {
+    "Nigeria": "NGN", "NG": "NGN",
+    "United Kingdom": "GBP", "UK": "GBP", "GB": "GBP",
+    "Kenya": "KES", "KE": "KES",
+    "Ghana": "GHS", "GH": "GHS",
+    "United States": "USD", "US": "USD",
+    "Canada": "CAD", "CA": "CAD",
+    "South Africa": "ZAR", "ZA": "ZAR",
+    "India": "INR", "IN": "INR",
+    "Australia": "AUD", "AU": "AUD",
+    "United Arab Emirates": "AED", "AE": "AED",
+    "Germany": "EUR", "DE": "EUR", "France": "EUR", "FR": "EUR",
+    "Spain": "EUR", "ES": "EUR", "Italy": "EUR", "IT": "EUR",
+    "Netherlands": "EUR", "NL": "EUR",
+    "Tanzania": "TZS", "TZ": "TZS",
+    "Uganda": "UGX", "UG": "UGX",
+    "Ireland": "EUR", "IE": "EUR",
+    "Singapore": "SGD", "SG": "SGD",
+}
+
+# Symbols for presentation.
+CURRENCY_SYMBOLS = {
+    "USD": "$", "NGN": "₦", "GBP": "£", "KES": "KSh ", "GHS": "GH₵",
+    "CAD": "CA$", "EUR": "€", "ZAR": "R", "INR": "₹", "AUD": "A$",
+    "AED": "د.إ", "TZS": "TSh", "UGX": "USh", "SGD": "S$",
+}
+
+
+def _detect_currency(user: User) -> str:
+    """Detect display currency from user's country field."""
+    country = getattr(user, 'country', None) or ''
+    return COUNTRY_CURRENCY_MAP.get(country, 'USD')
+
+
 
 def _flash_from_query(request: Request) -> Optional[dict]:
     """Map ?paid=1 / ?cancelled=1 / ?error=... query params to a dashboard flash message."""
@@ -106,24 +145,45 @@ async def contractor_listing(
     profession: Optional[str] = None,
     city: Optional[str] = None,
     country: Optional[str] = None,
+    sort: Optional[str] = None,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(User).where(User.role == "contractor")
     if profession:
-        query = query.where(User.profession == profession)
+        query = query.where(User.profession.ilike(f"%{profession}%"))
     if city:
-        query = query.where(User.city == city)
+        query = query.where(User.city.ilike(f"%{city}%"))
     if country:
-        query = query.where(User.country == country)
+        query = query.where(User.country.ilike(f"%{country}%"))
     result = await db.exec(query)
-    contractors = result.all()
+    contractors = list(result.all())
+
+    # Server-side sort
+    if sort == "price_asc":
+        contractors.sort(key=lambda c: float(c.base_pricing or 0))
+    elif sort == "price_desc":
+        contractors.sort(key=lambda c: float(c.base_pricing or 0), reverse=True)
+    elif sort == "rating":
+        contractors.sort(key=lambda c: float(c.reputation_score or 0), reverse=True)
+    else:
+        # Default: boosted first, then by reputation
+        from datetime import datetime as _dt
+        now = _dt.utcnow()
+        contractors.sort(
+            key=lambda c: (
+                0 if (c.boosted_until and c.boosted_until > now) else 1,
+                -float(c.reputation_score or 0),
+            )
+        )
+
     return templates.TemplateResponse(request=request, name="contractor_listing.html", context={
         "request": request,
         "current_user": current_user,
         "contractors": contractors,
         "format_location": format_location,
         "filters": {"profession": profession, "city": city, "country": country},
+        "sort": sort or "",
     })
 
 
@@ -1531,41 +1591,45 @@ async def start_conversation(request: Request, contractor_id: int, current_user:
     if current_user.role != "customer":
         return RedirectResponse(url="/")
 
-    # Find an existing conversation with this contractor
-    existing = await db.exec(
-        select(Conversation).where(
+    # Only reuse a conversation whose job is still ACTIVE (booked or in_progress).
+    # Completed / cancelled jobs should get a brand-new booking so the customer
+    # isn't stuck inside an old finished chat.
+    active_statuses = ["booked", "in_progress", "matched"]
+    active_conv_result = await db.exec(
+        select(Conversation)
+        .join(Job, Job.id == Conversation.job_id)
+        .where(
             Conversation.customer_id == current_user.id,
-            Conversation.contractor_id == contractor_id
+            Conversation.contractor_id == contractor_id,
+            Job.status.in_(active_statuses),
         )
+        .order_by(Conversation.id.desc())
     )
-    conv = existing.first()
-    if conv:
-        return RedirectResponse(url=f"/chat/{conv.id}")
+    active_conv = active_conv_result.first()
+    if active_conv:
+        return RedirectResponse(url=f"/chat/{active_conv.id}")
 
-    # Find the most recent booked/matched job with this contractor
-    job_result = await db.exec(
-        select(Job).where(
-            Job.customer_id == current_user.id,
-            Job.assigned_contractor_id == contractor_id,
-            Job.status.in_(["booked", "matched"])
-        ).order_by(Job.created_at.desc())
+    # No active conversation — create a fresh job + conversation.
+    # This also covers the "re-book same contractor after completion" case.
+    contractor = await db.get(User, contractor_id)
+    if not contractor or contractor.role != "contractor":
+        raise HTTPException(status_code=404, detail="Contractor not found")
+
+    job = Job(
+        customer_id=current_user.id,
+        assigned_contractor_id=contractor_id,
+        description=f"Service request for {contractor.profession or 'job'}",
+        status="booked",
     )
-    job = job_result.first()
+    db.add(job)
+    await db.flush()
 
-    if not job:
-        # Create a placeholder job for this conversation
-        job = Job(
-            customer_id=current_user.id,
-            assigned_contractor_id=contractor_id,
-            description=f"Conversation with contractor",
-            status="booked",
-        )
-        db.add(job)
-        await db.commit()
-        await db.refresh(job)
+    # Create escrow so the payment page is ready
+    from app.services.escrow_service import create_escrow
+    amount = Decimal(str(contractor.base_pricing or 50.00))
+    await create_escrow(db, job, current_user, contractor, amount)
 
-    # Create conversation
-    new_conv = Conversation(job_id=job.id, customer_id=current_user.id, contractor_id=contractor_id)
+    new_conv = Conversation(id=job.id, job_id=job.id, customer_id=current_user.id, contractor_id=contractor_id)
     db.add(new_conv)
     await db.commit()
     await db.refresh(new_conv)
@@ -1700,41 +1764,8 @@ async def drafts_page(
 # ─────────────────────────────────────────────────────────────────────────────
 # PAYMENT METHODS
 # ─────────────────────────────────────────────────────────────────────────────
-
-# Currency mapping by country (used only for the *display* default; the actual
-# charge currency is settings.PAYMENT_CURRENCY).
-COUNTRY_CURRENCY_MAP = {
-    "Nigeria": "NGN", "NG": "NGN",
-    "United Kingdom": "GBP", "UK": "GBP", "GB": "GBP",
-    "Kenya": "KES", "KE": "KES",
-    "Ghana": "GHS", "GH": "GHS",
-    "United States": "USD", "US": "USD",
-    "Canada": "CAD", "CA": "CAD",
-    "South Africa": "ZAR", "ZA": "ZAR",
-    "India": "INR", "IN": "INR",
-    "Australia": "AUD", "AU": "AUD",
-    "United Arab Emirates": "AED", "AE": "AED",
-    "Germany": "EUR", "DE": "EUR", "France": "EUR", "FR": "EUR",
-    "Spain": "EUR", "ES": "EUR", "Italy": "EUR", "IT": "EUR",
-    "Netherlands": "EUR", "NL": "EUR",
-    "Tanzania": "TZS", "TZ": "TZS",
-    "Uganda": "UGX", "UG": "UGX",
-    "Ireland": "EUR", "IE": "EUR",
-    "Singapore": "SGD", "SG": "SGD",
-}
-
-def _detect_currency(user: User) -> str:
-    """Detect display currency from user's country field."""
-    country = getattr(user, 'country', None) or ''
-    return COUNTRY_CURRENCY_MAP.get(country, 'USD')
-
-
-# Symbols for presentation (the platform still charges in PAYMENT_CURRENCY).
-CURRENCY_SYMBOLS = {
-    "USD": "$", "NGN": "₦", "GBP": "£", "KES": "KSh ", "GHS": "GH₵",
-    "CAD": "CA$", "EUR": "€", "ZAR": "R", "INR": "₹", "AUD": "A$",
-    "AED": "د.إ", "TZS": "TSh", "UGX": "USh", "SGD": "S$",
-}
+# (CURRENCY_SYMBOLS and COUNTRY_CURRENCY_MAP are defined at the top of this
+#  module so all route handlers can reference them without ordering issues.)
 
 
 @router.get("/payment-methods", response_class=HTMLResponse)
