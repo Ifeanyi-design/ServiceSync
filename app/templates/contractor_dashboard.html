@@ -249,36 +249,77 @@
           </div>
         </div>
         {% endif %}
-        <form method="POST" action="/verification/submit" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-semibold text-gray-500 mb-1">Requested Tier</label>
-            <select name="requested_level" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
+        <form method="POST" action="/verification/submit" enctype="multipart/form-data" class="space-y-6">
+          <div class="bg-gray-50 border border-gray-200 rounded-xl p-5">
+            <label class="block text-sm font-bold text-gray-800 mb-2">Select your target tier</label>
+            <select id="tier_select" name="requested_level" onchange="updateVerificationFields()" class="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
               <option value="Bronze">Bronze — Email, phone, basic ID</option>
               <option value="Silver">Silver — Government ID + complete profile</option>
               <option value="Gold">Gold — Trade license + insurance</option>
               <option value="Verified Pro">Verified Pro — License, insurance, background check</option>
             </select>
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-500 mb-1">ID Document</label>
-            <input type="file" name="id_document" accept=".pdf,image/*" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white" />
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div id="group_id_document" class="col-span-1 sm:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm transition-all duration-300">
+              <label class="block text-sm font-semibold text-gray-700 mb-1 flex items-center gap-2">
+                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/></svg>
+                ID Document
+              </label>
+              <p class="text-xs text-gray-500 mb-3">Upload a valid government-issued ID (Passport, Driver's License).</p>
+              <input type="file" name="id_document" accept=".pdf,image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition cursor-pointer" />
+            </div>
+
+            <div id="group_license" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm transition-all duration-300 hidden">
+              <label class="block text-sm font-semibold text-gray-700 mb-1 flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                Trade License
+              </label>
+              <p class="text-xs text-gray-500 mb-3">Required for Gold+ tiers.</p>
+              <input type="file" name="license_document" accept=".pdf,image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 transition cursor-pointer" />
+            </div>
+
+            <div id="group_insurance" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm transition-all duration-300 hidden">
+              <label class="block text-sm font-semibold text-gray-700 mb-1 flex items-center gap-2">
+                <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                Insurance Proof
+              </label>
+              <p class="text-xs text-gray-500 mb-3">Required for Gold+ tiers.</p>
+              <input type="file" name="insurance_document" accept=".pdf,image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 transition cursor-pointer" />
+            </div>
+
+            <div class="col-span-1 sm:col-span-2">
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Additional Notes</label>
+              <textarea name="notes" rows="2" placeholder="Anything the reviewer should know..." class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"></textarea>
+            </div>
           </div>
+
           <div>
-            <label class="block text-xs font-semibold text-gray-500 mb-1">Trade License</label>
-            <input type="file" name="license_document" accept=".pdf,image/*" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white" />
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-500 mb-1">Insurance</label>
-            <input type="file" name="insurance_document" accept=".pdf,image/*" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white" />
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-500 mb-1">Notes</label>
-            <input type="text" name="notes" placeholder="Anything the reviewer should know" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2" />
-          </div>
-          <div class="sm:col-span-2">
-            <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition shadow-md hover:shadow-blue-200">Submit for Verification</button>
+            <button type="submit" class="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-bold rounded-xl transition shadow-lg shadow-blue-200 hover:shadow-xl hover:-translate-y-0.5">
+              Submit for Verification
+            </button>
           </div>
         </form>
+
+        <script>
+          function updateVerificationFields() {
+            const tier = document.getElementById('tier_select').value;
+            const licenseGroup = document.getElementById('group_license');
+            const insuranceGroup = document.getElementById('group_insurance');
+            const idGroup = document.getElementById('group_id_document');
+            
+            if (tier === 'Gold' || tier === 'Verified Pro') {
+              licenseGroup.classList.remove('hidden');
+              insuranceGroup.classList.remove('hidden');
+              idGroup.classList.replace('sm:col-span-2', 'sm:col-span-2'); // keep full width
+            } else {
+              licenseGroup.classList.add('hidden');
+              insuranceGroup.classList.add('hidden');
+            }
+          }
+          // Initialize state on page load
+          document.addEventListener('DOMContentLoaded', updateVerificationFields);
+        </script>
       {% endif %}
     </div>
   </section>
