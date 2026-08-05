@@ -116,15 +116,15 @@
     <div class="grid grid-cols-3 gap-3">
       <div class="text-center bg-blue-50/50 rounded-xl p-3">
         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total</p>
-        <p class="text-base font-extrabold text-gray-900">${{ '%.2f' | format((escrow.total_amount or escrow.quoted_amount or 0) | float) }}</p>
+        <p class="text-base font-extrabold text-gray-900">{{ fmt_money(escrow.total_amount or escrow.quoted_amount or 0, escrow.currency) }}</p>
       </div>
       <div class="text-center bg-gray-50 rounded-xl p-3">
         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Platform fee</p>
-        <p class="text-base font-extrabold text-gray-500">${{ '%.2f' | format((escrow.platform_fee or 0) | float) }}</p>
+        <p class="text-base font-extrabold text-gray-500">{{ fmt_money(escrow.platform_fee or 0, escrow.currency) }}</p>
       </div>
       <div class="text-center bg-emerald-50 rounded-xl p-3">
         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Pro payout</p>
-        <p class="text-base font-extrabold text-emerald-600">${{ '%.2f' | format((escrow.contractor_payout or 0) | float) }}</p>
+        <p class="text-base font-extrabold text-emerald-600">{{ fmt_money(escrow.contractor_payout or 0, escrow.currency) }}</p>
       </div>
     </div>
     {% if escrow.currency and escrow.currency != 'USD' %}

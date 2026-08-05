@@ -29,6 +29,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.globals["is_premium"] = subscription_service.is_premium
 
+# Global money helpers so templates NEVER hardcode a currency symbol.
+# ``escrow.currency`` is authoritative; fall back to the active charge currency.
+def _symbol_for(currency: Optional[str]) -> str:
+    code = (currency or "").upper() or \
+        (settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY)
+    return CURRENCY_SYMBOLS.get(code, "$")
+
+def fmt_money(amount, currency: Optional[str] = None) -> str:
+    """Render an amount in the correct currency symbol (e.g. ₦1,200.00)."""
+    try:
+        val = float(amount or 0)
+    except (TypeError, ValueError):
+        val = 0.0
+    return f"{_symbol_for(currency)}{val:,.2f}"
+
+templates.env.globals["currency_symbol_for"] = _symbol_for
+templates.env.globals["fmt_money"] = fmt_money
+
 router = APIRouter()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -136,7 +154,12 @@ async def homepage(request: Request, current_user: Optional[User] = Depends(get_
 
 @router.get("/search", response_class=HTMLResponse)
 async def search_page(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
-    return templates.TemplateResponse(request=request, name="search.html", context={"request": request, "current_user": current_user})
+    return templates.TemplateResponse(request=request, name="search.html", context={
+        "request": request,
+        "current_user": current_user,
+        "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
+        "charge_symbol": currency_symbol_for(settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY),
+    })
 
 
 @router.get("/contractors", response_class=HTMLResponse)
@@ -184,6 +207,7 @@ async def contractor_listing(
         "format_location": format_location,
         "filters": {"profession": profession, "city": city, "country": country},
         "sort": sort or "",
+        "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
     })
 
 
@@ -214,6 +238,7 @@ async def contractor_public_profile(
         "contractor": contractor,
         "reviews": reviews,
         "completed_jobs_count": completed_jobs_count,
+        "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
         "format_location": format_location,
     })
 
@@ -229,6 +254,8 @@ async def integrations_page(request: Request, current_user: User = Depends(get_c
         "request": request,
         "current_user": current_user,
         "integrations": integrations,
+        "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
+        "charge_symbol": currency_symbol_for(settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY),
     })
 
 
@@ -386,6 +413,7 @@ async def billing_page(request: Request, current_user: User = Depends(get_curren
         "premium_price": settings.PREMIUM_MONTHLY_PRICE,
         "trial_days": settings.PREMIUM_TRIAL_DAYS,
         "wallet_balance": float((await wallet_service.get_wallet(db, current_user.id)).available_balance),
+        "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
     }
     return templates.TemplateResponse(request=request, name="billing.html", context=ctx)
 
@@ -496,6 +524,7 @@ async def analytics_page(request: Request, current_user: User = Depends(get_curr
         "earnings_released": earnings_released,
         "earnings_pending": earnings_pending,
         "active_jobs": active_jobs,
+        "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
     })
 
 
@@ -516,6 +545,7 @@ async def wallet_page(request: Request, current_user: User = Depends(get_current
     txns = txns_result.all()
 
     clearing_days = settings.PREMIUM_CLEARING_DAYS if subscription_service.is_premium(current_user) else settings.CLEARING_DAYS
+    wallet_currency = (wallet.currency or settings.PAYMENT_CURRENCY).upper()
     return templates.TemplateResponse(request=request, name="wallet.html", context={
         "request": request,
         "current_user": current_user,
@@ -523,6 +553,9 @@ async def wallet_page(request: Request, current_user: User = Depends(get_current
         "wallet": wallet,
         "transactions": txns,
         "clearing_days": clearing_days,
+        "wallet_currency": wallet_currency,
+        "wallet_symbol": CURRENCY_SYMBOLS.get(wallet_currency, "$"),
+        "payout_method_set": bool(current_user.paystack_recipient_code or current_user.stripe_account_id),
     })
 
 
@@ -545,10 +578,13 @@ async def wallet_withdraw(
         last4 = "".join(ch for ch in bank_account if ch.isdigit())[-4:]
         dest = f"bank ····{last4}" if last4 else "bank account"
     try:
+        wallet = await wallet_service.get_wallet(db, current_user.id)
         txn = await wallet_service.withdraw(
             db, current_user.id, Decimal(str(amount)),
+            currency=wallet.currency,
             reference=f"wd_{current_user.id}_{int(datetime.utcnow().timestamp())}",
             note=f"Withdrawal via {method} to {dest}",
+            method=method,
         )
     except ValueError as e:
         return RedirectResponse(url=f"/wallet?error={e}", status_code=302)
@@ -779,6 +815,7 @@ async def job_receipt_page(request: Request, job_id: int, current_user: User = D
         "customer": customer,
         "escrow": escrow,
         "currency_symbol": currency_sym,
+        "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
         "conversation_id": conv.id if conv else None,
         "format_location": format_location,
     })
@@ -1489,6 +1526,7 @@ async def customer_dashboard(request: Request, current_user: User = Depends(get_
         "reviewed_job_ids": reviewed_job_ids,
         "active_statuses": ["open", "matched", "booked", "in_progress", "completed_pending"],
         "flash": _flash_from_query(request),
+        "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
         "format_location": format_location
     })
 
@@ -1609,6 +1647,8 @@ async def contractor_dashboard(request: Request, current_user: User = Depends(ge
         "is_boosted": is_boosted,
         "boosted_until": current_user.boosted_until,
         "stripe_connected": bool(current_user.stripe_account_id),
+        "paystack_connected": bool(current_user.paystack_recipient_code),
+        "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
         "flash": flash,
         "format_location": format_location
     })

@@ -269,6 +269,74 @@ def charge_minimum(currency: Optional[str] = None) -> Decimal:
     return Decimal(str(val))
 
 
+def refund_customer_payment(
+    amount: Decimal | int,
+    currency: str = "USD",
+    payment_gateway_id: Optional[str] = None,
+    metadata: Optional[dict] = None,
+) -> dict:
+    """Refund a customer's escrow payment through the real processor.
+
+    - Paystack: refunds the transaction by its reference (ignores the amount;
+      Paystack refunds the full charge).
+    - Stripe: refunds the PaymentIntent by its id when available.
+    - Otherwise records a demo refund so the flow stays testable.
+
+    Returns {success, mode, reference_id, ...}.
+    """
+    ref = f"ref_mock_{int(datetime.utcnow().timestamp())}"
+    gateway_id = payment_gateway_id or ""
+
+    # Paystack takes precedence when it was the charging processor.
+    if gateway_id.startswith(("pi_", "ch_", "re_", "po_paystack_mock_", "paystack_")):
+        pass  # fall through to Paystack/Stripe detection below
+
+    if paystack_available() and gateway_id and not gateway_id.startswith(("pi_", "po_")):
+        try:
+            resp = _paystack_request("POST", f"/transaction/refund/{gateway_id}")
+            if resp.get("status"):
+                data = resp.get("data") or {}
+                return {
+                    "success": True,
+                    "mode": "paystack",
+                    "reference_id": data.get("reference") or data.get("transaction"),
+                    "amount": float(amount),
+                    "currency": currency,
+                    "processed_at": datetime.utcnow().isoformat(),
+                }
+            return {"success": False, "mode": "paystack", "error": resp.get("message", "refund failed")}
+        except Exception as exc:
+            return {"success": False, "mode": "paystack", "error": str(exc)}
+
+    if _stripe_available() and gateway_id:
+        try:
+            import stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            refund = stripe.Refund.create(
+                payment_intent=gateway_id,
+                metadata=metadata or {},
+            )
+            return {
+                "success": True,
+                "mode": "stripe",
+                "reference_id": refund["id"],
+                "amount": float(amount),
+                "currency": currency,
+                "processed_at": datetime.utcnow().isoformat(),
+            }
+        except Exception as exc:
+            return {"success": False, "mode": "stripe", "error": str(exc)}
+
+    return {
+        "success": True,
+        "mode": "mock",
+        "reference_id": ref,
+        "amount": float(amount),
+        "currency": currency,
+        "processed_at": datetime.utcnow().isoformat(),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Paystack — primary processor for NG/Africa (cards, bank transfer, mobile money)
 # ---------------------------------------------------------------------------

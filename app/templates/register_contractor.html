@@ -256,9 +256,9 @@
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Base Call-Out Fee ($)</label>
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Base Call-Out Fee</label>
                   <div class="relative">
-                    <span class="absolute inset-y-0 left-3.5 flex items-center text-gray-400 text-sm font-semibold">$</span>
+                    <span class="absolute inset-y-0 left-3.5 flex items-center text-gray-400 text-sm font-semibold">{{ currency_symbol_for(None) }}</span>
                     <input type="number" name="base_pricing" placeholder="120" min="0"
                       class="w-full pl-7 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
                   </div>
@@ -378,9 +378,9 @@
                     </div>
                   </div>
                   <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Liability Bond Limit ($)</label>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Liability Bond Limit</label>
                     <div class="relative">
-                      <span class="absolute inset-y-0 left-3.5 flex items-center text-gray-400 text-sm font-semibold">$</span>
+                      <span class="absolute inset-y-0 left-3.5 flex items-center text-gray-400 text-sm font-semibold">{{ currency_symbol_for(None) }}</span>
                       <input type="number" id="electrical_bond_limit" placeholder="1,000,000"
                         class="w-full pl-7 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition" />
                     </div>

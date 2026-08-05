@@ -72,10 +72,10 @@
         <div>
           <label for="base_pricing" class="block text-sm font-semibold text-gray-700 mb-2">
             Base Hourly Rate
-            <span class="ml-1 text-xs font-normal text-gray-400">(USD)</span>
+            <span class="ml-1 text-xs font-normal text-gray-400">({{ charge_currency }})</span>
           </label>
           <div class="relative">
-            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm">$</span>
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm">{{ charge_symbol }}</span>
             <input
               type="number"
               id="base_pricing"

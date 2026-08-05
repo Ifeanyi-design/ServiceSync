@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, timedelta
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Cookie
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -27,6 +28,8 @@ from app.services.email_service import (
 )
 
 router = APIRouter()
+
+logger = logging.getLogger("api.auth")
 
 REFRESH_COOKIE = "refresh_token"
 
@@ -84,6 +87,10 @@ async def login(
     if admin_2fa_required(user):
         user.twofa_code = issue_2fa_code(user)
         await db.commit()
+        logger.warning(
+            "2FA code for %s: %s (expires in 10 min)",
+            user.email, user.twofa_code,
+        )
         try:
             await send_2fa_code_email(user.email, user.twofa_code)
         except Exception:

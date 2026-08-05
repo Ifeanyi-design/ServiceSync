@@ -312,6 +312,7 @@ class ContractorWallet(SQLModel, table=True):
     """Per-contractor earnings wallet with pending (clearing) and available balances."""
     id: Optional[int] = Field(default=None, primary_key=True)
     contractor_id: int = Field(foreign_key="user.id", unique=True)
+    currency: str = Field(default="USD")
     pending_balance: Decimal = Field(default=Decimal("0.00"), sa_column=Column(Numeric(12, 2)))
     available_balance: Decimal = Field(default=Decimal("0.00"), sa_column=Column(Numeric(12, 2)))
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -325,6 +326,7 @@ class WalletTransaction(SQLModel, table=True):
     contractor_id: int = Field(foreign_key="user.id")
     type: str  # credit_pending, clear_to_available, withdrawal, refund_debit
     amount: Decimal = Field(sa_column=Column(Numeric(12, 2)))
+    currency: str = Field(default="USD")
     status: str = Field(default="completed")  # pending, completed, failed
     reference: Optional[str] = None
     note: Optional[str] = None

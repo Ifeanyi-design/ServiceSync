@@ -76,7 +76,7 @@
       <div class="mt-6 flex items-center gap-4">
         <div>
           <p class="text-blue-200 text-xs uppercase tracking-wider font-bold mb-0.5">Total Paid</p>
-          <p class="text-4xl font-black">{{ currency_symbol }}{{ '%.2f' | format(receipt.amount) }} <span class="text-lg font-semibold text-blue-200">{{ receipt.currency or 'USD' }}</span></p>
+          <p class="text-4xl font-black">{{ fmt_money(receipt.amount, receipt.currency) }} <span class="text-lg font-semibold text-blue-200">{{ receipt.currency or charge_currency }}</span></p>
         </div>
         <div class="flex-1"></div>
         <!-- Status badge — reflects actual escrow state -->
@@ -238,7 +238,7 @@
         <div class="text-right">
           <p class="text-gray-400 uppercase tracking-widest font-bold mb-1">Issued</p>
           <p class="text-gray-700 font-semibold">{{ receipt.issued_at.strftime('%b %d, %Y %H:%M') }}</p>
-          <p class="text-gray-400">{{ receipt.currency or 'USD' }}</p>
+          <p class="text-gray-400">{{ receipt.currency or charge_currency }}</p>
         </div>
       </div>
 

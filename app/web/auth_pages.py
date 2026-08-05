@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
+import logging
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -25,6 +26,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 router = APIRouter(prefix="/auth")
+
+logger = logging.getLogger("web.auth")
 
 
 # ─────────────────────────────────────────────
@@ -77,6 +80,10 @@ async def login_submit(
     if admin_2fa_required(user):
         user.twofa_code = issue_2fa_code(user)
         await db.commit()
+        logger.warning(
+            "2FA code for %s: %s (expires in 10 min)",
+            user.email, user.twofa_code,
+        )
         try:
             await send_2fa_code_email(user.email, user.twofa_code)
         except Exception:

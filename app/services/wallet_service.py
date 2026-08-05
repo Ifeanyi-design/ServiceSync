@@ -5,7 +5,8 @@ Manages a per-contractor wallet with a *pending* (clearing) balance and an
 *available* balance. When an escrow is released, the contractor payout is
 credited as pending and becomes available after a clearing window
 (faster for premium contractors). Contractors can then withdraw available
-funds (mock payout today; Stripe-ready later).
+funds — routed through Paystack Transfer (NG/Africa), Stripe Connect, or a
+safe demo record depending on what is configured.
 """
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -22,13 +23,25 @@ def _now() -> datetime:
     return datetime.utcnow()
 
 
+def _wallet_currency(wallet: Optional[ContractorWallet] = None) -> str:
+    """The currency this wallet is accounted in."""
+    if wallet and wallet.currency:
+        return wallet.currency
+    # Fall back to the platform's active charge currency.
+    return settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" \
+        else settings.PAYMENT_CURRENCY
+
+
 async def ensure_wallet(db: AsyncSession, contractor_id: int) -> ContractorWallet:
     result = await db.exec(
         select(ContractorWallet).where(ContractorWallet.contractor_id == contractor_id)
     )
     wallet = result.first()
     if wallet is None:
-        wallet = ContractorWallet(contractor_id=contractor_id)
+        wallet = ContractorWallet(
+            contractor_id=contractor_id,
+            currency=_wallet_currency(),
+        )
         db.add(wallet)
         await db.commit()
         await db.refresh(wallet)
@@ -41,9 +54,12 @@ async def credit_pending(
     amount: Decimal,
     reference: str,
     note: Optional[str] = None,
+    currency: Optional[str] = None,
 ) -> WalletTransaction:
     """Credit a released payout as pending, with an availability date."""
     wallet = await ensure_wallet(db, contractor_id)
+    if currency:
+        wallet.currency = currency
     contractor = await db.get(User, contractor_id)
     clearing = settings.PREMIUM_CLEARING_DAYS if (
         contractor and contractor.subscription_tier == "premium"
@@ -58,6 +74,7 @@ async def credit_pending(
         contractor_id=contractor_id,
         type="credit_pending",
         amount=amount,
+        currency=currency or wallet.currency,
         status="pending",
         reference=reference,
         note=note,
@@ -99,34 +116,68 @@ async def withdraw(
     db: AsyncSession,
     contractor_id: int,
     amount: Decimal,
-    reference: str,
+    currency: Optional[str] = None,
+    reference: Optional[str] = None,
     note: Optional[str] = None,
+    method: str = "bank",
 ) -> WalletTransaction:
-    """Withdraw from the available balance (funds must already be cleared)."""
+    """Withdraw from the available balance (funds must already be cleared).
+
+    The payout is routed in the wallet's currency:
+    1. Paystack Transfer when the contractor has a verified recipient code and
+       Paystack is live (NG/Africa markets).
+    2. Stripe Connect transfer when the contractor is connected and Stripe is
+       configured.
+    3. A safe demo record otherwise — the wallet is still debited so the
+       full flow is testable with zero configuration.
+    """
     wallet = await ensure_wallet(db, contractor_id)
     # Make sure any cleared funds are reflected first
     await clear_funds(db, contractor_id)
+    cur = (currency or wallet.currency or settings.PAYMENT_CURRENCY).upper()
+    wallet.currency = cur
     available = wallet.available_balance or Decimal("0.00")
     if amount <= 0:
         raise ValueError("Withdrawal amount must be greater than zero")
     if amount > available:
-        raise ValueError(f"Insufficient available balance (${available})")
+        raise ValueError(f"Insufficient available balance ({amount} {cur})")
+
+    contractor = await db.get(User, contractor_id)
+
+    from app.services.payment_gateway import (
+        payout_to_contractor,
+        payout_to_contractor_via_paystack,
+    )
+
+    recipient = getattr(contractor, "paystack_recipient_code", None) if contractor else None
+    ref = reference or f"wd_{contractor_id}_{int(datetime.utcnow().timestamp())}"
+
+    payout = None
+    if recipient and settings.paystack_live and cur in ("NGN", "GHS", "KES", "ZAR", "USD"):
+        kobo = int(round(float(amount) * 100))
+        payout = payout_to_contractor_via_paystack(
+            contractor_id, kobo, recipient, cur, reason="Wallet withdrawal",
+        )
+    else:
+        connected = contractor.stripe_account_id if contractor else None
+        payout = payout_to_contractor(
+            contractor_id, amount, cur.lower(), connected,
+            metadata={"kind": "withdrawal", "method": method},
+        )
+
+    if payout is not None and payout.get("success") is False:
+        raise ValueError(payout.get("error", "Payout failed"))
 
     wallet.available_balance = available - amount
     db.add(wallet)
-
-    # Real payout to contractor's bank (Stripe Connect) when configured
-    from app.services.payment_gateway import payout_to_contractor
-    contractor = await db.get(User, contractor_id)
-    connected = contractor.stripe_account_id if contractor else None
-    payout = payout_to_contractor(contractor_id, amount, "usd", connected, metadata={"kind": "withdrawal"})
 
     txn = WalletTransaction(
         contractor_id=contractor_id,
         type="withdrawal",
         amount=amount,
+        currency=cur,
         status="completed",
-        reference=payout["reference_id"],
+        reference=(payout or {}).get("reference_id") or ref,
         note=note,
     )
     db.add(txn)
@@ -137,7 +188,9 @@ async def withdraw(
 
 async def get_wallet(db: AsyncSession, contractor_id: int) -> ContractorWallet:
     await clear_funds(db, contractor_id)
-    return await ensure_wallet(db, contractor_id)
+    wallet = await ensure_wallet(db, contractor_id)
+    wallet.currency = _wallet_currency(wallet)
+    return wallet
 
 
 async def pay_subscription_from_wallet(
@@ -150,11 +203,12 @@ async def pay_subscription_from_wallet(
     """Pay for a subscription/boost using cleared wallet earnings (no bank payout)."""
     wallet = await ensure_wallet(db, contractor_id)
     await clear_funds(db, contractor_id)
+    cur = _wallet_currency(wallet)
     available = wallet.available_balance or Decimal("0.00")
     if amount <= 0:
         raise ValueError("Amount must be greater than zero")
     if amount > available:
-        raise ValueError(f"Insufficient available balance (${available})")
+        raise ValueError(f"Insufficient available balance ({amount} {cur})")
 
     wallet.available_balance = available - amount
     db.add(wallet)
@@ -163,6 +217,7 @@ async def pay_subscription_from_wallet(
         contractor_id=contractor_id,
         type="subscription_payment",
         amount=amount,
+        currency=cur,
         status="completed",
         reference=reference,
         note=note,

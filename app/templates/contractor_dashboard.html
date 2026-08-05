@@ -120,7 +120,7 @@
     <!-- Total Earnings -->
     <div class="bg-white p-5 rounded-xl border border-gray-200 flex-1 text-center shadow-sm min-w-[140px] hover:shadow-md hover:border-emerald-200 transition-all duration-300">
       <p class="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-2">Earnings</p>
-      <p class="text-2xl sm:text-4xl font-extrabold text-emerald-600">${{ "%.2f" | format(total_earnings) }}</p>
+      <p class="text-2xl sm:text-4xl font-extrabold text-emerald-600">{{ fmt_money(total_earnings, charge_currency) }}</p>
       <p class="text-xs text-gray-400 mt-3">From active jobs</p>
     </div>
 
@@ -180,31 +180,31 @@
     </div>
     <form method="POST" action="/contractor/boost">
       <button type="submit" class="px-5 py-2.5 rounded-xl bg-white text-indigo-700 font-bold text-sm hover:bg-indigo-50 transition shadow active:scale-95 whitespace-nowrap">
-        {% if is_boosted %}Boost Again{% else %}Boost — ${{ '%.0f' | format(boost_price) }}{% endif %}
+        {% if is_boosted %}Boost Again{% else %}Boost — {{ fmt_money(boost_price, charge_currency) }}{% endif %}
       </button>
     </form>
   </div>
 
-  <!-- ====== PAYOUTS / STRIPE CONNECT ====== -->
+  <!-- ====== PAYOUTS / EARNINGS ====== -->
   <div class="mb-10 bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
         <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
       </div>
       <div>
-        <p class="text-gray-900 font-bold text-sm">Payouts</p>
-        {% if stripe_connected %}
-        <p class="text-emerald-600 text-xs font-semibold">Connected — you can receive payouts to your bank.</p>
+        <p class="text-gray-900 font-bold text-sm">Withdraw Earnings</p>
+        {% if paystack_connected %}
+        <p class="text-emerald-600 text-xs font-semibold">Paystack bank account connected — withdrawals pay out to your bank.</p>
+        {% elif stripe_connected %}
+        <p class="text-emerald-600 text-xs font-semibold">Stripe connected — you can receive payouts to your bank.</p>
         {% else %}
-        <p class="text-gray-500 text-xs">Connect your bank via Stripe to receive released escrow funds.</p>
+        <p class="text-gray-500 text-xs">Connect a payout method to receive your earnings.</p>
         {% endif %}
       </div>
     </div>
-    <form method="POST" action="/contractor/stripe/connect">
-      <button type="submit" class="px-5 py-2.5 rounded-xl {% if stripe_connected %}bg-gray-100 text-gray-700 hover:bg-gray-200{% else %}bg-emerald-600 text-white hover:bg-emerald-700{% endif %} font-bold text-sm transition shadow-sm active:scale-95 whitespace-nowrap">
-        {% if stripe_connected %}Manage Payouts{% else %}Connect Payouts{% endif %}
-      </button>
-    </form>
+    <a href="/wallet" class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-sm transition shadow-sm active:scale-95 whitespace-nowrap">
+      Open Wallet
+    </a>
   </div>
 
   <!-- ====== TRUST & VERIFICATION ====== -->
@@ -367,12 +367,12 @@
                   {% if escrow.status == 'held' %}
                   <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    ${{ escrow.contractor_payout }} payout
+                    {{ fmt_money(escrow.contractor_payout, escrow.currency) }} payout
                   </span>
                   {% elif escrow.status == 'released' %}
                   <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full border border-blue-100">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    Paid ${{ escrow.contractor_payout }}
+                    Paid {{ fmt_money(escrow.contractor_payout, escrow.currency) }}
                   </span>
                   {% elif escrow.status == 'disputed' %}
                   <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-full border border-red-100">

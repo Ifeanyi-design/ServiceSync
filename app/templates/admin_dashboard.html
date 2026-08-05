@@ -470,9 +470,9 @@
             <td class="px-6 py-4 text-sm text-gray-600">
               <a href="/chat/{{ escrow.job_id }}" class="text-blue-600 hover:underline font-medium">#{{ escrow.job_id }}</a>
             </td>
-            <td class="px-6 py-4 text-sm font-semibold text-gray-900">${{ '%.2f' | format(escrow.total_amount | float) }}</td>
-            <td class="px-6 py-4 text-sm text-gray-500">${{ '%.2f' | format(escrow.platform_fee | float) }}</td>
-            <td class="px-6 py-4 text-sm text-green-600 font-semibold">${{ '%.2f' | format(escrow.contractor_payout | float) }}</td>
+            <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ fmt_money(escrow.total_amount, escrow.currency) }}</td>
+            <td class="px-6 py-4 text-sm text-gray-500">{{ fmt_money(escrow.platform_fee, escrow.currency) }}</td>
+            <td class="px-6 py-4 text-sm text-green-600 font-semibold">{{ fmt_money(escrow.contractor_payout, escrow.currency) }}</td>
             <td class="px-6 py-4">
               <span class="px-2.5 py-1 text-xs font-bold rounded-full
                 {{ 'bg-amber-50 text-amber-700' if escrow.status == 'held' else
@@ -488,11 +488,11 @@
               {% if escrow.status == 'held' %}
               <div class="flex items-center gap-1">
                 <form method="POST" action="/admin/escrow/{{ escrow.id }}/release" class="inline"
-                      onsubmit="return confirm('Release ${{ '%.2f' | format(escrow.contractor_payout | float) }} to the contractor for job #{{ escrow.job_id }}?');">
+                      onsubmit="return confirm('Release {{ fmt_money(escrow.contractor_payout, escrow.currency) }} to the contractor for job #{{ escrow.job_id }}?');">
                   <button type="submit" class="text-xs font-semibold text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-2 py-1 rounded-lg transition">Release</button>
                 </form>
                 <form method="POST" action="/admin/escrow/{{ escrow.id }}/refund" class="inline"
-                      onsubmit="return confirm('Refund ${{ '%.2f' | format(escrow.total_amount | float) }} to the customer for job #{{ escrow.job_id }}? This cannot be undone.');">
+                      onsubmit="return confirm('Refund {{ fmt_money(escrow.total_amount, escrow.currency) }} to the customer for job #{{ escrow.job_id }}? This cannot be undone.');">
                   <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg transition">Refund</button>
                 </form>
               </div>

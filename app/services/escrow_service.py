@@ -10,8 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 
 from app.models.all_models import Escrow, Dispute, Job, User, Receipt, DirectMessage, Conversation
-from app.services.payout_gateway import process_payout, refund_payment
-from app.services.payment_gateway import capture_payment
+from app.services.payment_gateway import capture_payment, refund_customer_payment
 from app.services.subscription_service import commission_rate
 from app.services.alert_service import dispatch_alert
 from app.core.config import settings
@@ -328,8 +327,15 @@ async def refund_escrow(db: AsyncSession, escrow: Escrow, reason: Optional[str] 
     escrow.customer_refund = escrow.total_amount
     escrow.refunded_at = datetime.utcnow()
     
-    # Mock refund
-    await refund_payment(escrow.customer_id, escrow.total_amount, escrow.currency)
+    # Route the refund through the real processor when configured (Paystack or
+    # Stripe by the stored payment reference); demo-safe otherwise.
+    await asyncio.to_thread(
+        refund_customer_payment,
+        escrow.total_amount,
+        escrow.currency,
+        escrow.payment_gateway_id,
+        {"job_id": str(escrow.job_id), "kind": "contractor_cancelled"},
+    )
     
     db.add(escrow)
     await db.flush()
@@ -377,7 +383,13 @@ async def penalty_split_escrow(db: AsyncSession, escrow: Escrow, late_cancellati
             escrow.contractor_id, contractor_compensation, escrow.currency, connected,
             metadata={"job_id": str(escrow.job_id), "kind": "late_cancel_compensation"},
         )
-    await refund_payment(escrow.customer_id, customer_refund, escrow.currency)
+    await asyncio.to_thread(
+        refund_customer_payment,
+        customer_refund,
+        escrow.currency,
+        escrow.payment_gateway_id,
+        {"job_id": str(escrow.job_id), "kind": "late_cancel_refund"},
+    )
 
     # Credit contractor compensation to wallet (pending → clears later)
     from app.services.wallet_service import credit_pending
@@ -474,7 +486,13 @@ async def resolve_dispute(
         if refund_pct >= 100:
             escrow.status = "refunded"
             escrow.refunded_at = datetime.utcnow()
-            await refund_payment(escrow.customer_id, refund_amount, escrow.currency)
+            await asyncio.to_thread(
+                refund_customer_payment,
+                refund_amount,
+                escrow.currency,
+                escrow.payment_gateway_id,
+                {"job_id": str(escrow.job_id), "kind": "dispute_full_refund"},
+            )
         elif refund_pct <= 0:
             escrow.status = "released"
             escrow.released_at = datetime.utcnow()
@@ -541,7 +559,13 @@ async def resolve_dispute(
                 reference=f"disp_{escrow.job_id}",
                 note=f"Dispute split payout (job #{escrow.job_id})",
             )
-            await refund_payment(escrow.customer_id, refund_amount, escrow.currency)
+            await asyncio.to_thread(
+                refund_customer_payment,
+                refund_amount,
+                escrow.currency,
+                escrow.payment_gateway_id,
+                {"job_id": str(escrow.job_id), "kind": "dispute_split_refund"},
+            )
         
         # Reflect the outcome on the job so dashboards stay consistent.
         job = await db.get(Job, escrow.job_id)

@@ -311,7 +311,7 @@
 
         <!-- Price -->
         <div class="flex items-baseline gap-1 mt-auto mb-4 pt-2 border-t border-gray-50">
-          <span class="text-xl font-extrabold text-gray-900">${{ '%.0f'|format(c.base_pricing | float) if c.base_pricing else '—' }}</span>
+          <span class="text-xl font-extrabold text-gray-900">{{ fmt_money(c.base_pricing, charge_currency) if c.base_pricing else '—' }}</span>
           <span class="text-xs text-gray-400 font-medium">starting price</span>
         </div>
 

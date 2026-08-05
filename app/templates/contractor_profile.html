@@ -184,7 +184,7 @@
           <div class="p-6 text-center">
             <!-- Price -->
             <div class="mb-1">
-              <span class="text-4xl font-extrabold text-gray-900">${{ contractor.base_pricing or 0 }}</span>
+              <span class="text-4xl font-extrabold text-gray-900">{{ fmt_money(contractor.base_pricing, charge_currency) if contractor.base_pricing else '—' }}</span>
             </div>
             <p class="text-sm text-gray-400 mb-5">Base Price / Job</p>
 

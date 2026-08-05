@@ -35,12 +35,12 @@
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
     <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
       <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Paid Out</p>
-      <p class="text-3xl font-extrabold text-emerald-600">${{ '%.2f' | format(earnings_released) }}</p>
+      <p class="text-3xl font-extrabold text-emerald-600">{{ fmt_money(earnings_released, charge_currency) }}</p>
       <p class="text-xs text-gray-400 mt-1">Released from escrow</p>
     </div>
     <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
       <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">In Escrow</p>
-      <p class="text-3xl font-extrabold text-amber-500">${{ '%.2f' | format(earnings_pending) }}</p>
+      <p class="text-3xl font-extrabold text-amber-500">{{ fmt_money(earnings_pending, charge_currency) }}</p>
       <p class="text-xs text-gray-400 mt-1">Held, pending completion</p>
     </div>
     <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
