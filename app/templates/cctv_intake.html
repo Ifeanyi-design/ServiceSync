@@ -35,7 +35,7 @@
 
   <div id="brief" class="hidden mt-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
     <h2 class="font-semibold text-gray-900 dark:text-white mb-2">Structured brief</h2>
-    <pre id="briefJson" class="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap"></pre>
+    <div id="briefJson" class="text-sm text-gray-700 dark:text-gray-300"></div>
   </div>
 
   <div id="contractors" class="hidden mt-6">
@@ -51,6 +51,34 @@
 <script>
   const submitBtn = document.getElementById("submitBtn");
   const callBtn = document.getElementById("callBtn");
+
+  // Render the AI brief as readable fields instead of raw JSON.
+  function renderBrief(el, obj, pad) {
+    pad = pad || 0;
+    el.innerHTML = "";
+    for (const [k, v] of Object.entries(obj || {})) {
+      const row = document.createElement("div");
+      row.className = "py-1" + (pad ? " ml-4 border-l border-gray-200 dark:border-gray-700 pl-3" : "");
+      const key = document.createElement("span");
+      key.className = "font-medium capitalize text-gray-800 dark:text-gray-100";
+      key.textContent = k.replace(/_/g, " ");
+      row.appendChild(key);
+      const val = document.createElement("span");
+      val.className = "ml-2 text-gray-600 dark:text-gray-300";
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        el.appendChild(row);
+        const child = document.createElement("div");
+        child.className = "mt-1";
+        renderBrief(child, v, pad + 1);
+        el.appendChild(child);
+        continue;
+      }
+      val.textContent = (v === null || v === undefined || v === "") ? "—" : String(v);
+      row.appendChild(val);
+      el.appendChild(row);
+    }
+  }
+
   submitBtn.addEventListener("click", async () => {
     const description = document.getElementById("description").value.trim();
     if (!description) return;
@@ -70,7 +98,7 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Request failed");
 
-      document.getElementById("briefJson").textContent = JSON.stringify(data.brief, null, 2);
+      renderBrief(document.getElementById("briefJson"), data.brief);
       document.getElementById("brief").classList.remove("hidden");
 
       const list = document.getElementById("contractorList");
