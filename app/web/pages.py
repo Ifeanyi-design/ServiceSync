@@ -10,6 +10,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 from decimal import Decimal
 from urllib.parse import quote
+import json
 
 from app.api.dependencies import get_current_user_optional, get_current_user, get_db
 from app.models.all_models import User, Job, Conversation, DirectMessage, OmnichannelIntegration, Review, Escrow, Dispute, AIDraft, VerificationRequest, WalletTransaction, Receipt, MaterialOrder
@@ -54,6 +55,7 @@ def fmt_money(amount, currency: Optional[str] = None) -> str:
 
 templates.env.globals["currency_symbol_for"] = _symbol_for
 templates.env.globals["fmt_money"] = fmt_money
+templates.env.filters["fromjson"] = lambda s: json.loads(s) if s else None
 
 
 def voice_offer_out(o) -> dict:
