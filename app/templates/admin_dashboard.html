@@ -123,7 +123,8 @@
       ('escrows', 'Escrows', total_escrows),
       ('disputes', 'Disputes', pending_disputes if pending_disputes > 0 else all_disputes | length),
       ('verifications', 'Verifications', pending_verifications if pending_verifications > 0 else all_verifications | length),
-      ('ai-logs', 'AI Logs', audit_logs | length)
+      ('ai-logs', 'AI Logs', audit_logs | length),
+      ('settings', 'Settings', none)
     ] %}
     {% for tab_id, tab_label, tab_count in tabs %}
     <a href="/admin?tab={{ tab_id }}"
@@ -137,6 +138,13 @@
     </a>
     {% endfor %}
   </div>
+
+  {% set _flash = request.query_params.get('success') or request.query_params.get('info') or request.query_params.get('error') %}
+  {% if _flash %}
+  <div class="mb-6 rounded-xl px-4 py-3 text-sm {{ 'bg-green-50 text-green-700' if (request.query_params.get('success') or request.query_params.get('info')) else 'bg-rose-50 text-rose-700' }}">
+    {{ _flash }}
+  </div>
+  {% endif %}
 
   <!-- ====== TAB: OVERVIEW ====== -->
   {% if active_tab == 'overview' %}
@@ -763,6 +771,33 @@
       <div id="ai-logs-table-empty" class="hidden">
         {{ empty_state('No matching logs', 'Try a different action filter.', 'search', 'gray', compact=true) }}
       </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if active_tab == 'settings' %}
+  <div class="max-w-lg">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <h3 class="text-sm font-bold text-gray-900 mb-1">Account security</h3>
+      <p class="text-xs text-gray-500 mb-5">Manage two-factor authentication for your admin account.</p>
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Two-factor authentication</p>
+          <p class="text-xs text-gray-400">Currently: {{ 'Enabled' if current_user.twofa_enabled else 'Disabled' }}</p>
+        </div>
+        {% if current_user.twofa_enabled %}
+        <form method="post" action="/admin/me/2fa">
+          <input type="hidden" name="enabled" value="off">
+          <button type="submit" class="rounded-lg bg-rose-600 px-4 py-2 text-white text-xs font-bold hover:bg-rose-700">Disable</button>
+        </form>
+        {% else %}
+        <form method="post" action="/admin/me/2fa">
+          <input type="hidden" name="enabled" value="on">
+          <button type="submit" class="rounded-lg bg-green-600 px-4 py-2 text-white text-xs font-bold hover:bg-green-700">Enable</button>
+        </form>
+        {% endif %}
+      </div>
+      <p class="text-xs text-gray-400 mt-4">If email OTP delivery fails, set <code>ADMIN_2FA_BYPASS_CODE</code> as an env var for a recovery code.</p>
     </div>
   </div>
   {% endif %}

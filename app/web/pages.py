@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from typing import Optional
 from datetime import datetime, timedelta
 from decimal import Decimal
+from urllib.parse import quote
 
 from app.api.dependencies import get_current_user_optional, get_current_user, get_db
 from app.models.all_models import User, Job, Conversation, DirectMessage, OmnichannelIntegration, Review, Escrow, Dispute, AIDraft, VerificationRequest, WalletTransaction, Receipt, MaterialOrder
@@ -1490,6 +1491,28 @@ async def admin_toggle_availability(
         url=f"/admin?tab=users&success=Availability+set+to+{user.availability_status}",
         status_code=302,
     )
+
+
+@router.post("/admin/me/2fa")
+async def admin_toggle_self_2fa(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.role != "admin":
+        return RedirectResponse(url="/")
+    form = await request.form()
+    enabled = str(form.get("enabled", "")).lower() in ("on", "true", "1", "yes")
+    current_user.twofa_enabled = enabled
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+    msg = (
+        "Two-factor authentication enabled for your account"
+        if enabled
+        else "Two-factor authentication disabled for your account"
+    )
+    return RedirectResponse(url="/admin?tab=settings&info=" + quote(msg), status_code=302)
 
 
 @router.post("/admin/dispute/{dispute_id}/resolve")
