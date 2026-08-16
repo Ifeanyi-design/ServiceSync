@@ -33,28 +33,22 @@ async def mark_all_notifications_read(
 ) -> Any:
     """Advance the read cursor on all conversations so the notification badge clears."""
     from sqlmodel import select as sql_select
-    from app.models.all_models import ConversationParticipant, Message
-    from sqlalchemy import func
+    from app.models.all_models import Conversation
+    from datetime import datetime
 
-    # Find all participants for this user
-    parts_result = await db.exec(
-        sql_select(ConversationParticipant).where(
-            ConversationParticipant.user_id == current_user.id
+    now = datetime.utcnow()
+    result = await db.exec(
+        sql_select(Conversation).where(
+            (Conversation.customer_id == current_user.id)
+            | (Conversation.contractor_id == current_user.id)
         )
     )
-    participants = parts_result.all()
-
-    for part in participants:
-        # Get the latest message id in this conversation
-        msg_result = await db.exec(
-            sql_select(func.max(Message.id)).where(
-                Message.conversation_id == part.conversation_id
-            )
-        )
-        latest_id = msg_result.first()
-        if latest_id:
-            part.last_read_message_id = latest_id
-            db.add(part)
+    for conv in result.all():
+        if conv.customer_id == current_user.id:
+            conv.last_read_at_customer = now
+        if conv.contractor_id == current_user.id:
+            conv.last_read_at_contractor = now
+        db.add(conv)
 
     await db.commit()
     return {"ok": True}
