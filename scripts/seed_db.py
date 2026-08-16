@@ -10,8 +10,14 @@ from app.core.database import async_session_maker
 from app.core.security import get_password_hash
 from app.models.all_models import User, Job, Review, Conversation
 from app.core.config import settings
+from app.core.migrate import run_migration
 
 async def seed_db():
+    # Ensure the schema is in sync (adds any new tables/columns) before we read
+    # or write any rows — this is what makes deploys safe even if the build
+    # command doesn't explicitly run the migration.
+    await run_migration()
+
     # Never seed demo data (including the well-known admin@servicesync.com /
     # password123 account) into a real deployment. Set DEMO_MODE=true in
     # non-production environments only.

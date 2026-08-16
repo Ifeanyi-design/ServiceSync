@@ -26,6 +26,13 @@ from app.services.broadcast_hub import startup as broadcast_startup, shutdown as
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Bring the schema in sync (add any missing tables/columns) on every boot so
+    # deploys are safe even when the DB was created before new models landed.
+    try:
+        from app.core.migrate import run_migration
+        await run_migration()
+    except Exception as exc:  # migration must never block startup
+        print(f"WARNING: startup migration failed: {exc}")
     await broadcast_startup()
     yield
     await broadcast_shutdown()
