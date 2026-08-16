@@ -305,6 +305,33 @@ async def build_notifications(
                     "unread": True,
                 })
 
+    # --- New leads in the contractor's trade (unassigned open jobs) ---
+    if current_user.role == "contractor":
+        trades = {(current_user.profession or "").lower()} | {
+            s.lower() for s in (current_user.specialties or [])
+        }
+        lead_result = await db.exec(
+            select(Job).where(
+                Job.assigned_contractor_id == None,  # noqa: E711
+                Job.status.in_(["open", "quoted", "requested"]),
+            ).order_by(Job.created_at.desc()).limit(25)
+        )
+        for job in lead_result.all():
+            if job.customer_id == current_user.id:
+                continue
+            cat = (job.category or "general").lower()
+            if cat != "general" and cat not in trades:
+                continue
+            items.append({
+                "id": f"lead:{job.id}",
+                "kind": "lead",
+                "title": "New job lead in your trade",
+                "body": f"Job #{job.id}: {job.description}",
+                "href": f"/leads?job_id={job.id}",
+                "time": job.created_at.strftime("%b %d, %H:%M") if job.created_at else "",
+                "unread": True,
+            })
+
     # Deduplicate by id, keep order: messages first already, then jobs
     seen = set()
     unique: List[Dict[str, Any]] = []

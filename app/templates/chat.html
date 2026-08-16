@@ -1745,6 +1745,25 @@
         return;
       }
 
+      if (t === 'history') {
+        // Server re-sync of persisted messages. appendBubble dedupes by id, so
+        // messages the page already rendered are skipped.
+        (p.messages || []).forEach(function (m) {
+          ensureDateSeparator(m.timestamp);
+          const side = (m.sender_id != null && Number(m.sender_id) === Number(currentUserId))
+            ? 'mine' : 'partner';
+          appendBubble(
+            side, m.content || '', null,
+            m.attachment_url
+              ? { url: m.attachment_url, type: m.attachment_type, name: m.attachment_name || '' }
+              : null,
+            m.id, m.timestamp
+          );
+        });
+        scrollAnchor.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+
       if (t === 'message_ack') {
         if (pendingAckBubble) {
           setBubbleReceipt(pendingAckBubble, p.status === 'delivered' ? 'delivered' : 'sent');
@@ -1962,6 +1981,12 @@
 
   // ====== Append Bubble ======
   function appendBubble(side, text, status, attachment, msgId, ts) {
+    // Idempotent: never render the same message twice (e.g. when the websocket
+    // re-syncs history that the page already server-rendered, or echoes).
+    if (msgId) {
+      const existing = liveMessages.querySelector('[data-msg-id="' + msgId + '"]');
+      if (existing) return;
+    }
     const isMine = side === 'mine';
     const when = ts ? new Date(ts) : new Date();
     const now = when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

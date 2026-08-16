@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}CCTV Calculator — ServiceSync{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10">
+  <div class="flex items-center gap-3 mb-2">
+    {{ icon("video", "w-7 h-7 text-indigo-600") }}
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">CCTV / Security Camera Calculator</h1>
+  </div>
+  <p class="text-gray-500 dark:text-gray-400 mb-6">Free estimate of cameras, coverage, storage, and material budget.</p>
+
+  <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+    <div class="grid grid-cols-2 gap-3">
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Site type
+        <select id="site_type" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <option value="home">Home</option>
+          <option value="business">Business</option>
+          <option value="retail">Retail</option>
+          <option value="warehouse">Warehouse</option>
+        </select>
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Budget tier
+        <select id="budget_tier" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <option value="low">Low</option>
+          <option value="mid" selected>Mid</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Floors
+        <input id="floors" type="number" min="1" value="1" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Area (m²)
+        <input id="area_sqm" type="number" min="5" value="120" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Perimeter outdoor (m)
+        <input id="perimeter_m" type="number" min="0" value="0" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Entry points
+        <input id="entry_points" type="number" min="0" value="2" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Recording days
+        <input id="recording_days" type="number" min="1" value="14" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      </label>
+    </div>
+    <div class="flex flex-wrap gap-4 mt-3 text-sm text-gray-600 dark:text-gray-300">
+      <label><input id="wants_remote_viewing" type="checkbox" checked> Remote viewing</label>
+      <label><input id="wants_night_vision" type="checkbox" checked> Night vision</label>
+      <label><input id="wants_audio" type="checkbox"> Two-way audio</label>
+    </div>
+    <button id="calcBtn" class="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white font-medium hover:bg-indigo-700 disabled:opacity-50">
+      {{ icon("sparkles", "w-4 h-4") }} Calculate
+    </button>
+  </div>
+
+  <div id="error" class="hidden mt-4 rounded-lg bg-rose-50 text-rose-700 px-4 py-3 text-sm"></div>
+
+  <div id="result" class="hidden mt-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+    <h2 class="font-semibold text-gray-900 dark:text-white mb-2">Your estimate</h2>
+    <pre id="resultJson" class="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap"></pre>
+    <a id="ctaBtn" href="/cctv/intake"
+       class="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700">
+      {{ icon("phone", "w-4 h-4") }} Find a CCTV professional to install this
+    </a>
+  </div>
+
+  <div class="mt-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 text-center text-xs text-gray-400">
+    Advertisement · free tools are supported by sponsors
+  </div>
+</div>
+
+<script>
+  const calcBtn = document.getElementById("calcBtn");
+  calcBtn.addEventListener("click", async () => {
+    const payload = {
+      site_type: document.getElementById("site_type").value,
+      budget_tier: document.getElementById("budget_tier").value,
+      floors: Number(document.getElementById("floors").value),
+      area_sqm: Number(document.getElementById("area_sqm").value),
+      perimeter_m: Number(document.getElementById("perimeter_m").value),
+      entry_points: Number(document.getElementById("entry_points").value),
+      recording_days: Number(document.getElementById("recording_days").value),
+      wants_remote_viewing: document.getElementById("wants_remote_viewing").checked,
+      wants_night_vision: document.getElementById("wants_night_vision").checked,
+      wants_audio: document.getElementById("wants_audio").checked,
+    };
+    calcBtn.disabled = true;
+    document.getElementById("error").classList.add("hidden");
+    try {
+      const res = await fetch("/api/v1/tools/cctv-calculator", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+      document.getElementById("resultJson").textContent = JSON.stringify(data, null, 2);
+      document.getElementById("result").classList.remove("hidden");
+    } catch (e) {
+      const el = document.getElementById("error");
+      el.textContent = e.message; el.classList.remove("hidden");
+    } finally {
+      calcBtn.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

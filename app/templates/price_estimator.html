@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Service Price Estimator — ServiceSync{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10">
+  <div class="flex items-center gap-3 mb-2">
+    {{ icon("money", "w-7 h-7 text-emerald-600") }}
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Service Price Estimator</h1>
+  </div>
+  <p class="text-gray-500 dark:text-gray-400 mb-6">See the typical market price range for a job in your region before you hire.</p>
+
+  <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+    <div class="grid grid-cols-2 gap-3">
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Trade
+        <select id="trade" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <option value="plumbing" selected>Plumber</option>
+          <option value="electrician">Electrician</option>
+          <option value="cctv">CCTV / Security</option>
+          <option value="solar">Solar</option>
+          <option value="hvac">HVAC</option>
+          <option value="painting">Painting</option>
+          <option value="flooring">Flooring</option>
+          <option value="tiling">Tiling</option>
+          <option value="roofing">Roofing</option>
+          <option value="cleaning">Cleaning</option>
+          <option value="handyman">Handyman</option>
+        </select>
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Job size
+        <select id="job_size" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <option value="small">Small</option>
+          <option value="medium" selected>Medium</option>
+          <option value="large">Large</option>
+        </select>
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Region
+        <select id="region" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <option value="default" selected>Global baseline</option>
+          <option value="ng">Nigeria</option>
+          <option value="gh">Ghana</option>
+          <option value="ke">Kenya</option>
+          <option value="za">South Africa</option>
+          <option value="ae">UAE</option>
+          <option value="uk">United Kingdom</option>
+          <option value="eu">Europe</option>
+          <option value="us">United States</option>
+          <option value="ca">Canada</option>
+          <option value="au">Australia</option>
+        </select>
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Complexity
+        <select id="complexity" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <option value="simple">Simple</option>
+          <option value="standard" selected>Standard</option>
+          <option value="complex">Complex</option>
+        </select>
+      </label>
+    </div>
+    <button id="calcBtn" class="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
+      {{ icon("sparkles", "w-4 h-4") }} Estimate
+    </button>
+  </div>
+
+  <div id="error" class="hidden mt-4 rounded-lg bg-rose-50 text-rose-700 px-4 py-3 text-sm"></div>
+
+  <div id="result" class="hidden mt-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+    <h2 class="font-semibold text-gray-900 dark:text-white mb-3">Typical market range</h2>
+    <div class="flex items-end gap-6">
+      <div><div class="text-xs text-gray-400 uppercase">Low</div><div id="low" class="text-2xl font-bold text-gray-900 dark:text-white"></div></div>
+      <div><div class="text-xs text-gray-400 uppercase">Median</div><div id="median" class="text-2xl font-bold text-emerald-600"></div></div>
+      <div><div class="text-xs text-gray-400 uppercase">High</div><div id="high" class="text-2xl font-bold text-gray-900 dark:text-white"></div></div>
+    </div>
+    <a id="ctaBtn" href="/contractors"
+       class="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white font-medium hover:bg-indigo-700">
+      {{ icon("user", "w-4 h-4") }} Find a professional
+    </a>
+  </div>
+
+  <div class="mt-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 text-center text-xs text-gray-400">
+    Advertisement · free tools are supported by sponsors
+  </div>
+</div>
+
+<script>
+  const calcBtn = document.getElementById("calcBtn");
+  calcBtn.addEventListener("click", async () => {
+    const payload = {
+      trade: document.getElementById("trade").value,
+      job_size: document.getElementById("job_size").value,
+      region: document.getElementById("region").value,
+      complexity: document.getElementById("complexity").value,
+    };
+    calcBtn.disabled = true;
+    document.getElementById("error").classList.add("hidden");
+    try {
+      const res = await fetch("/api/v1/tools/price-estimator", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+      document.getElementById("low").textContent = "$" + data.low.toLocaleString();
+      document.getElementById("median").textContent = "$" + data.median.toLocaleString();
+      document.getElementById("high").textContent = "$" + data.high.toLocaleString();
+      const cta = document.getElementById("ctaBtn");
+      cta.href = "/tools/request-pro?trade=" + encodeURIComponent(data.trade) + "&redirect=" + encodeURIComponent(data.cta);
+      document.getElementById("result").classList.remove("hidden");
+    } catch (e) {
+      const el = document.getElementById("error");
+      el.textContent = e.message; el.classList.remove("hidden");
+    } finally {
+      calcBtn.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

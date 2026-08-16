@@ -9,8 +9,16 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from app.core.database import async_session_maker
 from app.core.security import get_password_hash
 from app.models.all_models import User, Job, Review, Conversation
+from app.core.config import settings
 
 async def seed_db():
+    # Never seed demo data (including the well-known admin@servicesync.com /
+    # password123 account) into a real deployment. Set DEMO_MODE=true in
+    # non-production environments only.
+    if not settings.DEMO_MODE:
+        print("DEMO_MODE is disabled — skipping demo seed (no demo users/jobs created).")
+        return
+
     print("Starting database seeding...")
     
     # Pre-hashed password for "password123" to save time

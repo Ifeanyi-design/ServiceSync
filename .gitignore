@@ -5,3 +5,8 @@ __pycache__/
 # Uploaded media (keep the folder, ignore contents)
 app/static/uploads/*
 !app/static/uploads/.gitkeep
+
+# Test/sqlite databases
+*.db
+*.sqlite
+*.sqlite3

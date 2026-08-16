@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Leads — ServiceSync{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="flex items-center gap-3 mb-2">
+    {{ icon("box", "w-7 h-7 text-emerald-600") }}
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Job Leads</h1>
+  </div>
+  <p class="text-gray-500 dark:text-gray-400 mb-6">
+    Open jobs in your trade. Express interest to open a chat with the customer —
+    they book and fund escrow when they're ready.
+  </p>
+
+  {% if not leads %}
+    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-sm text-gray-500">
+      No open leads in your trade yet. New leads from the free tools funnel will appear here.
+    </div>
+  {% endif %}
+
+  <div class="space-y-4">
+    {% for l in leads %}
+      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-gray-900 dark:text-white">Job #{{ l.job.id }}</div>
+            <div class="text-sm text-gray-500">{{ l.job.description }}</div>
+          </div>
+          <span class="text-xs uppercase tracking-wide text-gray-400">{{ l.job.category or "general" }}</span>
+        </div>
+        <div class="mt-3">
+          {% if l.conversation_id %}
+            <a href="/chat/{{ l.conversation_id }}" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-white text-xs font-semibold hover:bg-blue-700">Open chat</a>
+          {% else %}
+            <button class="interestBtn text-xs font-bold rounded-lg bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700"
+                    data-job-id="{{ l.job.id }}">Message customer</button>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll(".interestBtn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      const res = await fetch(`/api/v1/jobs/${btn.dataset.jobId}/interest`, { method: "POST" });
+      const data = await res.json();
+      if (data.chat_url) window.location.href = data.chat_url;
+      else location.reload();
+    });
+  });
+</script>
+{% endblock %}

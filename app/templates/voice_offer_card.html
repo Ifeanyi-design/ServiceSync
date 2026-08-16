@@ -1,0 +1,26 @@
+{% set r = o.result %}
+{% set price = ("₦" + r.estimated_price|string|replace(".0","")|string) if r.estimated_price is not none else "—" %}
+{% set avail = "Available" if r.availability else ("Unavailable" if r.availability == false else "Pending") %}
+<div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+  <div class="flex items-center justify-between">
+    <div class="font-semibold text-gray-900 dark:text-white">
+      {{ o.contractor_name or ("Contractor #" + o.contractor_id|string) }}
+      {% if o.profession %}<span class="text-xs font-normal text-gray-400">· {{ o.profession }}</span>{% endif %}
+    </div>
+    <div class="text-sm text-gray-500">{{ avail }}</div>
+  </div>
+  <div class="grid grid-cols-2 gap-2 text-sm mt-2 text-gray-700 dark:text-gray-200">
+    <div>Price: <span class="font-medium">{{ price }}</span></div>
+    <div>Earliest: {{ r.earliest_time or "—" }}</div>
+    <div>Travel fee: {{ r.travel_fee if r.travel_fee is not none else "—" }}</div>
+    <div>Confidence: {{ r.confidence or "—" }}</div>
+  </div>
+  {% if r.service_scope %}<div class="text-sm text-gray-500 mt-1">Scope: {{ r.service_scope }}</div>{% endif %}
+  {% if r.requires_human_approval %}<div class="text-xs text-rose-600 font-medium">Needs human approval</div>{% endif %}
+  {% if o.error %}<div class="text-xs text-rose-600 mt-1">{{ o.error }}</div>{% endif %}
+  {% if o.raw_transcript %}<details class="mt-2 text-xs text-gray-500"><summary>Transcript</summary><pre class="whitespace-pre-wrap mt-1">{{ o.raw_transcript }}</pre></details>{% endif %}
+  {% if o.can_book %}
+  <button class="mt-3 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-white text-xs font-bold hover:bg-indigo-700"
+          onclick="bookOffer({{ o.contractor_id }})">Book this offer</button>
+  {% endif %}
+</div>

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Project & Materials Calculator — ServiceSync{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10">
+  <div class="flex items-center gap-3 mb-2">
+    {{ icon("box", "w-7 h-7 text-emerald-600") }}
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Project &amp; Materials Calculator</h1>
+  </div>
+  <p class="text-gray-500 dark:text-gray-400 mb-6">Estimate the materials and labour for your project before you hire a pro.</p>
+
+  <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+    <div class="grid grid-cols-2 gap-3">
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Trade
+        <select id="trade" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <option value="painting" selected>Painting</option>
+          <option value="flooring">Flooring</option>
+          <option value="tiling">Tiling</option>
+          <option value="roofing">Roofing</option>
+          <option value="cctv">CCTV / Security</option>
+          <option value="solar">Solar</option>
+          <option value="plumbing">Plumbing</option>
+          <option value="electrical">Electrical</option>
+          <option value="hvac">HVAC</option>
+          <option value="cleaning">Cleaning</option>
+          <option value="handyman">Handyman</option>
+        </select>
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Job size
+        <select id="job_size" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <option value="small">Small</option>
+          <option value="medium" selected>Medium</option>
+          <option value="large">Large</option>
+        </select>
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Scope (optional)
+        <input id="scope" type="number" step="0.1" min="0" placeholder="m² or count" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Quality
+        <select id="quality" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <option value="economy">Economy</option>
+          <option value="standard" selected>Standard</option>
+          <option value="premium">Premium</option>
+        </select>
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Region factor
+        <input id="region_factor" type="number" step="0.1" min="0.5" value="1.0" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      </label>
+    </div>
+    <button id="calcBtn" class="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
+      {{ icon("sparkles", "w-4 h-4") }} Calculate
+    </button>
+  </div>
+
+  <div id="error" class="hidden mt-4 rounded-lg bg-rose-50 text-rose-700 px-4 py-3 text-sm"></div>
+
+  <div id="result" class="hidden mt-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+    <h2 class="font-semibold text-gray-900 dark:text-white mb-2">Your materials estimate</h2>
+    <div id="summary" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-4"></div>
+    <table class="w-full text-sm text-left">
+      <thead class="text-xs uppercase text-gray-400">
+        <tr><th class="py-2">Material</th><th class="py-2">Qty</th><th class="py-2">Unit price</th><th class="py-2">Amount</th></tr>
+      </thead>
+      <tbody id="matBody" class="text-gray-700 dark:text-gray-200"></tbody>
+    </table>
+    <a id="ctaBtn" href="/contractors"
+       class="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white font-medium hover:bg-indigo-700">
+      {{ icon("user", "w-4 h-4") }} Find a professional
+    </a>
+  </div>
+
+  <div class="mt-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 text-center text-xs text-gray-400">
+    Advertisement · free tools are supported by sponsors
+  </div>
+</div>
+
+<script>
+  const calcBtn = document.getElementById("calcBtn");
+  calcBtn.addEventListener("click", async () => {
+    const scope = document.getElementById("scope").value;
+    const payload = {
+      trade: document.getElementById("trade").value,
+      job_size: document.getElementById("job_size").value,
+      quality: document.getElementById("quality").value,
+      region_factor: Number(document.getElementById("region_factor").value),
+    };
+    if (scope) payload.scope = Number(scope);
+    calcBtn.disabled = true;
+    document.getElementById("error").classList.add("hidden");
+    try {
+      const res = await fetch("/api/v1/tools/bom-calculator", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+      document.getElementById("summary").innerHTML = [
+        ["Scope", data.scope + " " + (data.basis === "area" ? "m²" : "units")],
+        ["Labour", "$" + data.labour.toFixed(2)],
+        ["Subtotal", "$" + data.subtotal.toFixed(2)],
+        ["Total", "$" + data.total.toFixed(2)],
+      ].map(([k, v]) => `<div><div class="text-gray-400">${k}</div><div class="font-semibold text-gray-900 dark:text-white">${v}</div></div>`).join("");
+      document.getElementById("matBody").innerHTML = data.materials.map(m =>
+        `<tr class="border-t border-gray-100 dark:border-gray-700"><td class="py-2">${m.name}</td><td class="py-2">${m.quantity} ${m.unit}</td><td class="py-2">$${m.unit_price.toFixed(2)}</td><td class="py-2">$${m.amount.toFixed(2)}</td></tr>`
+      ).join("");
+      const cta = document.getElementById("ctaBtn");
+      cta.href = "/tools/request-pro?trade=" + encodeURIComponent(data.trade) + "&redirect=" + encodeURIComponent(data.cta);
+      document.getElementById("result").classList.remove("hidden");
+    } catch (e) {
+      const el = document.getElementById("error");
+      el.textContent = e.message; el.classList.remove("hidden");
+    } finally {
+      calcBtn.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

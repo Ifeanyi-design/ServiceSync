@@ -1,17 +1,11 @@
-from google import genai
-from google.genai import types
 import json
 import time
 import logging
 from typing import Dict, Any, Tuple, List, Optional
 from app.core.config import settings
+from app.services.llm import get_provider
 
 logger = logging.getLogger(__name__)
-
-# Initialize the new Gemini SDK client
-_client = genai.Client(api_key=settings.GEMINI_API_KEY) if settings.GEMINI_API_KEY else None
-
-_MODEL = settings.GEMINI_MODEL
 
 
 async def extract_triage_info(conversation_history: list) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -19,9 +13,6 @@ async def extract_triage_info(conversation_history: list) -> Tuple[Dict[str, Any
     Analyzes customer chat to extract profession_required, urgency, and global location.
     Returns (triage_data, metadata_for_audit)
     """
-    if _client is None:
-        return _fallback_triage(), {"raw_response": "No API key", "prompt_tokens": 0, "completion_tokens": 0, "latency_ms": 0}
-
     prompt = f"""
     You are an AI triage bot for a home service marketplace.
     Analyze the following conversation history between the user and yourself.
@@ -59,13 +50,9 @@ async def extract_triage_info(conversation_history: list) -> Tuple[Dict[str, Any
 
     start_time = time.time()
     try:
-        response = await _client.aio.models.generate_content(
-            model=_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
-        )
+        raw_text = await get_provider().complete(prompt, json_mode=True, temperature=0.3)
     except Exception as exc:
-        logger.warning("Gemini triage call failed, using fallback: %s", exc)
+        logger.warning("LLM triage call failed, using fallback: %s", exc)
         return _fallback_triage(), {
             "raw_response": f"Gemini error: {exc}",
             "prompt_tokens": 0,
@@ -75,18 +62,17 @@ async def extract_triage_info(conversation_history: list) -> Tuple[Dict[str, Any
         }
     latency_ms = int((time.time() - start_time) * 1000)
 
-    raw_text = response.text or ""
     try:
         extracted = json.loads(raw_text.replace("```json", "").replace("```", "").strip())
     except Exception:
         extracted = _fallback_triage()
 
-    usage = response.usage_metadata
     metadata = {
         "raw_response": raw_text,
-        "prompt_tokens": getattr(usage, "prompt_token_count", 0) if usage else 0,
-        "completion_tokens": getattr(usage, "candidates_token_count", 0) if usage else 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
         "latency_ms": latency_ms,
+        "provider": get_provider().name,
     }
 
     return extracted, metadata
@@ -94,12 +80,9 @@ async def extract_triage_info(conversation_history: list) -> Tuple[Dict[str, Any
 
 async def generate_contractor_reply(customer_message: str, contractor_context: dict) -> str:
     """
-    Prompts Gemini to respond to a customer message as an omnichannel bot
-    representing a specific contractor, using their configured AI tone.
+    Prompts the configured LLM to respond to a customer message as an omnichannel
+    bot representing a specific contractor, using their configured AI tone.
     """
-    if _client is None:
-        return "Thank you for your message. We'll get back to you shortly."
-
     tone = contractor_context.get("ai_tone_preference", "professional")
     rules = json.dumps(contractor_context, indent=2)
 
@@ -118,14 +101,10 @@ async def generate_contractor_reply(customer_message: str, contractor_context: d
     """
 
     try:
-        response = await _client.aio.models.generate_content(
-            model=_MODEL,
-            contents=prompt,
-        )
+        return (await get_provider().complete(prompt, temperature=0.5)) or "Thank you for reaching out. We'll respond shortly."
     except Exception as exc:
-        logger.warning("Gemini contractor-reply call failed, using fallback: %s", exc)
+        logger.warning("LLM contractor-reply call failed, using fallback: %s", exc)
         return "Thank you for your message. We'll get back to you shortly."
-    return response.text or "Thank you for reaching out. We'll respond shortly."
 
 
 async def analyze_dispute(
@@ -136,12 +115,9 @@ async def analyze_dispute(
     photo_descriptions: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
-    Analyzes a dispute using Gemini to recommend a refund split.
+    Analyzes a dispute using the configured LLM to recommend a refund split.
     Returns structured JSON with recommended refund percentage and reasoning.
     """
-    if _client is None:
-        return _fallback_dispute_analysis()
-
     photo_context = ""
     if photo_descriptions:
         photo_context = f"\nPhoto evidence descriptions: {json.dumps(photo_descriptions, indent=2)}"
@@ -189,17 +165,13 @@ async def analyze_dispute(
 
     start_time = time.time()
     try:
-        response = await _client.aio.models.generate_content(
-            model=_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
-        )
+        raw_text = await get_provider().complete(prompt, json_mode=True, temperature=0.2)
     except Exception as exc:
-        logger.warning("Gemini dispute-analysis call failed, using fallback: %s", exc)
+        logger.warning("LLM dispute-analysis call failed, using fallback: %s", exc)
         return {
             "analysis": _fallback_dispute_analysis(),
             "metadata": {
-                "raw_response": f"Gemini error: {exc}",
+                "raw_response": f"LLM error: {exc}",
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "latency_ms": int((time.time() - start_time) * 1000),
@@ -208,18 +180,18 @@ async def analyze_dispute(
         }
     latency_ms = int((time.time() - start_time) * 1000)
 
-    raw_text = response.text or ""
+    raw_text = raw_text or ""
     try:
         extracted = json.loads(raw_text.replace("```json", "").replace("```", "").strip())
     except Exception:
         extracted = _fallback_dispute_analysis()
 
-    usage = response.usage_metadata
     metadata = {
         "raw_response": raw_text,
-        "prompt_tokens": getattr(usage, "prompt_token_count", 0) if usage else 0,
-        "completion_tokens": getattr(usage, "candidates_token_count", 0) if usage else 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
         "latency_ms": latency_ms,
+        "provider": get_provider().name,
     }
 
     return {"analysis": extracted, "metadata": metadata}
@@ -235,9 +207,6 @@ async def estimate_job_price(
     Estimates a price range for a job based on description, profession, and location.
     Returns structured JSON with estimated price range and breakdown.
     """
-    if _client is None:
-        return _fallback_price_estimate()
-
     location_str = ""
     if location:
         parts = [location.get("city"), location.get("state_or_province"), location.get("country")]
@@ -284,17 +253,13 @@ async def estimate_job_price(
 
     start_time = time.time()
     try:
-        response = await _client.aio.models.generate_content(
-            model=_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
-        )
+        raw_text = await get_provider().complete(prompt, json_mode=True, temperature=0.3)
     except Exception as exc:
-        logger.warning("Gemini price-estimate call failed, using fallback: %s", exc)
+        logger.warning("LLM price-estimate call failed, using fallback: %s", exc)
         return {
             "estimate": _fallback_price_estimate(),
             "metadata": {
-                "raw_response": f"Gemini error: {exc}",
+                "raw_response": f"LLM error: {exc}",
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "latency_ms": int((time.time() - start_time) * 1000),
@@ -303,18 +268,18 @@ async def estimate_job_price(
         }
     latency_ms = int((time.time() - start_time) * 1000)
 
-    raw_text = response.text or ""
+    raw_text = raw_text or ""
     try:
         extracted = json.loads(raw_text.replace("```json", "").replace("```", "").strip())
     except Exception:
         extracted = _fallback_price_estimate()
 
-    usage = response.usage_metadata
     metadata = {
         "raw_response": raw_text,
-        "prompt_tokens": getattr(usage, "prompt_token_count", 0) if usage else 0,
-        "completion_tokens": getattr(usage, "candidates_token_count", 0) if usage else 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
         "latency_ms": latency_ms,
+        "provider": get_provider().name,
     }
 
     return {"estimate": extracted, "metadata": metadata}

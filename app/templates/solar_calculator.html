@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Solar Calculator — ServiceSync{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10">
+  <div class="flex items-center gap-3 mb-2">
+    {{ icon("sun", "w-7 h-7 text-amber-500") }}
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Solar System Calculator</h1>
+  </div>
+  <p class="text-gray-500 dark:text-gray-400 mb-6">Free estimate of system size, panels, battery, and material budget.</p>
+
+  <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+    <div class="grid grid-cols-2 gap-3">
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Monthly usage (kWh)
+        <input id="monthly_kwh" type="number" min="0" value="400" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Peak sun hrs/day
+        <input id="sun_hours" type="number" step="0.1" min="0.5" value="4.5" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Roof area (m²)
+        <input id="roof_area_sqm" type="number" min="1" value="30" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      </label>
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Budget tier
+        <select id="budget_tier" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <option value="low">Low</option>
+          <option value="mid" selected>Mid</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+    </div>
+    <label class="flex items-center gap-2 mt-3 text-sm text-gray-600 dark:text-gray-300">
+      <input id="battery_backup" type="checkbox" checked> Include battery backup
+    </label>
+    <button id="calcBtn" class="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-white font-medium hover:bg-amber-600 disabled:opacity-50">
+      {{ icon("sparkles", "w-4 h-4") }} Calculate
+    </button>
+  </div>
+
+  <div id="error" class="hidden mt-4 rounded-lg bg-rose-50 text-rose-700 px-4 py-3 text-sm"></div>
+
+  <div id="result" class="hidden mt-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+    <h2 class="font-semibold text-gray-900 dark:text-white mb-2">Your estimate</h2>
+    <pre id="resultJson" class="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap"></pre>
+    <a id="ctaBtn" href="/contractors?profession=solar"
+       class="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700">
+      {{ icon("sun", "w-4 h-4") }} Find a solar installer
+    </a>
+  </div>
+
+  <div class="mt-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 text-center text-xs text-gray-400">
+    Advertisement · free tools are supported by sponsors
+  </div>
+</div>
+
+<script>
+  const calcBtn = document.getElementById("calcBtn");
+  calcBtn.addEventListener("click", async () => {
+    const payload = {
+      monthly_kwh: Number(document.getElementById("monthly_kwh").value),
+      sun_hours: Number(document.getElementById("sun_hours").value),
+      roof_area_sqm: Number(document.getElementById("roof_area_sqm").value),
+      battery_backup: document.getElementById("battery_backup").checked,
+      budget_tier: document.getElementById("budget_tier").value,
+    };
+    calcBtn.disabled = true;
+    document.getElementById("error").classList.add("hidden");
+    try {
+      const res = await fetch("/api/v1/tools/solar-calculator", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+      document.getElementById("resultJson").textContent = JSON.stringify(data, null, 2);
+      document.getElementById("result").classList.remove("hidden");
+    } catch (e) {
+      const el = document.getElementById("error");
+      el.textContent = e.message; el.classList.remove("hidden");
+    } finally {
+      calcBtn.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

@@ -11,13 +11,15 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from app.api.dependencies import get_current_user_optional, get_current_user, get_db
-from app.models.all_models import User, Job, Conversation, DirectMessage, OmnichannelIntegration, Review, Escrow, Dispute, AIDraft, VerificationRequest, WalletTransaction, Receipt
+from app.models.all_models import User, Job, Conversation, DirectMessage, OmnichannelIntegration, Review, Escrow, Dispute, AIDraft, VerificationRequest, WalletTransaction, Receipt, MaterialOrder
 from app.core.config import settings
 from app.services import subscription_service
 from app.services import wallet_service, upload_service
 from app.services.escrow_service import calculate_fees, fund_escrow
 from app.services.subscription_service import commission_rate
 from app.core.security import verify_password, get_password_hash
+from app.services.voice_dispatch import DISPATCH_STATE
+from app.services.supplier_service import recommend_materials_for_job
 from pathlib import Path
 
 try:
@@ -46,6 +48,17 @@ def fmt_money(amount, currency: Optional[str] = None) -> str:
 
 templates.env.globals["currency_symbol_for"] = _symbol_for
 templates.env.globals["fmt_money"] = fmt_money
+
+
+def voice_offer_out(o) -> dict:
+    return {
+        "contractor_id": o.contractor_id,
+        "call_id": o.call_id,
+        "raw_transcript": o.raw_transcript,
+        "error": o.error,
+        "result": o.result.model_dump(),
+    }
+
 
 router = APIRouter()
 
@@ -159,6 +172,161 @@ async def search_page(request: Request, current_user: Optional[User] = Depends(g
         "current_user": current_user,
         "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
         "charge_symbol": currency_symbol_for(settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY),
+    })
+
+
+@router.get("/tools", response_class=HTMLResponse)
+async def tools_index_page(
+    request: Request, current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Phase 5 — free-tools funnel landing (public, ad-supported)."""
+    return templates.TemplateResponse(request=request, name="tools_index.html", context={
+        "request": request,
+        "current_user": current_user,
+    })
+
+
+@router.get("/tools/cctv-calculator", response_class=HTMLResponse)
+async def cctv_calculator_page(
+    request: Request, current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Public CCTV estimator that funnels into the CCTV marketplace."""
+    return templates.TemplateResponse(request=request, name="cctv_calculator.html", context={
+        "request": request,
+        "current_user": current_user,
+    })
+
+
+@router.get("/tools/solar-calculator", response_class=HTMLResponse)
+async def solar_calculator_page(
+    request: Request, current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Public solar estimator that funnels into the marketplace."""
+    return templates.TemplateResponse(request=request, name="solar_calculator.html", context={
+        "request": request,
+        "current_user": current_user,
+    })
+
+
+@router.get("/tools/quote-calculator", response_class=HTMLResponse)
+async def quote_calculator_page(
+    request: Request, current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Public service-quote estimator that funnels into the marketplace."""
+    return templates.TemplateResponse(request=request, name="quote_calculator.html", context={
+        "request": request,
+        "current_user": current_user,
+    })
+
+
+@router.get("/tools/bom-calculator", response_class=HTMLResponse)
+async def bom_calculator_page(
+    request: Request, current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Public project / bill-of-materials calculator that funnels into the marketplace."""
+    return templates.TemplateResponse(request=request, name="bom_calculator.html", context={
+        "request": request,
+        "current_user": current_user,
+    })
+
+
+@router.get("/tools/price-estimator", response_class=HTMLResponse)
+async def price_estimator_page(
+    request: Request, current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Public market service-price range estimator that funnels into the marketplace."""
+    return templates.TemplateResponse(request=request, name="price_estimator.html", context={
+        "request": request,
+        "current_user": current_user,
+    })
+
+
+@router.get("/tools/request-pro")
+async def request_pro(
+    request: Request, trade: str = "general", redirect: str = "/contractors",
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Phase 6 — convert a free-tool estimate into a real Job lead.
+
+    Authenticated customers get a Job (status=open) pre-filled from the estimate so
+    it drops straight into the marketplace (contractors can quote it). Guests are
+    sent to sign-up first. This is the funnel -> transaction bridge.
+    """
+    from urllib.parse import quote
+
+    if not redirect.startswith("/"):
+        redirect = "/contractors"
+
+    if not current_user or current_user.role != "customer":
+        target = f"/tools/request-pro?trade={quote(trade)}&redirect={quote(redirect)}"
+        return RedirectResponse(url=f"/auth/signup?next={quote(target)}")
+
+    job = Job(
+        customer_id=current_user.id,
+        category=trade.lower(),
+        status="open",
+        description=f"Estimate request — {trade.title()}",
+        brief={"source": "free_tool", "trade": trade.lower()},
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+    # Phase 6: route the lead to matched contractors (records match + emails them).
+    try:
+        from app.services.lead_service import notify_matched_contractors_for_lead
+        await notify_matched_contractors_for_lead(db, job)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+    return RedirectResponse(url=redirect)
+
+
+@router.get("/leads", response_class=HTMLResponse)
+async def leads_page(
+    request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    """Contractor lead board — open jobs in the contractor's trade."""
+    if current_user.role != "contractor":
+        raise HTTPException(status_code=403, detail="Contractor only")
+    from app.services.lead_service import open_leads_for_contractor
+
+    leads = await open_leads_for_contractor(db, current_user)
+    lead_data = []
+    for job in leads:
+        conv = (await db.exec(select(Conversation).where(Conversation.job_id == job.id))).first()
+        lead_data.append({"job": job, "conversation_id": conv.id if conv else None})
+    return templates.TemplateResponse(request=request, name="leads.html", context={
+        "request": request,
+        "current_user": current_user,
+        "leads": lead_data,
+    })
+
+
+@router.get("/materials", response_class=HTMLResponse)
+async def materials_board_page(
+    request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    """Contractor/Admin materials board — recommended BOM + procurement status."""
+    if current_user.role not in ("contractor", "admin"):
+        raise HTTPException(status_code=403, detail="Contractor/Admin only")
+    if current_user.role == "admin":
+        result = await db.exec(select(Job).limit(200))
+    else:
+        result = await db.exec(select(Job).where(Job.assigned_contractor_id == current_user.id))
+    boards = []
+    for job in result.all():
+        order = await db.exec(select(MaterialOrder).where(MaterialOrder.job_id == job.id))
+        order = order.first()
+        boards.append({
+            "job": job,
+            "materials": recommend_materials_for_job(job),
+            "order": order,
+        })
+    return templates.TemplateResponse(request=request, name="materials.html", context={
+        "request": request,
+        "current_user": current_user,
+        "boards": boards,
     })
 
 
@@ -1479,6 +1647,20 @@ async def web_cancel_job(job_id: int, current_user: User = Depends(get_current_u
 
 
 
+@router.get("/cctv/intake", response_class=HTMLResponse)
+async def cctv_intake_page(
+    request: Request, current_user: User = Depends(get_current_user)
+):
+    """Phase 1 entry point: customer describes a CCTV/security need in plain
+    language; the page calls /api/v1/cctv/intake to produce a structured brief
+    and matched installers."""
+    if current_user.role != "customer":
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse(
+        request=request, name="cctv_intake.html", context={"current_user": current_user}
+    )
+
+
 @router.get("/dashboard/customer", response_class=HTMLResponse)
 async def customer_dashboard(request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if current_user.role != "customer":
@@ -1527,7 +1709,8 @@ async def customer_dashboard(request: Request, current_user: User = Depends(get_
         "active_statuses": ["open", "matched", "booked", "in_progress", "completed_pending"],
         "flash": _flash_from_query(request),
         "charge_currency": settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY,
-        "format_location": format_location
+        "format_location": format_location,
+        "voice_enabled": bool(settings.CALL_E_API_KEY),
     })
 
 @router.post("/jobs/{job_id}/review")
@@ -2202,3 +2385,49 @@ async def file_dispute(
         return RedirectResponse(url=f"/chat/{conv.id}?success=Dispute+filed", status_code=303)
     dash = "/dashboard/customer" if current_user.role == "customer" else "/contractor/dashboard"
     return RedirectResponse(url=f"{dash}?success=Dispute+filed", status_code=303)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ServiceSync Voice — AI phone dispatcher status page
+# ─────────────────────────────────────────────────────────────────────────────
+@router.get("/voice/{job_id}", response_class=HTMLResponse)
+async def voice_dispatch_page(
+    request: Request,
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Show the live status of CALL-E calls placed for a job and the ranked offers."""
+    job = await db.get(Job, job_id)
+    if not job or (job.customer_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    raw_offers = DISPATCH_STATE.get(job_id, [])
+    contractor_ids = [o.contractor_id for o in raw_offers]
+    contractors_map = {}
+    if contractor_ids:
+        res = await db.exec(select(User).where(User.id.in_(contractor_ids)))
+        contractors_map = {u.id: u for u in res.all()}
+
+    offers = []
+    for o in raw_offers:
+        d = voice_offer_out(o)
+        u = contractors_map.get(o.contractor_id)
+        d["contractor_name"] = u.full_name if u else f"Contractor #{o.contractor_id}"
+        d["profession"] = getattr(u, "profession", None)
+        d["city"] = getattr(u, "city", None)
+        d["country"] = getattr(u, "country", None)
+        d["can_book"] = bool(o.result.availability and not o.error)
+        offers.append(d)
+
+    return templates.TemplateResponse(
+        "voice_dispatch.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "job": job,
+            "job_id": job_id,
+            "offers": offers,
+            "voice_enabled": bool(settings.CALL_E_API_KEY),
+        },
+    )

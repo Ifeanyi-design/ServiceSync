@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Free Service Tools — ServiceSync{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-10">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Free Service Tools</h1>
+  <p class="text-gray-500 dark:text-gray-400 mt-2 mb-8">
+    Practical calculators and estimators — free to use. When you're ready, we'll
+    match you with a verified local professional to do the work.
+  </p>
+
+  <div class="grid md:grid-cols-3 gap-5">
+    <a href="/tools/cctv-calculator"
+       class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 hover:border-indigo-400 transition">
+      <div class="flex items-center gap-2 mb-1">
+        {{ icon("video", "w-5 h-5 text-indigo-600") }}
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">CCTV / Security Camera Calculator</h2>
+      </div>
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        Estimate how many cameras you need, indoor/outdoor split, storage, and a
+        rough material budget for your home or business.
+      </p>
+    </a>
+
+    <a href="/tools/solar-calculator"
+       class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 hover:border-amber-400 transition">
+      <div class="flex items-center gap-2 mb-1">
+        {{ icon("sun", "w-5 h-5 text-amber-500") }}
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Solar System Calculator</h2>
+      </div>
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        Estimate system size, panel count, battery backup, and a rough material
+        budget from your electricity usage.
+      </p>
+    </a>
+
+    <a href="/tools/quote-calculator"
+       class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 hover:border-emerald-400 transition">
+      <div class="flex items-center gap-2 mb-1">
+        {{ icon("money", "w-5 h-5 text-emerald-600") }}
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Service Quote Estimator</h2>
+      </div>
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        Ballpark quote (labour + materials + callout + tax) for plumbing,
+        electrical, CCTV, solar, HVAC, cleaning, or handyman jobs.
+      </p>
+    </a>
+
+    <a href="/tools/bom-calculator"
+       class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 hover:border-emerald-400 transition">
+      <div class="flex items-center gap-2 mb-1">
+        {{ icon("box", "w-5 h-5 text-emerald-600") }}
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Project &amp; Materials Calculator</h2>
+      </div>
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        Build a bill of materials + labour estimate for painting, flooring,
+        tiling, roofing, CCTV, solar, plumbing, electrical, HVAC and more.
+      </p>
+    </a>
+
+    <a href="/tools/price-estimator"
+       class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 hover:border-amber-400 transition">
+      <div class="flex items-center gap-2 mb-1">
+        {{ icon("money", "w-5 h-5 text-amber-500") }}
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Service Price Estimator</h2>
+      </div>
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        Typical market price range for a trade in your region — plan your budget
+        before you hire.
+      </p>
+    </a>
+  </div>
+
+  <!-- Ad slot (funnel is ad-supported; core app stays clean) -->
+  <div class="mt-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 text-center text-xs text-gray-400">
+    Advertisement · free tools are supported by sponsors
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Materials Board — ServiceSync{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="flex items-center gap-3 mb-2">
+    {{ icon("box", "w-7 h-7 text-emerald-600") }}
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Materials Board</h1>
+  </div>
+  <p class="text-gray-500 dark:text-gray-400 mb-6">
+    Recommended materials for your jobs and their procurement status. Order what's
+    needed and mark deliveries when they arrive.
+  </p>
+
+  {% if not boards %}
+    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-sm text-gray-500">
+      No jobs yet. Once you're assigned a job, its recommended materials will appear here.
+    </div>
+  {% endif %}
+
+  <div class="space-y-4">
+    {% for b in boards %}
+      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-gray-900 dark:text-white">Job #{{ b.job.id }}</div>
+            <div class="text-sm text-gray-500">{{ b.job.description }}</div>
+          </div>
+          <span class="text-xs uppercase tracking-wide text-gray-400">{{ b.job.category or "general" }}</span>
+        </div>
+
+        <div class="mt-3">
+          <div class="text-xs uppercase tracking-wide text-gray-400 mb-1">Recommended materials</div>
+          <ul class="text-sm text-gray-700 dark:text-gray-200 space-y-1">
+            {% for m in b.materials %}
+              <li class="flex justify-between">
+                <span>{{ m.name }} ×{{ m.quantity }}</span>
+                <span class="text-gray-500">${{ "%.2f"|format(m.estimated_unit_price * m.quantity) }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <div class="mt-3 flex items-center gap-3">
+          {% if b.order %}
+            <span class="text-xs font-semibold px-2 py-1 rounded-full
+              {% if b.order.status == 'delivered' %}bg-emerald-100 text-emerald-700
+              {% else %}bg-amber-100 text-amber-700{% endif %}">
+              Order #{{ b.order.id }} · {{ b.order.status }} · ${{ "%.2f"|format(b.order.total) }}
+            </span>
+            {% if b.order.status != 'delivered' %}
+              <button class="deliverBtn text-xs font-bold rounded-lg bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700"
+                      data-order-id="{{ b.order.id }}">Mark delivered</button>
+            {% endif %}
+          {% else %}
+            <button class="orderBtn text-xs font-bold rounded-lg bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-700"
+                    data-job-id="{{ b.job.id }}">Order materials</button>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+  async function reload() { window.location.reload(); }
+  document.querySelectorAll(".orderBtn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        await fetch(`/api/v1/suppliers/jobs/${btn.dataset.jobId}/order`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+        });
+      } catch (e) {}
+      reload();
+    });
+  });
+  document.querySelectorAll(".deliverBtn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        await fetch(`/api/v1/suppliers/orders/${btn.dataset.orderId}/fulfill`, { method: "POST" });
+      } catch (e) {}
+      reload();
+    });
+  });
+</script>
+{% endblock %}

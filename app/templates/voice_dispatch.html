@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}ServiceSync Voice — Provider Calls{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="flex items-center gap-3 mb-2">
+    {{ icon("phone", "w-7 h-7 text-blue-600") }}
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">ServiceSync Voice</h1>
+  </div>
+  <p class="text-gray-500 dark:text-gray-400 mb-6">
+    AI places real phone calls to available providers via CALL-E, then turns each
+    conversation into a structured offer so you can compare and choose.
+  </p>
+
+  {% if not voice_enabled %}
+    <div class="rounded-lg border border-amber-300 bg-amber-50 text-amber-800 px-4 py-3 mb-6">
+      CALL-E is not configured (<code>CALL_E_API_KEY</code> unset). Dispatch will
+      run in unavailable mode until a key is provided.
+    </div>
+  {% endif %}
+
+  <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 mb-6">
+    <div class="text-xs uppercase tracking-wide text-gray-400">Job #{{ job.id }}</div>
+    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ job.description }}</div>
+    <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+      {{ job.city or "" }}{% if job.country %}, {{ job.country }}{% endif %}
+      {% if job.urgency %} · <span class="capitalize">{{ job.urgency }}</span>{% endif %}
+    </div>
+  </div>
+
+  <div class="flex gap-3 mb-6">
+    <button id="startBtn" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 disabled:opacity-50">
+      {{ icon("phone", "w-4 h-4") }} Start provider calls
+    </button>
+    <button id="refreshBtn" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+      {{ icon("refresh", "w-4 h-4") }} Refresh
+    </button>
+  </div>
+
+  <div id="offers" class="space-y-4">
+    {% for o in offers %}
+      {% include "voice_offer_card.html" %}
+    {% else %}
+      <div class="text-gray-400 dark:text-gray-500 text-sm">No calls placed yet. Click “Start provider calls”.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+  const jobId = {{ job_id }};
+  const offersEl = document.getElementById("offers");
+
+  function cardHtml(o) {
+    const r = o.result || {};
+    const price = (r.estimated_price != null) ? "₦" + Number(r.estimated_price).toLocaleString() : "—";
+    const avail = r.availability ? "Available" : (r.availability === false ? "Unavailable" : "Pending");
+    const badge = r.requires_human_approval ? '<span class="text-xs text-rose-600 font-medium">Needs human approval</span>' : '';
+    const name = o.contractor_name || ("Contractor #" + o.contractor_id);
+    const prof = o.profession ? `<span class="text-xs font-normal text-gray-400">· ${o.profession}</span>` : '';
+    const book = (o.can_book) ? `<button class="mt-3 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-white text-xs font-bold hover:bg-indigo-700" onclick="bookOffer(${o.contractor_id})">Book this offer</button>` : '';
+    return `<div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+      <div class="flex items-center justify-between">
+        <div class="font-semibold text-gray-900 dark:text-white">${name} ${prof}</div>
+        <div class="text-sm text-gray-500">${avail}</div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-sm mt-2 text-gray-700 dark:text-gray-200">
+        <div>Price: <span class="font-medium">${price}</span></div>
+        <div>Earliest: ${r.earliest_time || "—"}</div>
+        <div>Travel fee: ${r.travel_fee != null ? r.travel_fee : "—"}</div>
+        <div>Confidence: ${r.confidence || "—"}</div>
+      </div>
+      ${r.service_scope ? `<div class="text-sm text-gray-500 mt-1">Scope: ${r.service_scope}</div>` : ""}
+      ${badge}
+      ${o.error ? `<div class="text-xs text-rose-600 mt-1">${o.error}</div>` : ""}
+      ${o.raw_transcript ? `<details class="mt-2 text-xs text-gray-500"><summary>Transcript</summary><pre class="whitespace-pre-wrap mt-1">${o.raw_transcript}</pre></details>` : ""}
+      ${book}
+    </div>`;
+  }
+
+  async function bookOffer(contractorId) {
+    try {
+      const r = await fetch(`/api/v1/jobs/${jobId}/book`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contractor_id: contractorId }),
+      });
+      if (r.ok) { window.location.href = `/jobs/${jobId}/pay`; return; }
+      alert("Booking failed");
+    } catch (e) { alert("Booking failed"); }
+  }
+
+  async function refresh() {
+    try {
+      const res = await fetch(`/api/v1/voice/dispatchexternal/${jobId}`);
+      const data = await res.json();
+      if (data.offers && data.offers.length) {
+        offersEl.innerHTML = data.offers.map(cardHtml).join("");
+      } else {
+        offersEl.innerHTML = '<div class="text-gray-400 dark:text-gray-500 text-sm">No calls placed yet.</div>';
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  document.getElementById("startBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("startBtn");
+    btn.disabled = true;
+    try {
+      await fetch(`/api/v1/voice/dispatchexternal?job_id=${jobId}`, { method: "POST" });
+    } catch (e) {}
+    await refresh();
+    // Poll a few times for completion.
+    for (let i = 0; i < 12; i++) {
+      await new Promise(r => setTimeout(r, 8000));
+      await refresh();
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById("refreshBtn").addEventListener("click", refresh);
+
+  // Auto-refresh on load if calls already exist.
+  if (document.querySelectorAll("#offers > div").length) refresh();
+</script>
+{% endblock %}

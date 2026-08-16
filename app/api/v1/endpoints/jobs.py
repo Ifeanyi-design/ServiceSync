@@ -5,7 +5,7 @@ from sqlmodel import select
 from typing import Any
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.dependencies import get_db, get_current_user
 from app.models.all_models import Job, User, Conversation, Escrow, Review
@@ -16,6 +16,42 @@ from app.services.escrow_service import create_escrow, calculate_fees, refund_es
 from app.services.alert_service import alert_new_booking
 
 router = APIRouter()
+
+
+@router.post("/{job_id}/interest", response_model=dict)
+async def express_interest(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Contractor expresses interest in an open lead: opens a chat channel.
+
+    Creates a Conversation (id = job.id) between the contractor and the job's
+    customer so they can negotiate. Does not book or fund escrow — the customer
+    books later via the normal flow.
+    """
+    if current_user.role != "contractor":
+        raise HTTPException(status_code=403, detail="Only contractors can express interest")
+    job = await db.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    existing = (await db.exec(select(Conversation).where(Conversation.job_id == job_id))).first()
+    if existing:
+        cid = existing.id
+    else:
+        conv = Conversation(
+            id=job.id,
+            job_id=job.id,
+            customer_id=job.customer_id,
+            contractor_id=current_user.id,
+        )
+        db.add(conv)
+        await db.commit()
+        await db.refresh(conv)
+        cid = conv.id
+    return {"conversation_id": cid, "chat_url": f"/chat/{cid}"}
+
 
 @router.post("/{job_id}/book", response_model=JobResponse)
 async def book_job(
@@ -47,14 +83,17 @@ async def book_job(
     # Ensure job has an id before conversation
     await db.flush()
     
-    # Create Conversation channel (id = job.id so /chat/{job_id} works)
-    conversation = Conversation(
-        id=job.id,
-        job_id=job.id,
-        customer_id=current_user.id,
-        contractor_id=request.contractor_id
-    )
-    db.add(conversation)
+    # Create Conversation channel (id = job.id so /chat/{job_id} works).
+    # Idempotent: a contractor may have already opened one via "express interest".
+    existing_conv = (await db.exec(select(Conversation).where(Conversation.job_id == job.id))).first()
+    if not existing_conv:
+        conversation = Conversation(
+            id=job.id,
+            job_id=job.id,
+            customer_id=current_user.id,
+            contractor_id=request.contractor_id
+        )
+        db.add(conversation)
     
     # Create Escrow (unfunded until the customer pays)
     contractor = await db.get(User, request.contractor_id)
@@ -195,13 +234,35 @@ async def cancel_job(
             db.add(job)
             await db.flush()
 
-            new_conv = Conversation(
-                id=job.id,
-                job_id=job.id,
-                customer_id=job.customer_id,
-                contractor_id=new_assigned_id,
-            )
-            db.add(new_conv)
+            # Reuse the EXISTING conversation for this job (it already has PK =
+            # job.id from booking) and point it at the new contractor. Creating a
+            # second Conversation with the same id would collide on the PK and 500.
+            conv = (await db.exec(select(Conversation).where(Conversation.job_id == job.id))).first()
+            if conv:
+                conv.contractor_id = new_assigned_id
+                db.add(conv)
+            else:
+                conv = Conversation(
+                    id=job.id,
+                    job_id=job.id,
+                    customer_id=job.customer_id,
+                    contractor_id=new_assigned_id,
+                )
+                db.add(conv)
+
+            # Reassign the (still unfunded) escrow to the new contractor so the
+            # held funds are released to the right party. Recompute the fee for
+            # the new contractor's subscription tier.
+            escrow = (await db.exec(select(Escrow).where(Escrow.job_id == job.id))).first()
+            if escrow and escrow.status == "unfunded":
+                from app.services.subscription_service import commission_rate
+                new_contractor = await db.get(User, new_assigned_id)
+                fees = calculate_fees(escrow.total_amount, rate=commission_rate(new_contractor))
+                escrow.contractor_id = new_assigned_id
+                escrow.platform_fee = fees["platform_fee"]
+                escrow.contractor_payout = fees["contractor_payout"]
+                db.add(escrow)
+
             structured_decision["status"] = "reroute_successful"
         else:
             structured_decision["status"] = "reroute_failed_no_matches"
@@ -239,7 +300,7 @@ async def cancel_job(
     raise HTTPException(status_code=400, detail="This job can no longer be cancelled")
 
 class ReviewCreate(BaseModel):
-    rating: int
+    rating: int = Field(ge=1, le=5)
     comment: str
 
 @router.post("/{job_id}/review")
@@ -322,6 +383,13 @@ async def job_action(
         result = await db.exec(select(Escrow).where(Escrow.job_id == job_id))
         escrow = result.first()
         if escrow:
+            if escrow.status not in ("held", "disputed"):
+                # Never complete a job whose payment isn't secured (would pay the
+                # contractor nothing / or double-release). Surface a clear error.
+                raise HTTPException(
+                    status_code=400,
+                    detail="Escrow must be funded before confirming completion",
+                )
             await release_escrow(db, escrow)
 
     else:

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 
 
@@ -23,6 +23,8 @@ class UserCreate(BaseModel):
     postal_code: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    profession: Optional[str] = None
+    specialties: List[str] = Field(default_factory=list)
 
 
 class UserLogin(BaseModel):

@@ -34,15 +34,25 @@ async def get_current_user_optional(
         user_id: str = payload.get("sub")
         if user_id is None:
             return None
+        # Only access tokens authenticate. Refresh (2fa_temp) tokens must never
+        # be accepted as a session — otherwise the admin 2FA step is bypassable
+        # and a 30-day refresh token doubles as an access token.
+        if payload.get("type") != "access":
+            return None
         # Revocation check (logout / forced expiry)
         jti = payload.get("jti")
         if jti and await is_token_revoked(db, jti):
             return None
     except InvalidTokenError:
         return None
-    
+
     result = await db.exec(select(User).where(User.id == int(user_id)))
-    return result.first()
+    user = result.first()
+    # Reject banned / deactivated accounts (ban_user flips is_active=False but
+    # does not revoke already-issued tokens, so enforce it here).
+    if user is None or not user.is_active:
+        return None
+    return user
 
 async def get_current_user(
     current_user: Optional[User] = Depends(get_current_user_optional)

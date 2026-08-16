@@ -427,6 +427,8 @@ async def reset_submit(request: Request, token: str = Form(...),
 
 # ─── Inline HTML helpers (avoid extra template files) ───
 def _twofa_html(error: Optional[str] = None) -> str:
+    from html import escape
+    safe_error = escape(error or "", quote=True)
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <title>Admin login code</title>
 <style>body{{font-family:Arial,sans-serif;background:#f3f4f6;display:flex;height:100vh;align-items:center;justify-content:center}}
@@ -436,7 +438,7 @@ button{{width:100%;padding:10px;background:#1d4ed8;color:#fff;border:0;border-ra
 .err{{color:#b91c1c;font-size:14px}}</style></head>
 <body><div class="card"><h2>Admin login code</h2>
 <p>Enter the 6-digit code we emailed you.</p>
-{"<p class='err'>"+error+"</p>" if error else ""}
+{"<p class='err'>"+safe_error+"</p>" if error else ""}
 <form method="post"><input name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" required>
 <button type="submit">Verify</button></form></div></body></html>"""
 
@@ -465,6 +467,9 @@ button{{width:100%;padding:10px;background:#1d4ed8;color:#fff;border:0;border-ra
 
 
 def _reset_html(token: str = "", error: Optional[str] = None) -> str:
+    from html import escape
+    safe_token = escape(token, quote=True)
+    safe_error = escape(error or "", quote=True)
     return f"""<!doctype html><html><head><meta charset="utf-8"><title>Set new password</title>
 <style>body{{font-family:Arial,sans-serif;background:#f3f4f6;display:flex;height:100vh;align-items:center;justify-content:center}}
 .card{{background:#fff;padding:28px 32px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);width:340px}}
@@ -472,8 +477,8 @@ input{{width:100%;padding:10px;margin:8px 0;box-sizing:border-box}}
 button{{width:100%;padding:10px;background:#1d4ed8;color:#fff;border:0;border-radius:8px;cursor:pointer}}
 .err{{color:#b91c1c;font-size:14px}}</style></head>
 <body><div class="card"><h2>Set a new password</h2>
-{"<p class='err'>"+error+"</p>" if error else ""}
-<form method="post"><input type="hidden" name="token" value="{token}">
+{"<p class='err'>"+safe_error+"</p>" if error else ""}
+<form method="post"><input type="hidden" name="token" value="{safe_token}">
 <input type="password" name="password" placeholder="New password (8+ chars)" required>
 <button type="submit">Update password</button></form></div></body></html>"""
 

@@ -26,6 +26,26 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-2.5-flash"
 
+    # Model-agnostic LLM backend. One of: gemini | groq | ollama.
+    # Keeps the app free of vendor lock-in (see app/services/llm.py). When the
+    # selected provider is unconfigured the callers fall back to offline logic.
+    AI_PROVIDER: str = "gemini"
+    # Groq (OpenAI-compatible, generous free tier — good default for dev/cheap ops)
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    # Ollama (fully local / self-hosted — zero per-call cost)
+    OLLAMA_BASE_URL: Optional[str] = None
+    OLLAMA_MODEL: str = "qwen2.5:7b"
+
+    # CALL-E (ServiceSync Voice hackathon) — AI agent that places real phone calls.
+    # Off by default; set CALL_E_API_KEY to enable. The dispatcher (voice_dispatch)
+    # falls back to "not configured" so demo mode keeps working without it.
+    CALL_E_API_KEY: Optional[str] = None
+    CALL_E_BASE_URL: Optional[str] = None
+    CALL_E_FROM_PHONE: Optional[str] = None
+    CALL_E_WEBHOOK_BASE_URL: Optional[str] = None
+    VOICE_DISPATCH_ENABLED: bool = False
+
     # Monetization / subscription (Phase 7) — commission rules are configurable
     PLATFORM_FEE_PCT_FREE: float = 0.15      # 15% commission on the free tier
     PLATFORM_FEE_PCT_PREMIUM: float = 0.05   # 5% commission on the premium tier

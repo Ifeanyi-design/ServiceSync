@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}CCTV / Security Install — ServiceSync{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+  <div class="flex items-center gap-3 mb-2">
+    {{ icon("video", "w-7 h-7 text-indigo-600") }}
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">CCTV / Security Install</h1>
+  </div>
+  <p class="text-gray-500 dark:text-gray-400 mb-6">
+    Describe what you need in plain language. Our AI turns it into a structured
+    brief and matches you with installers who do this work.
+  </p>
+
+  <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">What do you need?</label>
+    <textarea id="description" rows="4" required
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white"
+      placeholder="e.g. I want 4 cameras around my shop, night vision, able to view on my phone, with recording for 2 weeks."></textarea>
+    <div class="grid grid-cols-2 gap-3 mt-3">
+      <input id="city" type="text" placeholder="City (optional)"
+        class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+      <input id="country" type="text" placeholder="Country (optional)"
+        class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+    </div>
+    <button id="submitBtn"
+      class="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white font-medium hover:bg-indigo-700 disabled:opacity-50">
+      {{ icon("sparkles", "w-4 h-4") }} Generate brief &amp; matches
+    </button>
+  </div>
+
+  <div id="error" class="hidden mt-4 rounded-lg bg-rose-50 text-rose-700 px-4 py-3 text-sm"></div>
+
+  <div id="brief" class="hidden mt-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+    <h2 class="font-semibold text-gray-900 dark:text-white mb-2">Structured brief</h2>
+    <pre id="briefJson" class="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap"></pre>
+  </div>
+
+  <div id="contractors" class="hidden mt-6">
+    <h2 class="font-semibold text-gray-900 dark:text-white mb-2">Matched installers</h2>
+    <div id="contractorList" class="space-y-3"></div>
+    <button id="callBtn" style="display:none"
+      class="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 disabled:opacity-50">
+      {{ icon("phone", "w-4 h-4") }} Call matched installers by phone
+    </button>
+  </div>
+</div>
+
+<script>
+  const submitBtn = document.getElementById("submitBtn");
+  const callBtn = document.getElementById("callBtn");
+  submitBtn.addEventListener("click", async () => {
+    const description = document.getElementById("description").value.trim();
+    if (!description) return;
+    submitBtn.disabled = true;
+    document.getElementById("error").classList.add("hidden");
+    try {
+      const res = await fetch("/api/v1/cctv/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description,
+          category: "cctv",
+          city: document.getElementById("city").value.trim() || null,
+          country: document.getElementById("country").value.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+
+      document.getElementById("briefJson").textContent = JSON.stringify(data.brief, null, 2);
+      document.getElementById("brief").classList.remove("hidden");
+
+      const list = document.getElementById("contractorList");
+      list.innerHTML = "";
+      (data.contractors || []).forEach(c => {
+        const card = document.createElement("div");
+        card.className = "rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 flex items-center justify-between";
+        card.innerHTML = `
+          <div>
+            <div class="font-semibold text-gray-900 dark:text-white">${c.full_name}</div>
+            <div class="text-xs text-gray-500">${c.profession || ""} · ${c.city || ""}${c.city && c.country ? ", " : ""}${c.country || ""}</div>
+            <div class="text-xs text-gray-400">Rating: ${c.reputation_score != null ? c.reputation_score : "—"} · ${c.availability_status || ""}</div>
+          </div>`;
+        const btn = document.createElement("button");
+        btn.className = "rounded-lg bg-indigo-600 px-3 py-2 text-white text-xs font-bold hover:bg-indigo-700";
+        btn.textContent = "Book";
+        btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          const r = await fetch(`/api/v1/jobs/${data.job_id}/book`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contractor_id: c.id }),
+          });
+          if (r.ok) { window.location.href = `/jobs/${data.job_id}/pay`; }
+          else { btn.disabled = false; alert("Booking failed"); }
+        });
+        card.appendChild(btn);
+        list.appendChild(card);
+      });
+      document.getElementById("contractors").classList.remove("hidden");
+      if (data.contractors && data.contractors.length) {
+        callBtn.dataset.jobId = data.job_id;
+        callBtn.dataset.ids = JSON.stringify(data.contractors.map(c => c.id));
+        callBtn.style.display = "inline-flex";
+      }
+    } catch (e) {
+      const el = document.getElementById("error");
+      el.textContent = e.message;
+      el.classList.remove("hidden");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  callBtn.addEventListener("click", async () => {
+    const jobId = callBtn.dataset.jobId;
+    const ids = JSON.parse(callBtn.dataset.ids || "[]");
+    callBtn.disabled = true;
+    try {
+      const qs = ids.map(id => `contractor_ids=${encodeURIComponent(id)}`).join("&");
+      await fetch(`/api/v1/voice/dispatch?job_id=${jobId}${qs ? "&" + qs : ""}`, { method: "POST" });
+    } catch (e) { /* ignore, status page will poll */ }
+    window.location.href = `/voice/${jobId}`;
+  });
+</script>
+{% endblock %}

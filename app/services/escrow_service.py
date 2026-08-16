@@ -35,6 +35,37 @@ def calculate_fees(amount: Decimal, rate: Decimal | None = None) -> dict:
     }
 
 
+async def _issue_receipt(db: AsyncSession, escrow: Escrow, reference: str) -> Receipt:
+    """Create a customer receipt, but only once per ``payment_reference``.
+
+    Paystack (and other gateways) deliver webhooks at-least-once, so the funding
+    path can run more than once. This guard prevents duplicate receipts (and the
+    confusing double "invoice" a customer would see) when two deliveries race or
+    when the browser redirect and the webhook both land.
+    """
+    existing = (
+        await db.exec(select(Receipt).where(Receipt.payment_reference == reference))
+    ).first()
+    if existing:
+        return existing
+    receipt = Receipt(
+        receipt_number=f"RCPT-{escrow.job_id}-{escrow.id}",
+        job_id=escrow.job_id,
+        escrow_id=escrow.id,
+        customer_id=escrow.customer_id,
+        contractor_id=escrow.contractor_id,
+        amount=escrow.total_amount,
+        platform_fee=escrow.platform_fee,
+        contractor_payout=escrow.contractor_payout,
+        currency=escrow.currency,
+        card_brand=escrow.card_brand,
+        card_last4=escrow.card_last4,
+        payment_reference=reference,
+    )
+    db.add(receipt)
+    return receipt
+
+
 async def create_escrow(db: AsyncSession, job: Job, customer: User, contractor: User, amount: Decimal) -> Escrow:
     """Create an escrow record when the customer books.
 
@@ -149,6 +180,17 @@ async def fund_escrow(
                 )
             if getattr(intent, "status", None) != "succeeded":
                 raise ValueError(f"Payment not completed (status: {getattr(intent, 'status', 'unknown')})")
+            # Bind the escrow to the ACTUAL captured amount/currency. A client
+            # could submit a large quoted_amount with a small real PaymentIntent
+            # to inflate the contractor payout — reject any mismatch.
+            intent_amount = (Decimal(str(getattr(intent, "amount", 0))) / Decimal("100")).quantize(Decimal("0.01"))
+            intent_currency = (getattr(intent, "currency", "") or "usd").upper()
+            if intent_currency != "USD" or intent_amount != quoted_amount:
+                logger.error(
+                    "Stripe amount mismatch for %s: intent %s %s vs quoted %s USD",
+                    payment_gateway_id, intent_amount, intent_currency, quoted_amount,
+                )
+                raise ValueError("Captured payment does not match the escrow amount.")
         except ValueError:
             raise
         capture = {
@@ -176,22 +218,8 @@ async def fund_escrow(
     db.add(escrow)
     await db.flush()
 
-    # Issue a customer receipt / invoice for the funded payment
-    receipt = Receipt(
-        receipt_number=f"RCPT-{job.id}-{escrow.id}",
-        job_id=job.id,
-        escrow_id=escrow.id,
-        customer_id=customer.id,
-        contractor_id=contractor.id,
-        amount=escrow.total_amount,
-        platform_fee=escrow.platform_fee,
-        contractor_payout=escrow.contractor_payout,
-        currency=escrow.currency,
-        card_brand=escrow.card_brand,
-        card_last4=escrow.card_last4,
-        payment_reference=escrow.payment_gateway_id,
-    )
-    db.add(receipt)
+    # Issue a customer receipt / invoice for the funded payment (deduped by ref).
+    await _issue_receipt(db, escrow, escrow.payment_gateway_id)
     return escrow
 
 
@@ -239,21 +267,8 @@ async def mark_escrow_paid_by_reference(
     db.add(escrow)
     await db.flush()
 
-    receipt = Receipt(
-        receipt_number=f"RCPT-{escrow.job_id}-{escrow.id}",
-        job_id=escrow.job_id,
-        escrow_id=escrow.id,
-        customer_id=escrow.customer_id,
-        contractor_id=escrow.contractor_id,
-        amount=escrow.total_amount,
-        platform_fee=escrow.platform_fee,
-        contractor_payout=escrow.contractor_payout,
-        currency=escrow.currency,
-        card_brand=escrow.card_brand,
-        card_last4=escrow.card_last4,
-        payment_reference=reference,
-    )
-    db.add(receipt)
+    # Issue a receipt only if one for this reference doesn't already exist.
+    await _issue_receipt(db, escrow, reference)
     await db.commit()
     return escrow
 

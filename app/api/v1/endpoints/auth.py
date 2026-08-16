@@ -52,6 +52,11 @@ async def signup(user_in: UserCreate, db: AsyncSession = Depends(get_db)) -> Any
         raise HTTPException(status_code=400, detail="The user with this email already exists in the system.")
 
     user_data = user_in.model_dump()
+    # Privilege fix: signup must never grant admin. Coerce any "admin" role to a
+    # normal customer so accounts cannot self-escalate. Admins are provisioned
+    # out-of-band (seed / manual DB) only.
+    if user_data.get("role") == "admin":
+        user_data["role"] = "customer"
     user_data["hashed_password"] = get_password_hash(user_data.pop("password"))
     db_user = User(**user_data)
     if db_user.role == "contractor":
@@ -87,10 +92,7 @@ async def login(
     if admin_2fa_required(user):
         user.twofa_code = issue_2fa_code(user)
         await db.commit()
-        logger.warning(
-            "2FA code for %s: %s (expires in 10 min)",
-            user.email, user.twofa_code,
-        )
+        # NOTE: never log the OTP itself — it is a secret. Delivery is via email.
         try:
             await send_2fa_code_email(user.email, user.twofa_code)
         except Exception:

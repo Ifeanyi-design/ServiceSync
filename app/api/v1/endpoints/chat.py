@@ -425,6 +425,34 @@ async def websocket_endpoint(
     except Exception as e:
         logger.warning("WS initial read mark failed: %s", e)
 
+    # Re-sync the conversation from the DB so a reconnecting client (including
+    # one that only dropped the socket, not the page) sees full history without a
+    # full reload. The client dedupes by message id, so this is safe to send even
+    # when the page already server-rendered the same messages.
+    try:
+        async with async_session_maker() as db:
+            history_msgs = (await db.exec(
+                select(DirectMessage)
+                .where(DirectMessage.conversation_id == conversation_id)
+                .order_by(DirectMessage.timestamp.desc())
+                .limit(100)
+            )).all()
+        history_payload = [
+            {
+                "id": m.id,
+                "sender_id": m.sender_id,
+                "content": m.content or "",
+                "attachment_url": m.attachment_url,
+                "attachment_type": m.attachment_type,
+                "attachment_name": m.attachment_name,
+                "timestamp": (m.timestamp.isoformat() + "Z") if m.timestamp else None,
+            }
+            for m in reversed(history_msgs)
+        ]
+        await manager.send_json_to_socket(websocket, {"type": "history", "messages": history_payload})
+    except Exception as e:
+        logger.warning("WS history sync failed: %s", e)
+
     try:
         while True:
             data = await websocket.receive_text()

@@ -97,7 +97,18 @@ class Job(SQLModel, table=True):
     latitude: Optional[float] = Field(default=None)
     longitude: Optional[float] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
+    # Phase 1 — vertical support. `category` scopes the job to a vertical
+    # (e.g. "cctv"); `brief` holds the AI-structured intake (camera count,
+    # features, site type, budget…) so contractors and the quote builder can act
+    # on a structured spec instead of free text.
+    category: Optional[str] = Field(default="general")
+    brief: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    # Phase 2 — contractors matched at intake (vertical-aware). Lets ServiceSync
+    # Voice (CALL-E) phone exactly these matched installers instead of a global
+    # pool.
+    matched_contractor_ids: Optional[list[int]] = Field(default=None, sa_column=Column(JSON))
+
     customer: "User" = Relationship(back_populates="jobs", sa_relationship_kwargs={"foreign_keys": "[Job.customer_id]"})
     assigned_contractor: Optional["User"] = Relationship(back_populates="assigned_jobs", sa_relationship_kwargs={"foreign_keys": "[Job.assigned_contractor_id]"})
     
@@ -128,6 +139,11 @@ class User(SQLModel, table=True):
     ai_tone_preference: Optional[str] = Field(default="professional")
     ai_autonomy_level: int = Field(default=1)  # 1=manual, 2=AI drafts, 3=auto-reply
     trade_qualifications: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+    # Contractor specialty tags (verticals) e.g. ["cctv", "solar", "electrical"].
+    # Drives vertical-aware matching (CCTV-first in Phase 1). Free-text
+    # `profession` remains the primary trade; `specialties` adds secondary scopes.
+    specialties: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     
     # Verification and reputation
     verification_level: Optional[str] = Field(default=None) # Bronze, Silver, Gold, Verified Pro
@@ -380,4 +396,75 @@ class StripeEvent(SQLModel, table=True):
     event_type: str
     processed: bool = Field(default=False)
     payload: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 5 — Supplier side (begin). Job → materials → supplier recommendations →
+# procurement → delivery. These are the foundational tables; procurement/delivery
+# workflow is built on top later.
+# ─────────────────────────────────────────────────────────────────────────────
+class Supplier(SQLModel, table=True):
+    """A materials/equipment supplier (CCTV, solar, …)."""
+    __tablename__ = "supplier"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    country: Optional[str] = None
+    city: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    is_verified: bool = Field(default=False)
+    rating: Optional[float] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    products: List["Product"] = Relationship(back_populates="supplier")
+
+
+class Product(SQLModel, table=True):
+    """A catalogue item sold by a supplier."""
+    __tablename__ = "product"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    supplier_id: int = Field(foreign_key="supplier.id", index=True)
+    name: str
+    category: str  # cctv_camera | solar_panel | inverter | battery | nvr | storage | other
+    sku: Optional[str] = None
+    price: float
+    currency: str = "USD"
+    stock_qty: int = Field(default=0)
+    description: Optional[str] = None
+    specs: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    supplier: Optional["Supplier"] = Relationship(back_populates="products")
+
+
+class JobMaterial(SQLModel, table=True):
+    """A bill-of-materials line item for a job (recommended or contractor-specified)."""
+    __tablename__ = "jobmaterial"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    job_id: int = Field(foreign_key="job.id", index=True)
+    product_id: Optional[int] = Field(default=None, foreign_key="product.id", index=True)
+    order_id: Optional[int] = Field(default=None, foreign_key="materialorder.id", index=True)
+    name: str
+    quantity: int = Field(default=1)
+    estimated_unit_price: float = Field(default=0.0)
+    currency: str = "USD"
+    source: str = Field(default="recommended")   # recommended | contractor_specified
+    status: str = Field(default="suggested")      # suggested | ordered | delivered
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MaterialOrder(SQLModel, table=True):
+    """A material procurement order placed from a job's bill of materials."""
+    __tablename__ = "materialorder"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    job_id: int = Field(foreign_key="job.id", index=True)
+    supplier_id: Optional[int] = Field(default=None, foreign_key="supplier.id", index=True)
+    status: str = Field(default="ordered")        # ordered | delivered | cancelled
+    total: float = Field(default=0.0)
+    currency: str = "USD"
     created_at: datetime = Field(default_factory=datetime.utcnow)

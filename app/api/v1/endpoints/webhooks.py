@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 from app.core.config import settings
 from app.models.audit_log import AIOperationsAuditLog
 from app.services.gemini_service import generate_contractor_reply
+from app.services.voice_dispatch import apply_webhook_event
 
 router = APIRouter()
 
@@ -138,12 +139,15 @@ async def paystack_webhook(request: Request, db: AsyncSession = Depends(get_db))
     authoritative, idempotent source of truth for funding."""
     raw = await request.body()
     sig = request.headers.get("x-paystack-signature")
-    if settings.PAYSTACK_WEBHOOK_SECRET:
-        if not sig:
-            raise HTTPException(status_code=400, detail="Missing Paystack signature")
-        expected = hmac.new(settings.PAYSTACK_WEBHOOK_SECRET.encode(), raw, hashlib.sha512).hexdigest()
-        if not hmac.compare_digest(expected, sig):
-            raise HTTPException(status_code=400, detail="Invalid Paystack signature")
+    # Paystack webhooks are unauthenticated by default; we MUST require the
+    # signing secret or an attacker can mark any escrow "held" for any amount.
+    if not settings.PAYSTACK_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Paystack webhooks not configured")
+    if not sig:
+        raise HTTPException(status_code=400, detail="Missing Paystack signature")
+    expected = hmac.new(settings.PAYSTACK_WEBHOOK_SECRET.encode(), raw, hashlib.sha512).hexdigest()
+    if not hmac.compare_digest(expected, sig):
+        raise HTTPException(status_code=400, detail="Invalid Paystack signature")
 
     try:
         payload = json.loads(raw or b"{}")
@@ -193,7 +197,9 @@ async def verify_webhook(
     hub_challenge = request.query_params.get("hub.challenge")
     hub_verify_token = request.query_params.get("hub.verify_token")
 
-    if hub_mode == "subscribe" and hub_verify_token == settings.META_VERIFY_TOKEN:
+    # Require a configured, non-empty verify token; an unset token would make
+    # "None == None" pass and let anyone subscribe the webhook.
+    if hub_mode == "subscribe" and settings.META_VERIFY_TOKEN and hub_verify_token == settings.META_VERIFY_TOKEN:
         return Response(content=hub_challenge, media_type="text/plain")
     
     raise HTTPException(status_code=403, detail="Verification failed")
@@ -250,13 +256,16 @@ async def receive_webhook(
     (`/webhooks/telegram/<BOT_TOKEN>`) or as the `bot_token` query param, so the
     integration can be resolved by its token.
     """
-    # Optional Telegram secret-token check (set via BotFather / setWebhook header).
-    if platform == "telegram" and settings.TELEGRAM_WEBHOOK_SECRET:
+    # Public webhooks must be authenticated or rejected outright. Without a
+    # configured secret an attacker could inject spoofed messages / replies.
+    if platform == "telegram":
+        if not settings.TELEGRAM_WEBHOOK_SECRET:
+            raise HTTPException(status_code=503, detail="Telegram webhooks not configured")
         if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != settings.TELEGRAM_WEBHOOK_SECRET:
             raise HTTPException(status_code=403, detail="Invalid Telegram secret token")
-
-    # Verify Meta (WhatsApp/Messenger) payload signature when an app secret is set.
-    if platform in ("whatsapp", "messenger") and settings.META_APP_SECRET:
+    elif platform in ("whatsapp", "messenger"):
+        if not settings.META_APP_SECRET:
+            raise HTTPException(status_code=503, detail="Meta webhooks not configured")
         import hmac
         import json as _json
         from hashlib import sha256
@@ -495,7 +504,7 @@ async def whatsapp_verify(
     hub_challenge: Optional[str] = None,
 ):
     """Meta webhook subscription challenge."""
-    if hub_mode == "subscribe" and hub_verify_token == settings.WHATSAPP_VERIFY_TOKEN:
+    if hub_mode == "subscribe" and settings.WHATSAPP_VERIFY_TOKEN and hub_verify_token == settings.WHATSAPP_VERIFY_TOKEN:
         return Response(content=hub_challenge or "", media_type="text/plain")
     raise HTTPException(status_code=403, detail="Verification failed")
 
@@ -508,10 +517,13 @@ async def whatsapp_webhook(request: Request, db: AsyncSession = Depends(get_db))
     raw = await request.body()
     sig = request.headers.get("X-Hub-Signature-256")
     secret = settings.WHATSAPP_APP_SECRET or settings.META_APP_SECRET
-    if secret:
-        from app.services.whatsapp_service import verify_whatsapp_signature
-        if not verify_whatsapp_signature(raw, sig):
-            raise HTTPException(status_code=401, detail="Invalid signature")
+    # Without a configured secret this endpoint is an open relay for injecting
+    # messages as any user matched by wa_id/phone — reject when unconfigured.
+    if not secret:
+        raise HTTPException(status_code=503, detail="WhatsApp webhooks not configured")
+    from app.services.whatsapp_service import verify_whatsapp_signature
+    if not verify_whatsapp_signature(raw, sig):
+        raise HTTPException(status_code=401, detail="Invalid signature")
 
     try:
         data = json.loads(raw or b"{}")
@@ -563,3 +575,27 @@ async def whatsapp_webhook(request: Request, db: AsyncSession = Depends(get_db))
                 await db.commit()
                 logger.info("whatsapp: routed message from %s to conv %s", wa_id, conv.id)
     return {"status": "ok"}
+
+
+# ─────────────────────────────────────────────
+#  CALL-E terminal webhook
+# ─────────────────────────────────────────────
+# CALL-E delivers terminal events without a signature; dedupe with the required
+# CALL-E-Event-Id header (at-least-once delivery). See app/services/calle_client.py.
+_calle_seen: set = set()
+
+
+@router.post("/calle")
+async def calle_webhook(request: Request) -> Any:
+    """Receive CALL-E terminal call-result events and update in-flight offers."""
+    event_id = request.headers.get("CALL-E-Event-Id")
+    try:
+        payload = await request.json()
+    except Exception:
+        return {"status": "ignored"}
+    if event_id:
+        if event_id in _calle_seen:
+            return {"status": "duplicate"}
+        _calle_seen.add(event_id)
+    offer = apply_webhook_event(payload)
+    return {"status": "received", "matched": offer is not None}

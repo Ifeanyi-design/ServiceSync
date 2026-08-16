@@ -70,36 +70,95 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Small in-memory per-IP rate limiter for abuse-prone endpoints.
+    """Per-IP rate limiter for abuse- and cost-prone endpoints.
 
-    Shared per-process only — sufficient for a single Render instance. For
-    multi-instance production, back this with Redis. Exempts static assets,
-    health checks, and webhooks (which must remain open for Stripe/Meta).
+    Uses Redis (fixed-window counters) when ``REDIS_URL`` is configured so the
+    limit is shared across all instances; otherwise it falls back to an
+    in-process in-memory window (fine for a single Render instance).
+
+    Static assets, the health probe, and webhooks (which must stay open for
+    Stripe/Meta) are exempt.
     """
 
-    # path -> (max requests, window seconds)
+    # Exact path -> (max requests, window seconds)
     PROTECTED = {
-        "/auth/login": (10, 60),
-        "/auth/signup": (5, 60),
+        # API auth
         "/api/v1/auth/login": (10, 60),
         "/api/v1/auth/signup": (5, 60),
+        "/api/v1/auth/forgot-password": (5, 60),
+        "/api/v1/auth/reset-password": (5, 60),
+        "/api/v1/auth/2fa/verify": (10, 60),
         "/api/v1/chat/triage": (20, 60),
+        # Web (server-rendered) auth — same brute-force surface as the API
+        "/auth/login": (10, 60),
+        "/auth/signup": (5, 60),
+        "/auth/forgot-password": (5, 60),
+        "/auth/reset-password": (5, 60),
+        "/auth/2fa": (10, 60),
+    }
+    # Path prefix -> (max requests, window seconds). Covers routes with dynamic
+    # IDs (escrow funding/release, AI calls, admin ops) that exact matching misses.
+    PROTECTED_PREFIXES = {
+        "/api/v1/escrow/": (15, 60),   # blocks payment spam / duplicate-charge probing
+        "/api/v1/ai/": (30, 60),       # caps Gemini spend per IP
+        "/api/v1/jobs/": (40, 60),     # general job/action abuse
+        "/admin": (30, 60),            # admin ops
     }
     EXEMPT_PREFIXES = ("/static", "/health", "/api/v1/webhooks")
 
     _hits: dict = {}
+    _redis = None
+    _redis_tried = False
+
+    def _get_redis(self):
+        if self._redis_tried:
+            return self._redis
+        self._redis_tried = True
+        if not settings.REDIS_URL:
+            return None
+        try:
+            import redis.asyncio as aioredis
+            self._redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        except Exception:
+            self._redis = None
+        return self._redis
+
+    def _limit_for(self, path: str):
+        if path in self.PROTECTED:
+            return self.PROTECTED[path]
+        for pfx, lim in self.PROTECTED_PREFIXES.items():
+            if path.startswith(pfx):
+                return lim
+        return None
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
         if any(path.startswith(p) for p in self.EXEMPT_PREFIXES):
             return await call_next(request)
-        limit = self.PROTECTED.get(path)
+        limit = self._limit_for(path)
         if not limit:
             return await call_next(request)
 
         max_hits, window = limit
         ip = request.client.host if request.client else "unknown"
         now = time.time()
+
+        redis = self._get_redis()
+        if redis is not None:
+            # Shared fixed-window counter: INCR, set expiry on first hit.
+            key = f"rl:{ip}:{path}"
+            try:
+                count = await redis.incr(key)
+                if count == 1:
+                    await redis.expire(key, window)
+                if count > max_hits:
+                    return Response("Too many requests", status_code=429)
+                return await call_next(request)
+            except Exception:
+                # Redis hiccup must not break requests — fall through to memory.
+                pass
+
+        # In-memory fallback (single instance).
         key = f"{ip}:{path}"
         dq = self._hits.setdefault(key, [])
         while dq and dq[0] <= now - window:

@@ -585,12 +585,15 @@
               <a href="/analytics" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/analytics' %}active{% endif %}">Analytics</a>
               <a href="/wallet" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/wallet' %}active{% endif %}">Wallet</a>
               <a href="/billing" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/billing' %}active{% endif %}">Plan</a>
+              <a href="/materials" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/materials' %}active{% endif %}">Materials</a>
+              <a href="/leads" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/leads' %}active{% endif %}">Leads</a>
             {% elif current_user.role == 'admin' %}
               <a href="/admin" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/admin' %}active{% endif %}">Admin Dashboard</a>
             {% endif %}
           {% else %}
             <a href="/search" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path == '/search' %}active{% endif %}">Find a Pro</a>
             <a href="/contractors" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition">Browse</a>
+            <a href="/tools" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition {% if path.startswith('/tools') %}active{% endif %}">Free Tools</a>
             <a href="#how-it-works" class="nav-link px-3 py-2 rounded-lg hover:bg-blue-50 transition">How It Works</a>
           {% endif %}
         </div>
@@ -744,6 +747,8 @@
             <a href="/analytics" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Analytics</a>
             <a href="/wallet" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Wallet</a>
             <a href="/billing" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Billing &amp; Plan</a>
+            <a href="/materials" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Materials</a>
+            <a href="/leads" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Leads</a>
           {% elif current_user.role == 'admin' %}
             <a href="/admin" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Admin Dashboard</a>
           {% endif %}
@@ -753,6 +758,7 @@
       {% else %}
         <a href="/search" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Find a Pro</a>
         <a href="/contractors" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Browse Contractors</a>
+        <a href="/tools" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Free Tools</a>
         <a href="/auth/login" class="block px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition">Sign In</a>
         <a href="/auth/signup" class="block px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 transition text-center mt-2 shadow-md">Get Started</a>
       {% endif %}
@@ -947,9 +953,12 @@
       toast.className = `toast-item toast-${type}`;
       toast.innerHTML = `
         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">${icons[type]||icons.info}</svg>
-        <span class="flex-1">${message}</span>
-        <button onclick="dismissToast(this.parentElement)" class="flex-shrink-0 opacity-60 hover:opacity-100 transition text-lg leading-none ml-2">&times;</button>
+        <span class="flex-1"></span>
+        <button type="button" onclick="dismissToast(this.parentElement)" class="flex-shrink-0 opacity-60 hover:opacity-100 transition text-lg leading-none ml-2">&times;</button>
       `;
+      // Message is user/URL-controlled (flash params) — set as text, never HTML,
+      // to prevent reflected/DOM XSS from ?error=/?success= payloads.
+      toast.querySelector('span').textContent = message;
       container.appendChild(toast);
       setTimeout(() => dismissToast(toast), duration);
     }
