@@ -197,6 +197,10 @@ class Settings(BaseSettings):
     # Feature gating — keep OFF by default so existing deployments keep working.
     EMAIL_VERIFICATION_REQUIRED: bool = False
     ADMIN_2FA_REQUIRED: bool = False
+    # Master 2FA bypass for self-hosted/admin recovery. Disabled unless set.
+    # If set, an admin may enter this code at the 2FA prompt instead of the emailed OTP.
+    # Leave empty in production unless you need a recovery path.
+    ADMIN_2FA_BYPASS_CODE: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
 

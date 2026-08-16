@@ -81,6 +81,15 @@ def issue_2fa_code(user: User) -> str:
 
 
 def verify_2fa_code(user: User, code: str) -> bool:
+    # Admin recovery: a configured master bypass code (self-hosted only).
+    if (
+        user.role == "admin"
+        and settings.ADMIN_2FA_BYPASS_CODE
+        and secrets.compare_digest(settings.ADMIN_2FA_BYPASS_CODE, (code or "").strip())
+    ):
+        user.twofa_code = None
+        user.twofa_expiry = None
+        return True
     if not user.twofa_code or not user.twofa_expiry:
         return False
     if user.twofa_expiry < _now():
