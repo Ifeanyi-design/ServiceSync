@@ -137,7 +137,9 @@ booking, and the brief→call context is correct. Full suite: `pytest` (28 tests
 
 ## 8. What's next
 
-- Real CALL-E test call to lock the `result_schema` / `structured_result` shape.
+- **Real CALL-E test call** — see [`CALL_E_SETUP.md`](./CALL_E_SETUP.md) for the
+  install + live-call walkthrough (now uses the official two-schema pattern:
+  task-level `result_schema` + per-recipient `recipient_result_schema`).
 - Persist dispatch state to a DB table (currently in-memory `DISPATCH_STATE`) for
   multi-worker deployments.
 - Extend the same voice loop to solar / electrical / HVAC verticals.

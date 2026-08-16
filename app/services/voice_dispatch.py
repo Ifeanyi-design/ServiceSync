@@ -59,7 +59,18 @@ class ServiceCallResult(BaseModel):
     requires_human_approval: bool = False
 
 
-# JSON Schema handed to CALL-E so it returns the call outcome pre-structured.
+# Task-level aggregate schema (one per batch) — how many providers were reached
+# and how many accepted. CALL-E returns this at the top level of the response.
+SERVICECALL_TASK_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "contacted_count": {"type": "integer"},
+        "accepted_count": {"type": "integer"},
+    },
+}
+
+
+# Per-recipient schema handed to CALL-E so each call returns the offer pre-structured.
 SERVICECALL_RESULT_SCHEMA = {
     "type": "object",
     "required": ["availability"],
@@ -191,7 +202,8 @@ async def dispatch_calls(job: Job, contractors: list[User]) -> list[ProviderOffe
                 task,
                 contractor.phone or "",
                 region=region,
-                result_schema=SERVICECALL_RESULT_SCHEMA,
+                result_schema=SERVICECALL_TASK_SCHEMA,
+                recipient_result_schema=SERVICECALL_RESULT_SCHEMA,
                 idempotency_key=f"servicesync:job:{job.id}:contractor:{contractor.id}",
                 webhook_url=(
                     f"{settings.CALL_E_WEBHOOK_BASE_URL.rstrip('/')}/api/v1/webhooks/calle"

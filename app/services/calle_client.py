@@ -52,6 +52,7 @@ async def create_call(
     region: Optional[str] = None,
     locale: Optional[str] = None,
     result_schema: Optional[dict] = None,
+    recipient_result_schema: Optional[dict] = None,
     idempotency_key: Optional[str] = None,
     webhook_url: Optional[str] = None,
 ) -> str:
@@ -65,11 +66,13 @@ async def create_call(
     if region:
         recipient["region"] = region
     if locale:
-        recipient["locale"] = locale
+        locale = locale or "en-US"
 
     body: dict = {"task": task, "recipients": [recipient]}
     if result_schema:
         body["result_schema"] = result_schema
+    if recipient_result_schema:
+        body["recipient_result_schema"] = recipient_result_schema
     if webhook_url:
         body["webhook_url"] = webhook_url
     if settings.CALL_E_FROM_PHONE:
