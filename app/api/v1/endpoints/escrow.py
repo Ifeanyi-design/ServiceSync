@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from app.api.dependencies import get_db, get_current_user
-from app.models.all_models import Job, User, Escrow, Dispute
+from app.models.all_models import Job, User, Escrow, Dispute, Conversation, DirectMessage
 from app.services.escrow_service import (
     create_escrow, release_escrow, refund_escrow,
     penalty_split_escrow, open_dispute, resolve_dispute, calculate_fees,

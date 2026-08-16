@@ -15,7 +15,7 @@ from app.models.all_models import User, Job, Conversation, DirectMessage, Omnich
 from app.core.config import settings
 from app.services import subscription_service
 from app.services import wallet_service, upload_service
-from app.services.escrow_service import calculate_fees, fund_escrow
+from app.services.escrow_service import calculate_fees, fund_escrow, release_escrow
 from app.services.subscription_service import commission_rate
 from app.core.security import verify_password, get_password_hash
 from app.services.voice_dispatch import DISPATCH_STATE
@@ -37,6 +37,11 @@ def _symbol_for(currency: Optional[str]) -> str:
     code = (currency or "").upper() or \
         (settings.PAYSTACK_CURRENCY if settings.active_processor() == "paystack" else settings.PAYMENT_CURRENCY)
     return CURRENCY_SYMBOLS.get(code, "$")
+
+
+# Public alias so both templates (registered as a Jinja global below) and Python
+# callers (e.g. search_page / contractor pages building charge_symbol) can use it.
+currency_symbol_for = _symbol_for
 
 def fmt_money(amount, currency: Optional[str] = None) -> str:
     """Render an amount in the correct currency symbol (e.g. ₦1,200.00)."""
